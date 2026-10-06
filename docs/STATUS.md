@@ -19,6 +19,19 @@ trained model, or a demonstration of AI retrieval accuracy.
 
 ## Latest engineering checkpoint
 
+2026-10-06: documentation continuity and GitHub inspection.
+
+- Added PRODUCT, ROADMAP, HANDOFF, and WORKFLOW guides; linked them from AGENTS,
+  START_HERE, and README. Product intent, planned work, and verified status now have
+  separate sources of truth.
+- Confirmed authenticated GitHub access for the creator. No Storyroom remote was
+  configured and no matching repository was found during inspection. Repository
+  creation/push awaits the creator's choice; account access is not publication.
+- No runtime code changed in this documentation checkpoint. The test results below
+  are from the earlier implementation checkpoint, not a new run.
+- Documentation checks: 56 relative links across 13 Markdown files resolve;
+  `git diff --check` passed.
+
 2026-10-06: source access, project documentation, and atomic import registration.
 
 - Import now saves the asset and normalization job in the same SQLite transaction.

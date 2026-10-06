@@ -53,6 +53,11 @@ roles. There is no need for independently deployed services at this scale.
 
 ## Current progress and next work
 
+Read [the product intent](docs/PRODUCT.md) for the full idea, scope, and creator's
+goals, and [the roadmap](docs/ROADMAP.md) for implementation order and acceptance.
+Starting a new coding chat? Use [the handoff](docs/HANDOFF.md). For working between
+the folder, VS Code, Codex, and GitHub, use [the workflow guide](docs/WORKFLOW.md).
+
 Use [docs/STATUS.md](docs/STATUS.md) for implementation status, evidence, release
 gates, and the ordered backlog. It distinguishes code that exists from behavior
 we have verified. A passing mock-provider test does not prove AI usefulness.

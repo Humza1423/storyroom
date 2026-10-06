@@ -8,6 +8,10 @@ New to the code? Start with [the source map and learning guide](START_HERE.md).
 Track progress in [the release checklist](docs/STATUS.md) and read
 [contribution guidance](CONTRIBUTING.md) before making changes.
 
+Project context: [product vision and constraints](docs/PRODUCT.md),
+[delivery roadmap](docs/ROADMAP.md), [new-session handoff](docs/HANDOFF.md), and
+[folder/Codex/GitHub workflow](docs/WORKFLOW.md).
+
 ## Run on macOS
 
 Requirements: Python 3.12+, Node 22+, npm, FFmpeg/ffprobe. DaVinci Resolve is needed for the external timeline import check.
