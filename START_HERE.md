@@ -17,7 +17,9 @@ The repository, running app, and GitHub are different things:
 
 - This folder contains the source code and its local Git history.
 - The local app is a running program opened at `http://127.0.0.1:5173`.
-- GitHub hosts a remote copy only after we publish one. Publication is pending.
+- The private GitHub repository at
+  [Humza1423/storyroom](https://github.com/Humza1423/storyroom) stores pushed
+  commits. It is a source backup and collaboration point, not a hosted app.
 
 Opening `index.html` directly does not start React, the API, or the worker.
 Use the startup command from the [README](README.md). Existing installations

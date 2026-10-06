@@ -12,7 +12,7 @@ Updated: 2026-10-06. Status: local development preview; release gates remain ope
 | AI adapter | Video chunks, validated observations, embeddings, story proposals, cost reservations | Fake-provider tests cover response validation, caching, budget, and failure. No real provider or quality benchmark has been verified. |
 | Search | Keyword matching and optional description-embedding similarity | Manual keyword behavior tested. The 20-query real-footage benchmark has not been completed. |
 | Training | Permission-aware judgments, grouped split, logistic-regression experiment, report export | Script and labeling interface exist. No trained or deployed custom model has been established. |
-| Project access | Source opens as a folder in VS Code; onboarding, architecture, contribution and learning docs | GitHub publication and a clean-machine installation check remain pending. |
+| Project access | Source opens in VS Code; onboarding, architecture, contribution and learning docs; private GitHub remote | Clean-machine installation and a deliberate public open-source release remain pending. |
 
 The generated demo is a technical fixture. It is not real sports footage, a
 trained model, or a demonstration of AI retrieval accuracy.
@@ -24,9 +24,11 @@ trained model, or a demonstration of AI retrieval accuracy.
 - Added PRODUCT, ROADMAP, HANDOFF, and WORKFLOW guides; linked them from AGENTS,
   START_HERE, and README. Product intent, planned work, and verified status now have
   separate sources of truth.
-- Confirmed authenticated GitHub access for the creator. No Storyroom remote was
-  configured and no matching repository was found during inspection. Repository
-  creation/push awaits the creator's choice; account access is not publication.
+- Created the private
+  [Humza1423/storyroom](https://github.com/Humza1423/storyroom) repository, added
+  it as `origin`, and pushed `main`. GitHub reports `main` as the default branch.
+- The remote is private. This is a source backup/collaboration checkpoint, not a
+  public open-source launch or a hosted Storyroom application.
 - No runtime code changed in this documentation checkpoint. The test results below
   are from the earlier implementation checkpoint, not a new run.
 - Documentation checks: 56 relative links across 13 Markdown files resolve;
@@ -43,7 +45,8 @@ trained model, or a demonstration of AI retrieval accuracy.
 - One existing Starlette test-client deprecation warning remains. Browser tests were not rerun in this checkpoint; earlier partial results are not a current full-suite pass.
 
 No cloud credentials, footage, database, or generated exports belong in Git.
-GitHub publication is a separate step; a local Git commit does not publish code.
+The private GitHub remote contains tracked source and documentation. Making the
+repository public remains a separate, explicit release decision.
 
 ## Next milestones, in order
 
@@ -54,6 +57,7 @@ GitHub publication is a separate step; a local Git commit does not publish code.
 - [x] Commit asset registration and its preparation job atomically.
 - [x] Test queue-write failure followed by a successful import retry.
 - [x] Record the initial local Git checkpoint with source, docs, and tests; no GitHub remote configured.
+- [x] Create a private GitHub repository, configure `origin`, and push `main`.
 - [ ] Isolate browser tests from personal projects and remove dependence on a pre-seeded demo.
 - [ ] Add tested, versioned database upgrades before changing the stored schema.
 - [ ] Split frontend types, API calls, board logic, and components into focused modules.
@@ -84,7 +88,8 @@ GitHub publication is a separate step; a local Git commit does not publish code.
 - [ ] Test unsupported queries, uncertainty, missing media, and stop/restart recovery.
 - [ ] Test installation on a clean environment and review dependency/media licenses.
 - [ ] Demonstrate with real footage and clearly disclose remaining limitations.
-- [ ] Review and publish the source to GitHub when requested; keep credentials and personal media excluded.
+- [ ] Review release contents and explicitly make the repository public when ready;
+  keep credentials and personal media excluded.
 
 ### 5. Learn a better ranker after labels exist
 
