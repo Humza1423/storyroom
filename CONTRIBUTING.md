@@ -35,9 +35,8 @@ Backend tests use temporary databases and synthetic media. They require FFmpeg
 and make no paid cloud calls. The frontend build checks TypeScript and bundling.
 
 For UI changes, also follow the README's Playwright setup and run `npm run test:e2e`.
-The current browser suite writes test projects to the running app's database and
-expects the generated demo; isolating this suite is planned. Do not point it at
-someone's only project copy. Database and media changes need tests for the affected
+The browser harness owns its temporary data, synthetic fixtures, and server process
+groups. Do not bypass it by pointing Playwright at a personal development server. Database and media changes need tests for the affected
 failure paths, not just happy-path requests.
 
 An OTIO XML round-trip is not a DaVinci Resolve compatibility result. Provider mocks

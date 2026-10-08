@@ -76,15 +76,13 @@ npm run build
 npx playwright install chromium
 ```
 
-For browser tests, start the app, then generate its technical fixture and run:
-
-```sh
-mkdir -p data/fixtures
-ffmpeg -y -f lavfi -i testsrc2=size=320x180:rate=30:duration=2 -c:v libx264 -pix_fmt yuv420p data/fixtures/browser-test.mp4
-npm run test:e2e
-```
-
-Browser tests create clearly named test projects in the current local database. Backend tests use isolated temporary directories and make no paid calls.
+Run `npm run test:e2e`. The harness generates three H.264 clips in a unique
+system temporary directory, starts its own API/worker/Vite stack, and removes only
+that directory after stopping its process groups. No demo or development server is
+needed. Test defaults are ports 15173/18765; override with
+`STORYROOM_TEST_UI_PORT`/`STORYROOM_TEST_API_PORT`. Occupied ports fail rather than
+reuse a server. Provider credentials are emptied, pricing disabled, and budget zero.
+Backend tests also use temporary directories and make no paid calls.
 
 ## Learning and ML work
 

@@ -19,6 +19,13 @@ trained model, or a demonstration of AI retrieval accuracy.
 
 ## Latest engineering checkpoint
 
+2026-10-07: isolated browser harness implemented. Two consecutive fresh runs:
+2 passed (16.5s), 2 passed (12.1s); frontend build passed; import atomicity tests
+2 passed. Dedicated temporary roots, zero AI budget/empty credentials, owned
+process groups, and non-reused test ports replace the development-data dependency.
+The mobile test exposed and fixed missing accessible labels on project icons.
+
+
 2026-10-07: foundation planning and real-footage sourcing.
 
 - Inspected test setup, launcher, SQLite initialization, frontend structure, local
@@ -71,7 +78,7 @@ repository public remains a separate, explicit release decision.
 - [x] Test queue-write failure followed by a successful import retry.
 - [x] Record the initial local Git checkpoint with source, docs, and tests; no GitHub remote configured.
 - [x] Create a private GitHub repository, configure `origin`, and push `main`.
-- [ ] Isolate browser tests from personal projects and remove dependence on a pre-seeded demo.
+- [x] Isolate browser tests from personal projects and remove dependence on a pre-seeded demo.
 - [ ] Add tested, versioned database upgrades before changing the stored schema.
 - [ ] Split frontend types, API calls, board logic, and components into focused modules.
 - [ ] Lock Python dependencies and add automated checks for contributions.

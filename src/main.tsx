@@ -640,6 +640,7 @@ function App() {
             <button
               className={"project-link " + (p.id === pid ? "current" : "")}
               key={p.id}
+              aria-label={p.name}
               onClick={() => setPid(p.id)}
             >
               <FolderOpen size={16} />

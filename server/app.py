@@ -33,10 +33,10 @@ async def lifespan(app):
 
 app = FastAPI(title="Storyroom", lifespan=lifespan)
 ORIGINS = {
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-    "http://127.0.0.1:8765",
-    "http://localhost:8765",
+    f"http://{host}:{port}"
+    for host in ("127.0.0.1", "localhost")
+    for port in (int(os.getenv("STORYROOM_UI_PORT", "5173")),
+                 int(os.getenv("STORYROOM_API_PORT", "8765")))
 }
 app.add_middleware(
     CORSMiddleware,
