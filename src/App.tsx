@@ -1,10 +1,18 @@
+import { ImportController } from "./features/library/imports/controller";
+import { ImportPanel } from "./features/library/imports/ImportPanel";
+import { footageSummary } from "./features/library/imports/presentation";
 import { ProcessingPanel } from "./components/ProcessingPanel";
 import { Player } from "./features/preview/Player";
 import { moveSelection } from "./features/board/changes";
 import { StorySection } from "./features/board/StorySection";
 import { ClipRow } from "./features/board/ClipRow";
 import { MomentCard } from "./features/library/MomentCard";
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   DndContext,
   PointerSensor,
@@ -99,6 +107,34 @@ export default function App() {
   const activePid = useRef(pid);
   activePid.current = pid;
   const boardEpoch = useRef(0);
+  const [imports] = useState(
+    () =>
+      new ImportController({
+        request: api,
+        refresh: async (destination) => {
+          const refreshed = await api<Project>(`/projects/${destination}`);
+          // Import completion is about media, not a replacement for board/draft state.
+          if (activePid.current === destination)
+            setProject((current) =>
+              current?.id === destination
+                ? {
+                    ...current,
+                    assets: refreshed.assets,
+                    moments: refreshed.moments,
+                    jobs: refreshed.jobs,
+                  }
+                : current,
+            );
+          return refreshed.assets;
+        },
+      }),
+  );
+  const importState = useSyncExternalStore(
+    imports.subscribe,
+    imports.getSnapshot,
+  );
+  useEffect(() => () => imports.dispose(), [imports]);
+
   async function refresh() {
     const [ps, st] = await Promise.all([
       api<{ id: string; name: string }[]>("/projects"),
@@ -553,6 +589,7 @@ export default function App() {
                       className="icon"
                       onClick={() => fileInput.current?.click()}
                       aria-label="Import footage"
+                      disabled={importState.busy}
                     >
                       <Plus size={18} />
                     </button>
@@ -561,21 +598,26 @@ export default function App() {
                     ref={fileInput}
                     type="file"
                     accept="video/mp4"
+                    disabled={importState.busy}
                     multiple
                     hidden
                     onChange={(e) => {
                       const files = Array.from(e.target.files || []);
-                      task(async () => {
-                        for (const f of files) {
-                          const data = new FormData();
-                          data.append("file", f);
-                          await api(`/projects/${pid}/import`, "POST", data);
-                        }
-                        setNotice("Footage imported; preparing media");
-                        await refresh();
-                      });
+                      void imports.start(project.id, project.name, files);
                       e.target.value = "";
                     }}
+                  />
+                  <p
+                    className="footage-summary"
+                    role="status"
+                    aria-label="Footage summary"
+                  >
+                    {footageSummary(project.assets)}
+                  </p>
+                  <ImportPanel
+                    controller={imports}
+                    projectId={project.id}
+                    assets={project.assets}
                   />
                   <form
                     className="search-bar"

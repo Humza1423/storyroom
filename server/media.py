@@ -46,7 +46,9 @@ class InspectionUnavailable(ValueError):
 
 def probe(path):
     if not shutil.which("ffprobe"):
-        raise InspectionUnavailable("Install FFmpeg (including ffprobe) before importing footage.")
+        raise InspectionUnavailable(
+            "Install FFmpeg (including ffprobe) before importing footage."
+        )
     try:
         r = subprocess.run(
             [
@@ -80,7 +82,9 @@ def probe(path):
             "format": data["format"].get("format_name", ""),
         }
     except subprocess.TimeoutExpired as exc:
-        raise InspectionUnavailable("Media inspection timed out. Check the local server before retrying.") from exc
+        raise InspectionUnavailable(
+            "Media inspection timed out. Check the local server before retrying."
+        ) from exc
     except (subprocess.SubprocessError, KeyError, StopIteration, json.JSONDecodeError):
         raise ValueError(
             "Cannot read this video. Use an intact H.264 MP4 file."
@@ -211,7 +215,9 @@ def chunk(source, dest, start, duration, cancelled=lambda: False):
     )
 
 
-def render(board, assets, dest, cancelled=lambda: False, report=lambda fraction, message: None):
+def render(
+    board, assets, dest, cancelled=lambda: False, report=lambda fraction, message: None
+):
     import tempfile
 
     clips = [s for section in board for s in section["selections"]]

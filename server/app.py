@@ -37,8 +37,10 @@ app = FastAPI(title="Storyroom", lifespan=lifespan)
 ORIGINS = {
     f"http://{host}:{port}"
     for host in ("127.0.0.1", "localhost")
-    for port in (int(os.getenv("STORYROOM_UI_PORT", "5173")),
-                 int(os.getenv("STORYROOM_API_PORT", "8765")))
+    for port in (
+        int(os.getenv("STORYROOM_UI_PORT", "5173")),
+        int(os.getenv("STORYROOM_API_PORT", "8765")),
+    )
 }
 app.add_middleware(
     CORSMiddleware,
@@ -68,8 +70,15 @@ async def local_only(request: Request, call_next):
 
 @app.exception_handler(ImportFailure)
 async def import_failure(request, exc):
-    return JSONResponse({"detail": exc.detail, "code": exc.code,
-                         "scope": exc.scope, "uncertain": exc.uncertain}, status_code=exc.status)
+    return JSONResponse(
+        {
+            "detail": exc.detail,
+            "code": exc.code,
+            "scope": exc.scope,
+            "uncertain": exc.uncertain,
+        },
+        status_code=exc.status,
+    )
 
 
 @app.exception_handler(ValueError)
@@ -198,16 +207,33 @@ def import_file(pid: str, file: UploadFile = File(...)):
     except ImportFailure:
         raise
     except HTTPException as exc:
-        raise ImportFailure(str(exc.detail), "project_missing", status=exc.status_code) from exc
+        raise ImportFailure(
+            str(exc.detail), "project_missing", status=exc.status_code
+        ) from exc
     except media.InspectionUnavailable as exc:
         raise ImportFailure(str(exc), "inspection_unavailable", status=503) from exc
     except OSError as exc:
         if exc.errno == errno.ENOSPC:
-            raise ImportFailure("Disk is full. Free space before retrying.", "disk_space", status=507, uncertain=True) from exc
-        raise ImportFailure("Import could not finish. Check the local server and storage, then retry.", "server_error", status=500, uncertain=True) from exc
+            raise ImportFailure(
+                "Disk is full. Free space before retrying.",
+                "disk_space",
+                status=507,
+                uncertain=True,
+            ) from exc
+        raise ImportFailure(
+            "Import could not finish. Check the local server and storage, then retry.",
+            "server_error",
+            status=500,
+            uncertain=True,
+        ) from exc
     except Exception as exc:
         # Do not expose database/SDK internals; a lost response can follow a commit.
-        raise ImportFailure("Import could not finish. Check the local server, then retry.", "server_error", status=500, uncertain=True) from exc
+        raise ImportFailure(
+            "Import could not finish. Check the local server, then retry.",
+            "server_error",
+            status=500,
+            uncertain=True,
+        ) from exc
 
 
 def register_import(pid, file):
@@ -215,7 +241,9 @@ def register_import(pid, file):
     if Path(file.filename or "").suffix.lower() != ".mp4":
         raise ImportFailure("Import an H.264 MP4 file", "file_invalid", scope="file")
     if shutil.disk_usage(config.DATA).free < 3_000_000_000:
-        raise ImportFailure("At least 3 GB of free disk space is required", "disk_space")
+        raise ImportFailure(
+            "At least 3 GB of free disk space is required", "disk_space"
+        )
     folder = config.DATA / "incoming"
     folder.mkdir(exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=folder, suffix=".mp4", delete=False) as temp:
@@ -228,7 +256,9 @@ def register_import(pid, file):
             while chunk := file.file.read(1024 * 1024):
                 size += len(chunk)
                 if size > config.MAX_BYTES:
-                    raise ImportFailure("Project input limit is 2 GB", "file_too_large", scope="file")
+                    raise ImportFailure(
+                        "Project input limit is 2 GB", "file_too_large", scope="file"
+                    )
                 digest.update(chunk)
                 temp.write(chunk)
             temp.flush()
@@ -248,7 +278,11 @@ def register_import(pid, file):
                 ).fetchone()
                 if duplicate:
                     job = preparation_jobs(pid, c, duplicate[0]).get(duplicate[0])
-                    return {"id": duplicate[0], "job_id": job["id"] if job else None, "duplicate": True}
+                    return {
+                        "id": duplicate[0],
+                        "job_id": job["id"] if job else None,
+                        "duplicate": True,
+                    }
                 totals = c.execute(
                     "SELECT COUNT(*),COALESCE(SUM(bytes),0),COALESCE(SUM(duration),0) FROM assets WHERE project_id=?",
                     (pid,),
@@ -259,11 +293,13 @@ def register_import(pid, file):
                     or totals[2] + info["duration"] > config.MAX_SECONDS
                 ):
                     raise ImportFailure(
-                        "Project limit: 30 clips, 15 minutes, and 2 GB total input", "project_capacity"
+                        "Project limit: 30 clips, 15 minutes, and 2 GB total input",
+                        "project_capacity",
                     )
                 if shutil.disk_usage(config.DATA).free < size * 3 + 1_000_000_000:
                     raise ImportFailure(
-                        "Insufficient disk space for editing copies and proxies", "disk_space"
+                        "Insufficient disk space for editing copies and proxies",
+                        "disk_space",
                     )
                 dest = config.asset_dir(ident)
                 dest.mkdir(parents=True)
@@ -489,13 +525,17 @@ def manage_job(jid: str, action: Literal["cancel", "retry"]):
     with db.connect() as c:
         c.execute("BEGIN IMMEDIATE")
         if j["kind"] == "normalize":
-            latest = preparation_jobs(j["project_id"], c, payload["asset_id"]).get(payload["asset_id"])
+            latest = preparation_jobs(j["project_id"], c, payload["asset_id"]).get(
+                payload["asset_id"]
+            )
             if latest and latest["status"] in ("queued", "running", "done"):
                 return {"job_id": latest["id"]}
         ident = db.enqueue_in_transaction(c, j["project_id"], j["kind"], payload)
         if j["kind"] == "normalize":
-            c.execute("UPDATE assets SET status='processing',error=NULL WHERE id=? AND status!='ready'",
-                      (payload["asset_id"],))
+            c.execute(
+                "UPDATE assets SET status='processing',error=NULL WHERE id=? AND status!='ready'",
+                (payload["asset_id"],),
+            )
     return {"job_id": ident}
 
 

@@ -6,6 +6,10 @@ export type Provenance = {
   training?: boolean;
   redistribution?: boolean;
 };
+export type PreparationJob = Pick<
+  Job,
+  "id" | "status" | "progress" | "message"
+>;
 export type Asset = {
   id: string;
   name: string;
@@ -14,6 +18,7 @@ export type Asset = {
   status: string;
   error?: string;
   provenance: Provenance;
+  preparation_job: PreparationJob | null;
 };
 export type Moment = {
   id: string;

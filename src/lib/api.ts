@@ -1,9 +1,22 @@
+export type ErrorRecovery = {
+  code?: string;
+  scope?: "file" | "batch";
+  uncertain?: boolean;
+};
+
 export class ApiError extends Error {
+  public code?: string;
+  public scope?: "file" | "batch";
+  public uncertain: boolean;
   constructor(
     message: string,
     public status: number,
+    recovery: ErrorRecovery = {},
   ) {
     super(message);
+    this.code = recovery.code;
+    this.scope = recovery.scope;
+    this.uncertain = recovery.uncertain ?? (status === 0 || status >= 500);
   }
 }
 
@@ -37,15 +50,23 @@ export async function api<T>(
           ? data.detail
           : JSON.stringify(data.detail),
         response.status,
+        { code: data.code, scope: data.scope, uncertain: data.uncertain },
       );
     }
     return await response.json();
   } catch (error) {
     if (controller.signal.aborted)
-      throw new Error(
-        "Request timed out. Check the local server, then retry. A save may have reached the server; reload before repeating it.",
+      throw new ApiError(
+        "Request timed out. It may have reached the server. Check saved work before retrying.",
+        0,
+        { code: "timeout", scope: "batch", uncertain: true },
       );
-    throw error;
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      "Could not confirm the response from the local server. The request may have reached it.",
+      0,
+      { code: "network", scope: "batch", uncertain: true },
+    );
   } finally {
     clearTimeout(timer);
   }
