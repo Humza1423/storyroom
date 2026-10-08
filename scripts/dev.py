@@ -16,8 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def preflight(env):
-    if sys.version_info < (3, 12):
-        raise RuntimeError("Python 3.12+ required. Recreate .venv using the README setup.")
+    if sys.version_info[:2] != (3, 12):
+        raise RuntimeError("Python 3.12 required. Recreate .venv using the README setup.")
     for module in ("fastapi", "uvicorn", "dotenv", "httpx", "google.genai", "opentimelineio", "numpy", "multipart"):
         try:
             found = importlib.util.find_spec(module)

@@ -25,11 +25,17 @@ schema changes with version history. Never commit or use `executescript` inside 
 
 ## Verification
 
+Use Python 3.12 and `uv sync --locked --extra dev`, then `npm ci`. Do not
+hand-edit `uv.lock`; resolve intentional dependency changes with `uv lock` and
+verify from a fresh environment. FFmpeg/ffprobe are system prerequisites.
+
 Run commands in the repository root after setup:
 
 ```sh
 .venv/bin/pytest -q
 npm run build
+npm run test:e2e
+.venv/bin/ruff check server tests scripts --select E9,F63,F7,F82
 ```
 
 Backend tests use temporary databases and synthetic media. They require FFmpeg
@@ -57,3 +63,7 @@ Update `docs/STATUS.md` with the behavior changed, verification actually complet
 and known limitations. Add a short learning note when a change illustrates a new
 architectural concept. Keep status claims specific enough for another contributor
 to reproduce.
+
+`.github/workflows/checks.yml` runs these checks on Ubuntu with Python 3.12,
+Node 22, FFmpeg and Chromium. It has no provider secrets or real footage. A checked-in
+workflow is not evidence of a remote run; record the actual run separately.

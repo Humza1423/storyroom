@@ -14,24 +14,36 @@ Project context: [product vision and constraints](docs/PRODUCT.md),
 
 ## Run on macOS
 
-Requirements: Python 3.12+, Node 22+, npm, FFmpeg/ffprobe. DaVinci Resolve is needed for the external timeline import check.
+Supported user platform: macOS. Requirements: Python 3.12, Node 22+, npm,
+uv 0.12.23, FFmpeg/ffprobe. Ubuntu CI is automation coverage, not a claim of
+validated end-user Linux or Windows support. DaVinci Resolve is needed for the external timeline import check.
 
 ```sh
 brew install ffmpeg
-python3 -m venv .venv
-.venv/bin/pip install -e '.[dev]'
+python3.12 -m pip install uv==0.12.23
+uv sync --locked --extra dev
 npm ci
-.venv/bin/python scripts/demo.py
 .venv/bin/python scripts/dev.py
 ```
 
-Open http://127.0.0.1:5173. Choose **First assembly · technical demo** in the sidebar, or create your own project. Run the demo seeder before the worker, not alongside it. Ctrl-C in the launch terminal stops the API, worker, and browser development server.
+Open http://127.0.0.1:5173 and create a project. No `.env`, provider key, or demo
+is required. For the optional generated technical demo, stop the app, run
+`.venv/bin/python scripts/demo.py`, then restart and choose **First assembly ·
+technical demo**. Do not run the seeder alongside the worker. Ctrl-C in the launch terminal stops the API, worker, and browser development server.
 The launcher checks Python/Node, dependencies, FFmpeg/ffprobe, writable storage and
 free ports. It announces readiness only after API and UI respond; a child failure
 names that process and exits nonzero. Set `STORYROOM_API_PORT` and
 `STORYROOM_UI_PORT` together as needed; defaults remain 8765/5173.
 If the API disconnects, the UI keeps your open project and drafts and shows a
 Reconnect button. Failed saves are shown as errors; retry explicitly after reconnecting.
+
+`uv.lock` pins Python packages and hashes, including the `dev` extra. Use
+`uv sync --locked --extra dev` after pulling changes; it refuses an out-of-date
+lockfile. `npm ci` uses `package-lock.json`. Dependency changes require an intentional
+`uv lock` update and fresh checks. FFmpeg remains a separately installed system tool.
+The previous `python3.12 -m venv .venv` and `.venv/bin/pip install -e '.[dev]'`
+path remains valid but resolves ranges; it is not the reproducible contribution path.
+If Python is externally managed, install uv with `pipx install uv==0.12.23` instead.
 
 For a production UI build: run `npm run build`, then run `.venv/bin/python -m uvicorn server.app:app --host 127.0.0.1 --port 8765` and `.venv/bin/python -m server.worker` in separate terminals. Open http://127.0.0.1:8765.
 
@@ -80,6 +92,8 @@ Analysis sends reduced-resolution, 2 fps video chunks without audio. It does not
 .venv/bin/pytest -q
 npm run build
 npx playwright install chromium
+npm run test:e2e
+.venv/bin/ruff check server tests scripts --select E9,F63,F7,F82
 ```
 
 Run `npm run test:e2e`. The harness generates three H.264 clips in a unique
