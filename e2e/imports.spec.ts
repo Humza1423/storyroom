@@ -31,6 +31,53 @@ async function open(page: Page, name: string) {
 const project = async (request: APIRequestContext, pid: string) =>
   (await request.get(`/api/projects/${pid}`)).json();
 
+test("a delayed board save preserves footage imported while it was pending", async ({
+  page,
+  request,
+}) => {
+  const pid = await create(request, "Import during board save");
+  await open(page, "Import during board save");
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let arrived!: () => void;
+  const received = new Promise<void>((resolve) => {
+    arrived = resolve;
+  });
+  await page.route(`**/api/projects/${pid}/board`, async (route) => {
+    const response = await route.fetch();
+    arrived();
+    await gate;
+    await route.fulfill({ response });
+  });
+  await page
+    .getByRole("button", { name: "Add story section", exact: true })
+    .click();
+  await page.getByLabel("Section title").fill("Saved while importing");
+  await page.getByRole("button", { name: "Save section", exact: true }).click();
+  await received;
+  try {
+    await page.locator("input[type=file]").setInputFiles([generated(0)]);
+    const summary = page.getByRole("status", { name: "Footage summary" });
+    await expect(summary).toHaveText(/1 (preparing|ready)/);
+    await expect(
+      page.getByRole("button", { name: "Import footage", exact: true }),
+    ).toBeEnabled();
+    // Stop subsequent polls from masking a stale-state replacement by the save.
+    await page.route(`**/api/projects/${pid}`, (route) => route.abort());
+    release();
+    await expect(page.locator(".story-section")).toHaveCount(1);
+    await expect(summary).toHaveText(/1 (preparing|ready)/);
+    const saved = await project(request, pid);
+    expect(saved.assets).toHaveLength(1);
+    expect(saved.board[0].title).toBe("Saved while importing");
+  } finally {
+    release();
+    await page.unrouteAll({ behavior: "wait" });
+  }
+});
+
 test("mixed files keep later successes, distinguish identical names and duplicates, and survive reload", async ({
   page,
   request,

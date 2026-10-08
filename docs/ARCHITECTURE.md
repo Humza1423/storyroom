@@ -51,6 +51,7 @@ The current retrieval baseline searches descriptions. If the captioner misses a 
 ## Boundaries that prevent expensive bugs
 
 - Asset registration and its normalization job commit together, preventing a partially saved import when queuing fails. See the [transaction lesson](learning/01-import-transactions.md) for the remaining filesystem crash boundary.
+- Worker failure/cancellation commits the job's terminal status and the asset's failed state together, so a retry cannot interleave between those writes and have its newer state overwritten.
 - Integer frame boundaries avoid accumulating ambiguous decimal-second rounding through repeated edits.
 - Board revision numbers reject stale writes from a second tab instead of silently replacing newer edits.
 - Asset IDs restrict media routes to registered files, not arbitrary filesystem paths.
@@ -108,6 +109,10 @@ live under `features/`; processing controls live under `components/`. App keeps
 project orchestration and draft form state. Saved boards/revisions stay in SQLite.
 Project effects discard late responses after selection changes; polling uses an
 epoch to avoid replacing a board with a response that crossed a save.
+Board-save responses merge only board/revision into the latest React state; they
+must not restore the pre-save snapshot of assets and jobs. Import responses likewise
+merge media fields without restoring an older board. Each response updates only
+the state it owns, allowing importing and editing to overlap safely.
 
 ## Interruption boundary
 

@@ -238,7 +238,13 @@ export default function App() {
         { revision: project.revision, sections: next },
       );
       if (activePid.current !== pid) return;
-      setProject({ ...project, board: next, revision: r.revision });
+      // Imports can finish while this save is pending. Apply only the fields
+      // this request owns to the latest project, preserving newer media/jobs.
+      setProject((current) =>
+        current?.id === pid
+          ? { ...current, board: next, revision: r.revision }
+          : current,
+      );
       setNotice("All changes saved");
     } catch (e) {
       await refresh();

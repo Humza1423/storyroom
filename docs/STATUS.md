@@ -19,6 +19,31 @@ trained model, or a demonstration of AI retrieval accuracy.
 
 ## Latest engineering checkpoint
 
+2026-10-08: **independent A1 review and two consistency fixes**. Reviewed the four
+import checkpoints after 7286856, including controller, UI integration, API errors,
+preparation retry association and tests. The original suite independently passed:
+45 backend tests (33.33s) and 24 Playwright checks (1.1m).
+
+- Reproduced a delayed board save replacing newer imported assets in React with
+  its pre-save project snapshot. The UI showed "No clips yet" despite a successful
+  import. Fixed saveBoard to merge only board/revision into current state. Regression
+  blocks later polls so they cannot hide the bug. This was UI state loss, not source
+  or database deletion.
+- Reproduced a worker commit where a normalize job was already failed while its
+  asset still said processing. A retry could interleave before the worker's second
+  write, allowing the old failure to overwrite the new retry state. Failure and
+  cancellation now commit job/asset changes in one transaction. Independent reader
+  checks cover both failure and cancellation at transaction boundaries.
+- Both new failure reproductions failed against the reviewed code before fixes.
+  Final checks: `.venv/bin/pytest -q` **47 passed (39.67s)**; `npm run test:e2e`
+  **25 passed (56.8s)**, including 13 browser scenarios and 12 controller/board
+  checks; `npm run build` and fatal-error Ruff lint passed. One existing Starlette
+  deprecation warning remains. Tests used isolated generated fixtures and data.
+- Review decision: proceed to A2 media correctness validation. The current local
+  architecture is adequate for this scope; no new services or model layer are
+  justified by these findings. Real-footage timing/audio, real Resolve import,
+  provider quality and remote CI remain open gates. No paid calls or push occurred.
+
 2026-10-08: **Phase A1 resilient multi-file import verified locally** on
 `codex/complete-foundation`. The confirmed plan preceded runtime edits; see
 [IMPORT_PLAN](IMPORT_PLAN.md) for the API contract, acceptance matrix and evidence.

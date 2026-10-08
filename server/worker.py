@@ -260,15 +260,20 @@ def once():
             if isinstance(exc, (ValueError, media.Cancelled))
             else f"{type(exc).__name__}: operation failed. Check configuration and retry."
         )
-        db.execute(
-            "UPDATE jobs SET status=?,message=?,finished=? WHERE id=?",
-            (status, message, time.time(), job["id"]),
-        )
-        if job["kind"] == "normalize":
-            db.execute(
-                "UPDATE assets SET status='failed',error=? WHERE id=?",
-                (message, json.loads(job["payload"])["asset_id"]),
+        # Publish the retryable job and failed asset together. Otherwise an API
+        # retry can set the asset to processing between these two writes, then
+        # have that newer state overwritten by this worker's old failure.
+        with db.connect() as c:
+            c.execute("BEGIN IMMEDIATE")
+            c.execute(
+                "UPDATE jobs SET status=?,message=?,finished=? WHERE id=?",
+                (status, message, time.time(), job["id"]),
             )
+            if job["kind"] == "normalize":
+                c.execute(
+                    "UPDATE assets SET status='failed',error=? WHERE id=?",
+                    (message, json.loads(job["payload"])["asset_id"]),
+                )
         log.warning("Job %s %s (%s)", job["id"], status, type(exc).__name__)
     return True
 

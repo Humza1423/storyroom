@@ -1,5 +1,6 @@
 """Per-file contracts; requests still register one asset atomically."""
 
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
@@ -133,3 +134,38 @@ def test_preparation_association_survives_activity_window_and_stale_retries(
     assert len(db.rows("SELECT * FROM jobs WHERE kind='normalize'")) == 2
     assert original.read_bytes() == source
     assert len(db.rows("SELECT * FROM assets")) == 1
+
+
+@pytest.mark.parametrize("cancelled", [False, True])
+def test_failed_preparation_and_asset_become_visible_atomically(
+    client, clip, monkeypatch, cancelled
+):
+    pid = project(client)
+    imported = upload(client, pid, clip.read_bytes()).json()
+    original_connect = db.connect
+    observed = []
+
+    @contextmanager
+    def observe_commits():
+        with original_connect() as connection:
+            yield connection
+        # A second connection sees exactly what an API retry could see between
+        # worker transactions. It must never see a retryable job with stale asset state.
+        with original_connect() as reader:
+            states = reader.execute(
+                "SELECT j.status, a.status FROM jobs j JOIN assets a ON a.id=? WHERE j.id=?",
+                (imported["id"], imported["job_id"]),
+            ).fetchone()
+            observed.append(tuple(states))
+
+    def broken(*_):
+        if cancelled:
+            raise media.Cancelled()
+        raise ValueError("Synthetic preparation failure")
+
+    monkeypatch.setattr(db, "connect", observe_commits)
+    monkeypatch.setattr(media, "normalize", broken)
+    assert once()
+    status = "cancelled" if cancelled else "failed"
+    assert (status, "failed") in observed
+    assert (status, "processing") not in observed

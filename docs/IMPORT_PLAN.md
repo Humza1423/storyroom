@@ -169,3 +169,13 @@ outcomes never deletes managed sources, registered assets, or accepted board cho
 Next scope is Phase A2 in REAL_FOOTAGE_PLAN: independent generated-media checks for
 orientation, frame timing and audio. Performance measurement (A3), real-footage
 acquisition/walkthrough, Resolve import and provider evaluation remain later gates.
+
+### Independent review follow-up — 2026-10-08
+
+Review reproduced and fixed the inverse editing/import race: an older board-save
+response restored old asset/job state. Board saves now merge their own fields into
+current state, matching the existing media-only import merge. Review also made
+worker failure/cancellation job and asset updates atomic to prevent a retry from
+interleaving between commits. See [STATUS](STATUS.md) for the red/green evidence:
+47 backend tests, 25 Playwright checks, build and fatal-error lint passed after fixes.
+These corrections preserve the A1 design; A2 remains the next validation task.
