@@ -20,8 +20,9 @@ validated end-user Linux or Windows support. DaVinci Resolve is needed for the e
 
 ```sh
 brew install ffmpeg
-python3.12 -m pip install uv==0.12.23
-uv sync --locked --extra dev
+python3.12 -m venv .tools/uv
+.tools/uv/bin/pip install uv==0.12.23
+.tools/uv/bin/uv sync --locked --extra dev
 npm ci
 .venv/bin/python scripts/dev.py
 ```
@@ -38,12 +39,14 @@ If the API disconnects, the UI keeps your open project and drafts and shows a
 Reconnect button. Failed saves are shown as errors; retry explicitly after reconnecting.
 
 `uv.lock` pins Python packages and hashes, including the `dev` extra. Use
-`uv sync --locked --extra dev` after pulling changes; it refuses an out-of-date
+`.tools/uv/bin/uv sync --locked --extra dev` after pulling changes; it refuses an out-of-date
 lockfile. `npm ci` uses `package-lock.json`. Dependency changes require an intentional
-`uv lock` update and fresh checks. FFmpeg remains a separately installed system tool.
+`.tools/uv/bin/uv lock` update and fresh checks. FFmpeg remains a separately installed system tool.
 The previous `python3.12 -m venv .venv` and `.venv/bin/pip install -e '.[dev]'`
 path remains valid but resolves ranges; it is not the reproducible contribution path.
-If Python is externally managed, install uv with `pipx install uv==0.12.23` instead.
+The `.tools/uv` environment keeps the installer separate from app dependencies
+and avoids modifying an externally managed system Python. If uv 0.12.23 is already
+on your PATH, use `uv` in place of `.tools/uv/bin/uv`.
 
 For a production UI build: run `npm run build`, then run `.venv/bin/python -m uvicorn server.app:app --host 127.0.0.1 --port 8765` and `.venv/bin/python -m server.worker` in separate terminals. Open http://127.0.0.1:8765.
 

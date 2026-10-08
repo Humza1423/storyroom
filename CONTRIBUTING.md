@@ -25,8 +25,8 @@ schema changes with version history. Never commit or use `executescript` inside 
 
 ## Verification
 
-Use Python 3.12 and `uv sync --locked --extra dev`, then `npm ci`. Do not
-hand-edit `uv.lock`; resolve intentional dependency changes with `uv lock` and
+Use Python 3.12 and `.tools/uv/bin/uv sync --locked --extra dev`, then `npm ci`. Do not
+hand-edit `uv.lock`; resolve intentional dependency changes with `.tools/uv/bin/uv lock` and
 verify from a fresh environment. FFmpeg/ffprobe are system prerequisites.
 
 Run commands in the repository root after setup:

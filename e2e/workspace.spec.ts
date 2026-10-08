@@ -59,6 +59,26 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
   await expect(page.locator(".clip-main small").nth(1)).toHaveText(
     "00:00:05 → 00:01:15",
   );
+  const projectId = await page.evaluate(() =>
+    localStorage.getItem("storyroom.project"),
+  );
+  const savedProject = await (
+    await request.get(`/api/projects/${projectId}`)
+  ).json();
+  const placements = savedProject.board[0].selections;
+  expect(
+    placements.map((c: { start_frame: number; end_frame: number }) => [
+      c.start_frame,
+      c.end_frame,
+    ]),
+  ).toEqual([
+    [0, 60],
+    [5, 45],
+    [0, 60],
+  ]);
+  expect(new Set(placements.map((c: { id: string }) => c.id)).size).toBe(3);
+  expect(placements[1].asset_id).toBe(placements[2].asset_id);
+  expect(placements[0].asset_id).not.toBe(placements[1].asset_id);
   await page.getByRole("button", { name: "Play assembly" }).click();
   await expect(page.locator("video")).toBeVisible();
   await expect
@@ -191,7 +211,9 @@ test("offline and reconnect preserve the project and unsaved brief", async ({
   await expect(page.locator(".brief-bar textarea")).toHaveValue("Saved");
   await page.locator(".brief-bar textarea").fill("My unsaved draft");
   await page.route("**/api/**", (route) => route.abort("connectionrefused"));
-  await expect(page.getByRole("status", { name: "Connection" })).toContainText("Server disconnected");
+  await expect(page.getByRole("status", { name: "Connection" })).toContainText(
+    "Server disconnected",
+  );
   await expect(
     page.getByRole("heading", { name: "Reconnect project", exact: true }),
   ).toBeVisible();
@@ -200,7 +222,9 @@ test("offline and reconnect preserve the project and unsaved brief", async ({
   );
   await page.getByRole("button", { name: "Save brief", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
-  await expect(page.locator(".brief-bar textarea")).toHaveValue("My unsaved draft");
+  await expect(page.locator(".brief-bar textarea")).toHaveValue(
+    "My unsaved draft",
+  );
   await page.unrouteAll();
   await page.getByRole("button", { name: "Reconnect", exact: true }).click();
   await expect(page.getByRole("status", { name: "Connection" })).toContainText(

@@ -24,6 +24,9 @@ def test_existing_project_survives_upgrade_and_backup(client, clip):
     board = [{"id": "section", "title": "Practice", "purpose": "", "selections": [
         {"id": "choice", "asset_id": aid, "moment_id": aid, "start_frame": 3, "end_frame": 20, "note": "Keep"}]}]
     assert client.put(f"/api/projects/{pid}/board", json={"revision": 0, "sections": board}).status_code == 200
+    db.execute("INSERT INTO usage VALUES(?,?,?,?,?,?,?)", ("usage", None, "fixture", .1, .1, "settled", 1.0))
+    db.execute("INSERT INTO feedback VALUES(?,?,?,?,?,?,?,?,?,?)",
+               ("feedback", pid, aid, "brief", "Practice", 2, "useful", "{}", "group", 1.0))
     before = client.get(f"/api/projects/{pid}").json()
     from server import config
     path = config.DATA / "storyroom.sqlite"
@@ -32,11 +35,14 @@ def test_existing_project_survives_upgrade_and_backup(client, clip):
         keeper.execute("PRAGMA wal_autocheckpoint=0")
         keeper.execute("INSERT INTO cache VALUES('sentinel','retained')")
         keeper.commit()
+        tables = ("projects", "revisions", "assets", "moments", "moment_fts", "jobs", "cache", "usage", "feedback")
+        snapshots = {table: db.rows(f"SELECT * FROM {table}") for table in tables}
         migrate(path)  # Existing v1 adoption performs no data rewrite.
         def second(c):
             c.execute("CREATE TABLE upgrade_fixture(value TEXT)")
         migrate(path, (*MIGRATIONS, second))
         assert client.get(f"/api/projects/{pid}").json() == before
+        assert {table: db.rows(f"SELECT * FROM {table}") for table in tables} == snapshots
         assert db.one("SELECT COUNT(*) AS n FROM revisions")["n"] > 0
         assert db.one("SELECT COUNT(*) AS n FROM moment_fts")["n"] == 1
         backup, = config.DATA.glob("*.before-v2.*.sqlite")
