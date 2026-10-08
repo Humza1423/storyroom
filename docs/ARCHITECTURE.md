@@ -90,3 +90,13 @@ long-term architecture; see [current status](STATUS.md).
 3. Cancel a processing job and restart the worker. Explain what survives and why paid requests are not replayed automatically.
 
 If you can explain those flows and modify them safely, you are learning the system rather than merely watching code appear.
+
+## Database upgrades
+
+`server/migrations.py` serializes initialization with a file lock and applies ordered
+versions inside one exclusive SQLite transaction. Version 1 adopts the existing
+schema without rewriting user data. Before a later upgrade, SQLite's backup API
+saves the committed database including WAL contents beside the database. Failed
+upgrades roll back schema, data, and version together; future schema versions are
+refused. Backups are retained, not automatically deleted. Migration functions cannot
+commit or use `executescript`, which otherwise implicitly commits the transaction.

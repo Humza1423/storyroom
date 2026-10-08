@@ -19,8 +19,9 @@ Preserve these boundaries:
 - Paid requests use the configured provider, cache, and budget ledger.
 
 When changing stored data, provide a tested migration from an existing project.
-There is currently only initial schema creation; do not assume a migration framework
-exists. When changing model output, update schemas and prompt/cache versions together.
+Add ordered migrations in `server/migrations.py` using individual SQL statements.
+The runner locks startup, backs up existing databases before upgrades, and commits
+schema changes with version history. Never commit or use `executescript` inside a migration. When changing model output, update schemas and prompt/cache versions together.
 
 ## Verification
 

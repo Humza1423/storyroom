@@ -19,6 +19,11 @@ trained model, or a demonstration of AI retrieval accuracy.
 
 ## Latest engineering checkpoint
 
+2026-10-07: database migration runner verified: 5 migration tests passed, covering
+competing initialization, existing saved choices/revisions, WAL-aware backup,
+rollback (including refusal of implicit commits), repeat startup, and future-version
+rejection. Tests use synthetic projects; the creator's database was not upgraded.
+
 2026-10-07: isolated browser harness implemented. Two consecutive fresh runs:
 2 passed (16.5s), 2 passed (12.1s); frontend build passed; import atomicity tests
 2 passed. Dedicated temporary roots, zero AI budget/empty credentials, owned
@@ -79,7 +84,7 @@ repository public remains a separate, explicit release decision.
 - [x] Record the initial local Git checkpoint with source, docs, and tests; no GitHub remote configured.
 - [x] Create a private GitHub repository, configure `origin`, and push `main`.
 - [x] Isolate browser tests from personal projects and remove dependence on a pre-seeded demo.
-- [ ] Add tested, versioned database upgrades before changing the stored schema.
+- [x] Add tested, versioned database upgrades before changing the stored schema.
 - [ ] Split frontend types, API calls, board logic, and components into focused modules.
 - [ ] Lock Python dependencies and add automated checks for contributions.
 - [ ] Improve startup diagnostics and the disconnected-server experience.
@@ -122,7 +127,7 @@ repository public remains a separate, explicit release decision.
 ## Known limitations that shape the next design decisions
 
 - `src/main.tsx` contains most frontend behavior in one large file. Refactoring is due before substantial UI expansion.
-- `schema_versions` currently marks the initial schema; it is not a migration runner.
+- Ordered transactional migrations now preserve version-1 data; no production version-2 change was needed.
 - Asset/job registration is atomic in SQLite. SQLite and the filesystem are not one transaction: a hard process kill may leave an unreferenced media directory. Automatic orphan reconciliation is not implemented.
 - A retry reuses completed AI response caches, but normalization can redo completed encoding stages. This is retry support, not full resumability.
 - Browser playback uses ordinary video events and is approximate. Rendered output and actual editor import remain the precision checks.

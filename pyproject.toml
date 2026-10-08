@@ -17,3 +17,6 @@ include = ["server*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+server = ["schema_v1.sql"]
