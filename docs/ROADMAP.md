@@ -15,10 +15,10 @@ Use the existing React/TypeScript interface, FastAPI validation boundary, SQLite
 storage, and one persistent Python worker. Keep FFmpeg processing outside HTTP
 requests. See [ARCHITECTURE](ARCHITECTURE.md) for the implemented flows.
 
-Next: isolate Playwright's database/media and generate its own fixtures. Then add
-tested schema migrations, split the large frontend into types/API/components/board
-logic, lock Python dependencies, automate checks, and improve disconnected-server
-diagnostics. Do not combine these into one speculative rewrite.
+Foundation implementation now includes the isolated browser harness, transactional
+migrations, frontend modules, startup/recovery checks, Python lockfile and CI workflow.
+See STATUS and FOUNDATION_PLAN for measured acceptance results. Next is the manual
+real-footage handoff below; hosted infrastructure and model training remain deferred.
 
 Acceptance: a fresh test run cannot change personal projects; old project data
 survives upgrades; refactoring preserves behavior; startup failures are actionable.

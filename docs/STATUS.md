@@ -6,18 +6,44 @@ Updated: 2026-10-07. Status: local development preview; release gates remain ope
 
 | Area | Implemented | Evidence and remaining work |
 | --- | --- | --- |
-| Manual assembly | Projects, import, proxies, descriptions, story sections, drag/reorder, frame trimming, save/reopen, undo | Backend tests cover persistence and frame rules. Browser workflow tests exist; a complete fresh browser run is still needed for this checkpoint. |
-| Processing | One SQLite-backed worker, progress, cancel/retry, response caching | Tests cover job deduplication and cancel/retry. Full stop/restart and interrupted-media tests remain. |
+| Manual assembly | Projects, import, proxies, descriptions, story sections, drag/reorder, frame trimming, save/reopen, undo | Backend tests cover persistence and frame rules. Isolated browser tests cover three generated inputs, repeated placement, exact saved ranges/order, undo, playback and outputs. Real footage remains separate. |
+| Processing | One SQLite-backed worker, progress, cancel/retry, response caching | Real worker subprocess tests cover pending/interrupted normalization/render, second-worker refusal and explicit retry. Encoding restarts; it is not stage-resumable. |
 | Output | MP4 render, FCP7 XML, OTIO, media manifest | Generated-media tests check render duration and XML round-trip through OTIO. No verified import in DaVinci Resolve yet. |
 | AI adapter | Video chunks, validated observations, embeddings, story proposals, cost reservations | Fake-provider tests cover response validation, caching, budget, and failure. No real provider or quality benchmark has been verified. |
 | Search | Keyword matching and optional description-embedding similarity | Manual keyword behavior tested. The 20-query real-footage benchmark has not been completed. |
 | Training | Permission-aware judgments, grouped split, logistic-regression experiment, report export | Script and labeling interface exist. No trained or deployed custom model has been established. |
-| Project access | Source opens in VS Code; onboarding, architecture, contribution and learning docs; private GitHub remote | Clean-machine installation and a deliberate public open-source release remain pending. |
+| Project access | Source opens in VS Code; onboarding, architecture, contribution and learning docs; private GitHub remote | Fresh macOS checkout/virtual environment installation is verified below. Public release and remote CI remain separate. |
 
 The generated demo is a technical fixture. It is not real sports footage, a
 trained model, or a demonstration of AI retrieval accuracy.
 
 ## Latest engineering checkpoint
+
+2026-10-07: **all five foundation checkpoints verified locally** on
+`codex/complete-foundation`. Changes are in local commits; nothing was pushed.
+
+| Final check | Actual result |
+| --- | --- |
+| Fresh checkout installation | Pinned uv bootstrap, `uv sync --locked --extra dev`, `npm ci`, Chromium install passed; no `.env`, demo or personal data required. |
+| Backend | 38 passed in 20.87s in the fresh locked environment; one Starlette deprecation warning. |
+| Fatal-error lint / TypeScript / production build | Passed. |
+| Two consecutive fresh browser runs | 5 passed in 39.3s; 5 passed in 1.1m. Each owned a different temporary root and stopped its stack. |
+| Persistence / migrations | Saved exact ranges/order and duplicate placements checked; all persisted tables preserved through controlled upgrade; valid WAL-aware backup, rollback and future-version refusal. |
+| Recovery | Pending/interrupted normalization and rendering retried in real worker processes; second worker refused; completed sources/revisions retained; interrupted AI not replayed. |
+| Startup / disconnect | Occupied ports, missing tools, readiness, failed-child diagnostics and cleanup passed; browser connection-refusal/reconnect preserves drafts and shows failed saves. |
+| Manual clean-checkout launch | API/UI ready, empty project created, SIGTERM cleanup passed, ports and worker lock released; no checkout `data/` created. |
+| Documentation | `git diff --check` and all 72 local Markdown links passed after final evidence updates. |
+| Cloud / external validation | Zero paid calls; browser usage ledger asserted empty. CI file added, **remote CI not run**. Real footage/Resolve/provider gates remain open. |
+
+An earlier clean browser run timed out at the old 30-second render deadline while
+its job was still running. The precise timing cause was not isolated. Per-stage
+render progress, failed-run job diagnostics and bounded 60-second media assertions
+were added; the two final runs above passed. This does not establish a performance
+benchmark. See [FOUNDATION_PLAN](FOUNDATION_PLAN.md) for commands, environment,
+isolation boundaries and detailed evidence.
+
+Next: the [licensed real-footage exercise](FOOTAGE_TEST_SET.md), followed by an
+actual Resolve import check. The footage list has not been downloaded/evaluated.
 
 2026-10-07: startup/recovery checkpoint verified. Full backend suite: 38 passed
 (32.63s), one existing Starlette deprecation warning. Browser suite: 5 passed
@@ -90,7 +116,7 @@ repository public remains a separate, explicit release decision.
 
 ## Next milestones, in order
 
-### 1. Reliable and understandable local foundation — in progress
+### 1. Reliable and understandable local foundation — verified locally
 
 - [x] Open the source in a code editor and provide a file map.
 - [x] Add an honest status record and saved release checklist.
@@ -101,7 +127,7 @@ repository public remains a separate, explicit release decision.
 - [x] Isolate browser tests from personal projects and remove dependence on a pre-seeded demo.
 - [x] Add tested, versioned database upgrades before changing the stored schema.
 - [x] Split frontend types, API calls, board logic, and components into focused modules.
-- [ ] Lock Python dependencies and add automated checks for contributions.
+- [x] Lock Python dependencies and add automated checks for contributions.
 - [x] Improve startup diagnostics and the disconnected-server experience.
 
 ### 2. Prove the manual handoff — required for release
@@ -126,7 +152,8 @@ repository public remains a separate, explicit release decision.
 - [ ] Curate at least 20 human-reviewed queries across three separate footage sets.
 - [ ] Measure relevant candidates in the first five; initial target is at least 16 of 20, with misses reported.
 - [ ] Test unsupported queries, uncertainty, missing media, and stop/restart recovery.
-- [ ] Test installation on a clean environment and review dependency/media licenses.
+- [x] Test installation from a fresh macOS checkout and locked environment.
+- [ ] Review dependency/media licenses for the release and real-footage exercise.
 - [ ] Demonstrate with real footage and clearly disclose remaining limitations.
 - [ ] Review release contents and explicitly make the repository public when ready;
   keep credentials and personal media excluded.

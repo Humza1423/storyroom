@@ -1,7 +1,7 @@
 # Foundation completion: executable plan
 
-Prepared 2026-10-07 from the current source. This is planned work, not completed
-implementation. Read AGENTS.md, PRODUCT.md, STATUS.md, and ARCHITECTURE.md first.
+Prepared 2026-10-07 from the then-current source. The original plan is retained
+below; see the execution evidence at the end and STATUS for verified results. Read AGENTS.md, PRODUCT.md, STATUS.md, and ARCHITECTURE.md first.
 Execute in the dedicated Storyroom repository. Preserve unrelated local changes.
 
 ## Outcome and scope
@@ -208,3 +208,70 @@ explicit cloud permission. Gather human timestamp judgments before measuring sea
 > task. Use synthetic fixtures for automated tests. Do not make paid calls, train
 > models, or download real footage during the foundation task. Execute the work,
 > rather than returning only another plan.
+
+## Execution evidence — 2026-10-07
+
+| Acceptance gate | Result |
+| --- | --- |
+| Backend, lint, TypeScript/build | 38 backend tests passed; lint and build passed in fresh locked environment. |
+| Repeated isolated browsers | 5 passed (39.3s), then 5 passed (1.1m), separate temporary roots. |
+| Stored decisions / upgrades | Full saved-state preservation, rollback, backups, future-version refusal and startup concurrency passed. |
+| Three-clip manual flow | Exact persisted placement ranges/order, repeated source, playback, render, XML/OTIO and undo passed. |
+| Startup and interrupted work | Owned launcher lifecycle, failure diagnostics, reconnect drafts and real worker retry tests passed. |
+| Reproducible setup | Clean local clone install and manual startup passed; Python/npm locks and Ubuntu CI checked in. |
+| External boundaries | No paid calls or uploads; no remote CI run, real footage test or Resolve import claimed. |
+
+
+Implementation is on local branch `codex/complete-foundation`, with separate
+planning, browser isolation, migration, frontend, recovery and setup commits.
+Production schema remains version 1. No personal database was used for tests.
+
+The clean-checkout procedure used a fresh local clone (no `.env`, `data/`, demo,
+virtual environment or node_modules), Python 3.12.4, Node 22.4.1, uv 0.12.23 and
+FFmpeg 9.0.1 on macOS. Commands:
+
+```sh
+python3.12 -m venv .tools/uv
+.tools/uv/bin/pip install uv==0.12.23
+.tools/uv/bin/uv sync --locked --extra dev
+npm ci
+npx playwright install chromium
+.venv/bin/ruff check server tests scripts --select E9,F63,F7,F82
+.venv/bin/pytest -q
+npm run build
+npm run test:e2e
+npm run test:e2e
+```
+
+The locked install resolved 50 packages including the local project and installed
+49 dependencies. npm installed 79 packages and reported zero vulnerabilities.
+The documented launcher was additionally started from the clean clone with free
+loopback ports and a temporary data root: both HTTP services became ready, an empty
+manual project was created, SIGTERM stopped the stack, both ports were reusable,
+and the worker lock was released. The clone still had no `.env` or `data/` afterward.
+
+Tests create three generated clips. The saved three-placement board is checked
+as ranges `[0,60)`, `[5,45)`, `[0,60)` in that order, with independent selection IDs
+and repeated use of one source. Playback, render completion, XML/OTIO download,
+undo, and responsive layout are checked. Migration tests compare projects,
+revisions, assets, moments/FTS, jobs, cache, usage and feedback before/after a
+controlled upgrade. The backup is opened and integrity-checked. Future versions,
+implicit commits, failed upgrades and concurrent startup are tested.
+
+Recovery tests use real worker subprocesses and generated media. A test-only FFmpeg
+wrapper holds at the media-process boundary so interruption is deterministic;
+retries run the real encoder. These tests preserve completed sources/revisions and
+verify no automatic replay of interrupted AI work. Browser disconnection uses
+refused HTTP requests; separate launcher tests exercise real server start/stop.
+
+An earlier clean browser run exceeded the old 30-second render assertion while the
+job was still running, without a reported encoding error. The exact timing cause
+was not isolated. Render now reports each clip/join stage, failed runs print job
+state, and media assertions have a bounded 60-second wait. This is not a promise
+of render performance. Final repeat-run results are recorded in STATUS.
+
+External gates remain: real licensed footage, actual Resolve import and real
+permissioned provider quality/billing. CI is checked in but has not been run on
+GitHub. No source was pushed or published by this task. Full encoding-stage resume,
+automatic orphan cleanup, portable exports and a user-facing backup UI remain out
+of scope. One Starlette test-client deprecation warning remains.

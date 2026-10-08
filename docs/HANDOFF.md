@@ -26,28 +26,30 @@ and [THIRD_PARTY](THIRD_PARTY.md) cover model experiments and licensing boundari
 - Check existing processes before launching another API or worker. Do not run the
   demo seeder alongside the worker. Never print `.env` or credentials into chat.
 
-## Immediate implementation entry point
+## Next entry point
 
-For the full foundation task, follow [FOUNDATION_PLAN](FOUNDATION_PLAN.md). Its
-five checkpoints have concrete completion checks and a prompt for the executing
-session. [FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md) lists researched real footage for
-the next manual handoff test; it has not been downloaded or evaluated yet.
+The five foundation checkpoints are implemented on `codex/complete-foundation`.
+Read [STATUS](STATUS.md) and the acceptance record in
+[FOUNDATION_PLAN](FOUNDATION_PLAN.md) for actual checks and any outstanding gates.
+The work is committed locally; a remote CI run has not been claimed.
 
-Unless STATUS or the user sets a newer priority, isolate the browser tests before
-the frontend refactor. Inspect `playwright.config.ts`, `e2e/workspace.spec.ts`,
-`scripts/dev.py`, and `server/config.py`. Design a dedicated test data directory,
-generated fixtures, controlled server lifecycle, and cleanup restricted to that
-test directory. Preserve the normal development startup path.
+Next product milestone: the manual real-footage exercise in
+[FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md). No listed footage has been downloaded or
+sent to a provider. Use its rights/provenance procedure, then prove import → saved
+three-clip montage → rendered review → actual Resolve import. Ask for the relevant
+external action authorization when needed. Do not substitute an XML round-trip for
+an editor import, or fake-provider tests for real model quality.
 
-Acceptance: run the browser suite from a clean test state, repeat it successfully,
-and prove the existing user database/media were not modified. No paid requests.
-This is the next task, not a claim it has already been implemented.
+For further foundation changes, browser tests are now self-contained:
+`npm run test:e2e` owns a fresh temporary root, fixtures and process groups. Never
+run Playwright directly against personal development data. Existing databases stay
+at schema version 1; future changes go through `server/migrations.py` with backup
+and rollback tests. `main.tsx` mounts the UI; `App.tsx` owns orchestration and drafts.
 
 ## Verification and handoff discipline
 
 For backend changes run `.venv/bin/pytest -q`; for frontend changes run
-`npm run build` plus the relevant browser checks. See CONTRIBUTING before running
-the current non-isolated browser suite. Record the date and exact checks actually
+`npm run build` plus the relevant browser checks. See CONTRIBUTING for the locked setup and isolated browser harness. Record the date and exact checks actually
 run. Existing test counts are historical evidence, not a new session's result.
 
 Explain purpose → code boundary → engineering concept → evidence. End with changed

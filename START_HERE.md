@@ -44,6 +44,8 @@ stop the worker; stopping the launcher does.
 | [server/models.py](server/models.py) | Valid request and AI response shapes | Which malformed values are rejected automatically? |
 | [server/app.py](server/app.py) | API routes, validation, media import, board updates | Which rules must hold even if the browser sends bad data? |
 | [server/db.py](server/db.py) | SQLite transactions, job creation, cache, budget | Which changes must be committed together? |
+| [server/migrations.py](server/migrations.py) | Locked, backed-up, atomic database upgrades | Why must schema and version commit together? |
+| [scripts/e2e.py](scripts/e2e.py) | Generated browser fixtures and owned servers | What prevents a test from writing personal projects? |
 | [server/worker.py](server/worker.py) | Job execution, progress, failure, cancellation | What survives a process restart? |
 | [server/media.py](server/media.py) | Inspection, normalization, proxies, MP4 rendering | Which operation creates a new media file? |
 | [server/exporter.py](server/exporter.py) | Cuts-only timeline and media references | Does this output contain video or instructions pointing to video? |

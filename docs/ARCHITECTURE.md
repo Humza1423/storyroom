@@ -124,3 +124,13 @@ on retry. An encoding can restart from the beginning; individual media stages ar
 not resumable. A hard kill may leave temporary/unreferenced files, and killing only
 a worker PID can leave its encoder running; use the owning launcher/process group.
 Automatic orphan cleanup remains deferred.
+
+## Reproducible contribution checks
+
+Python 3.12 uses `uv.lock` with the dev extra and a pinned setuptools build backend.
+A separate `.tools/uv` environment bootstraps the pinned uv installer without changing
+system Python. JavaScript uses `npm ci`. FFmpeg/ffprobe are explicit system tools.
+The Ubuntu workflow runs fatal-error lint, backend tests, build and isolated browser
+checks with empty credentials, unconfirmed pricing and zero subprocess AI budget.
+Provider ledger unit tests explicitly use fake clients and a finite test allowance.
+The supported user platform remains macOS; external Resolve/provider gates remain.
