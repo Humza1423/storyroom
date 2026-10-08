@@ -56,6 +56,9 @@ export default function App() {
     [pid, setPid] = useState(localStorage.getItem("storyroom.project") || "");
   const [project, setProject] = useState<Project | null>(null),
     [status, setStatus] = useState<Status | null>(null);
+  const [connection, setConnection] = useState<
+    "loading" | "connected" | "disconnected"
+  >("loading");
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
@@ -103,6 +106,7 @@ export default function App() {
     ]);
     setProjects(ps);
     setStatus(st);
+    setConnection("connected");
     if (pid) {
       const p = await api<Project>("/projects/" + pid);
       if (activePid.current === pid) setProject(p);
@@ -130,6 +134,7 @@ export default function App() {
         if (stopped) return;
         setProjects(ps);
         setStatus(st);
+        setConnection("connected");
         if (pid) {
           const epoch = boardEpoch.current;
           const p = await api<Project>("/projects/" + pid);
@@ -137,7 +142,7 @@ export default function App() {
             setProject(p);
         }
       } catch (e) {
-        if (!stopped) setError((e as Error).message);
+        if (!stopped) setConnection("disconnected");
       }
     }
     tick();
@@ -367,7 +372,13 @@ export default function App() {
           <div className="header-right">
             <span className="save-status">
               <Check size={13} />
-              {busy ? "Working…" : notice || "Saved locally"}
+              {connection !== "connected"
+                ? connection === "loading"
+                  ? "Connecting…"
+                  : "Disconnected"
+                : busy
+                  ? "Working…"
+                  : notice || "Saved locally"}
             </span>
             <button
               className="secondary"
@@ -385,6 +396,33 @@ export default function App() {
             </button>
           </div>
         </header>
+        <div role="status" aria-label="Connection" className="connection-status">
+          {connection === "loading" ? (
+            "Connecting to local server…"
+          ) : connection === "connected" ? (
+            "Connected to local server"
+          ) : (
+            <>
+              Server disconnected. Your open project and draft text are kept
+              here. Check the launcher, then retry.
+              <button
+                className="secondary"
+                onClick={() =>
+                  task(async () => {
+                    try {
+                      await refresh();
+                    } catch (e) {
+                      setConnection("disconnected");
+                      throw e;
+                    }
+                  })
+                }
+              >
+                Reconnect
+              </button>
+            </>
+          )}
+        </div>
         {error && (
           <div role="alert" className="error-banner">
             {error}

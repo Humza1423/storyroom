@@ -1,6 +1,9 @@
 """Own API, worker and UI processes; wait for readiness and stop only our groups."""
 import os
 import errno
+import importlib.util
+import shutil
+import tempfile
 import signal
 import socket
 import subprocess
@@ -10,6 +13,34 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def preflight(env):
+    if sys.version_info < (3, 12):
+        raise RuntimeError("Python 3.12+ required. Recreate .venv using the README setup.")
+    for module in ("fastapi", "uvicorn", "dotenv", "httpx", "google.genai", "opentimelineio", "numpy", "multipart"):
+        try:
+            found = importlib.util.find_spec(module)
+        except ModuleNotFoundError:
+            found = None
+        if found is None:
+            raise RuntimeError(f"Missing Python dependency {module}. Run the locked install from README.")
+    for command in ("node", "npm", "ffmpeg", "ffprobe"):
+        if not shutil.which(command, path=env.get("PATH")):
+            remedy = "brew install ffmpeg" if command in ("ffmpeg", "ffprobe") else "Install Node 22+ and npm"
+            raise RuntimeError(f"Missing {command}. {remedy}.")
+    node = subprocess.run(["node", "--version"], env=env, text=True, capture_output=True, check=True)
+    if int(node.stdout.strip().lstrip("v").split(".")[0]) < 22:
+        raise RuntimeError("Node 22+ required. Install a supported Node release, then run npm ci.")
+    if not (ROOT / "node_modules/vite/bin/vite.js").is_file():
+        raise RuntimeError("Frontend dependencies missing. Run npm ci in the repository.")
+    data = Path(env.get("STORYROOM_DATA", ROOT / "data"))
+    try:
+        data.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryFile(dir=data):
+            pass
+    except OSError as exc:
+        raise RuntimeError("Data directory is not writable. Set STORYROOM_DATA to a writable directory.") from exc
 
 
 def check_ports(env):
@@ -46,6 +77,7 @@ def run_stack(env, test_command=None):
     children = []
     try:
         check_ports(env)
+        preflight(env)
         commands = [("API", [sys.executable, "-m", "uvicorn", "server.app:app", "--host", "127.0.0.1", "--port", api_port]),
                     ("worker", [sys.executable, "-m", "server.worker"]),
                     ("frontend", ["npm", "run", "dev", "--", "--port", ui_port])]
@@ -80,7 +112,7 @@ def run_stack(env, test_command=None):
             time.sleep(.2)
     except KeyboardInterrupt:
         return 130
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
         print(f"Startup failed: {exc}", file=sys.stderr)
         return 1
     finally:
@@ -88,4 +120,10 @@ def run_stack(env, test_command=None):
 
 
 if __name__ == "__main__":
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(ROOT / ".env")
+    except ImportError:
+        pass  # preflight provides the actionable missing-dependency message.
+    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
     sys.exit(run_stack(os.environ))

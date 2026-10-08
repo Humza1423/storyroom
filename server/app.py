@@ -451,7 +451,14 @@ def manage_job(jid: str, action: Literal["cancel", "retry"]):
         return {"ok": True}
     if j["status"] not in ("failed", "cancelled"):
         raise ValueError("Only failed or cancelled work can be retried")
-    return {"job_id": db.enqueue(j["project_id"], j["kind"], json.loads(j["payload"]))}
+    payload = json.loads(j["payload"])
+    with db.connect() as c:
+        c.execute("BEGIN IMMEDIATE")
+        ident = db.enqueue_in_transaction(c, j["project_id"], j["kind"], payload)
+        if j["kind"] == "normalize":
+            c.execute("UPDATE assets SET status='processing',error=NULL WHERE id=? AND status!='ready'",
+                      (payload["asset_id"],))
+    return {"job_id": ident}
 
 
 @app.get("/api/jobs/{jid}/download")

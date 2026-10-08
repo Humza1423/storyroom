@@ -175,3 +175,38 @@ test("late project response cannot replace the active project or brief", async (
     "Active project brief",
   );
 });
+
+test("offline and reconnect preserve the project and unsaved brief", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/projects", {
+    headers: { "X-Storyroom": "local" },
+    data: { name: "Reconnect project", brief: "Saved" },
+  });
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Reconnect project", exact: true })
+    .click();
+  await expect(page.locator(".brief-bar textarea")).toHaveValue("Saved");
+  await page.locator(".brief-bar textarea").fill("My unsaved draft");
+  await page.route("**/api/**", (route) => route.abort("connectionrefused"));
+  await expect(page.getByRole("status", { name: "Connection" })).toContainText("Server disconnected");
+  await expect(
+    page.getByRole("heading", { name: "Reconnect project", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".brief-bar textarea")).toHaveValue(
+    "My unsaved draft",
+  );
+  await page.getByRole("button", { name: "Save brief", exact: true }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.locator(".brief-bar textarea")).toHaveValue("My unsaved draft");
+  await page.unrouteAll();
+  await page.getByRole("button", { name: "Reconnect", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Connection" })).toContainText(
+    "Connected to local server",
+  );
+  await expect(page.locator(".brief-bar textarea")).toHaveValue(
+    "My unsaved draft",
+  );
+});

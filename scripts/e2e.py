@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 import sqlite3
+import signal
 import tempfile
 
 from dev import ROOT, run_stack
@@ -38,4 +39,5 @@ def main():
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
     sys.exit(main())

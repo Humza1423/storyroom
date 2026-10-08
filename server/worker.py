@@ -273,16 +273,22 @@ def once():
 
 
 def main():
-    db.init()
-    lock = open(config.DATA / "worker.lock", "w")
+    config.DATA.mkdir(parents=True, exist_ok=True)
+    lock = open(config.DATA / "worker.lock", "a")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         raise SystemExit("Another Storyroom worker is already running.")
+    db.init()
     # Never automatically replay an interrupted paid request. Completed chunks are cached.
-    db.execute(
-        "UPDATE jobs SET status='failed',message='Interrupted. Retry to resume cached work.' WHERE status='running'"
-    )
+    message = "Interrupted. Retry to resume cached work."
+    with db.connect() as c:
+        c.execute("BEGIN IMMEDIATE")
+        for job in c.execute("SELECT payload FROM jobs WHERE status='running' AND kind='normalize'").fetchall():
+            c.execute("UPDATE assets SET status='failed',error=? WHERE id=? AND status!='ready'",
+                      (message, json.loads(job["payload"])["asset_id"]))
+        c.execute("UPDATE jobs SET status='failed',message=?,finished=? WHERE status='running'",
+                  (message, time.time()))
     logging.basicConfig(level=logging.INFO)
     while True:
         if not once():

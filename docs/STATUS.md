@@ -19,6 +19,16 @@ trained model, or a demonstration of AI retrieval accuracy.
 
 ## Latest engineering checkpoint
 
+2026-10-07: startup/recovery checkpoint verified. Full backend suite: 38 passed
+(32.63s), one existing Starlette deprecation warning. Browser suite: 5 passed
+(21.4s), including connection refusal/reconnect, visible failed-save errors and
+preserved draft text. Build and fatal-error lint passed. Real process tests cover
+pending/interrupted normalization and rendering, explicit retry, second-worker
+rejection, preserved revisions/sources, and no replay of interrupted AI jobs.
+Launcher tests verify prerequisites, occupied ports, HTTP readiness, child failure,
+and owned stack cleanup. Browser offline simulation uses refused requests; it does
+not claim a real browser test of physically terminating the API.
+
 2026-10-07: frontend extraction verified. Types/helpers build passed, component
 extraction build and 2-test browser suite passed, then the expanded 4-test suite
 passed (20.4s), including delayed-project response and duplicate-placement rules.
@@ -92,7 +102,7 @@ repository public remains a separate, explicit release decision.
 - [x] Add tested, versioned database upgrades before changing the stored schema.
 - [x] Split frontend types, API calls, board logic, and components into focused modules.
 - [ ] Lock Python dependencies and add automated checks for contributions.
-- [ ] Improve startup diagnostics and the disconnected-server experience.
+- [x] Improve startup diagnostics and the disconnected-server experience.
 
 ### 2. Prove the manual handoff — required for release
 

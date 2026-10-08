@@ -26,6 +26,12 @@ npm ci
 ```
 
 Open http://127.0.0.1:5173. Choose **First assembly · technical demo** in the sidebar, or create your own project. Run the demo seeder before the worker, not alongside it. Ctrl-C in the launch terminal stops the API, worker, and browser development server.
+The launcher checks Python/Node, dependencies, FFmpeg/ffprobe, writable storage and
+free ports. It announces readiness only after API and UI respond; a child failure
+names that process and exits nonzero. Set `STORYROOM_API_PORT` and
+`STORYROOM_UI_PORT` together as needed; defaults remain 8765/5173.
+If the API disconnects, the UI keeps your open project and drafts and shows a
+Reconnect button. Failed saves are shown as errors; retry explicitly after reconnecting.
 
 For a production UI build: run `npm run build`, then run `.venv/bin/python -m uvicorn server.app:app --host 127.0.0.1 --port 8765` and `.venv/bin/python -m server.worker` in separate terminals. Open http://127.0.0.1:8765.
 

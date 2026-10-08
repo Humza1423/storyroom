@@ -110,3 +110,17 @@ live under `features/`; processing controls live under `components/`. App keeps
 project orchestration and draft form state. Saved boards/revisions stay in SQLite.
 Project effects discard late responses after selection changes; polling uses an
 epoch to avoid replacing a board with a response that crossed a save.
+
+## Interruption boundary
+
+The launcher checks prerequisites, waits for real HTTP readiness, monitors named
+children, and terminates only its own process groups. A second worker acquires no
+lock and exits before database recovery can change the first worker's jobs. On
+restart, running jobs become failed; unfinished normalization assets become failed
+in the same transaction. Explicit retry queues work and restores processing state.
+No interrupted paid request is automatically replayed. Tests kill worker process
+groups at a controlled encoding boundary, then perform real normalization/render
+on retry. An encoding can restart from the beginning; individual media stages are
+not resumable. A hard kill may leave temporary/unreferenced files, and killing only
+a worker PID can leave its encoder running; use the owning launcher/process group.
+Automatic orphan cleanup remains deferred.
