@@ -1,9 +1,7 @@
 """Import failure tests use real SQLite and isolated generated footage."""
 
 import json
-import sqlite3
 
-import pytest
 
 from server import config, db
 from server.worker import once
@@ -19,8 +17,12 @@ def test_failed_queue_insert_rolls_back_import_and_allows_retry(client, clip):
         END
     """)
     with clip.open("rb") as f:
-        with pytest.raises(sqlite3.IntegrityError, match="simulated queue failure"):
-            client.post(f"/api/projects/{pid}/import", files={"file": ("clip.mp4", f)})
+        failure = client.post(
+            f"/api/projects/{pid}/import", files={"file": ("clip.mp4", f)}
+        )
+    assert failure.status_code == 500
+    assert failure.json()["code"] == "server_error"
+    assert failure.json()["scope"] == "batch"
 
     assert db.rows("SELECT * FROM assets WHERE project_id=?", (pid,)) == []
     assert db.rows("SELECT * FROM jobs WHERE project_id=?", (pid,)) == []
