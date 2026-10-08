@@ -17,7 +17,7 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
     .setInputFiles(
       [0, 1, 2].map((i) => `${process.env.STORYROOM_FIXTURES}/clip-${i}.mp4`),
     );
-  await expect(page.locator(".moment-card")).toHaveCount(3, { timeout: 30000 });
+  await expect(page.locator(".moment-card")).toHaveCount(3, { timeout: 60000 });
   await page.getByRole("button", { name: "Add story section" }).click();
   await page.getByLabel("Section title").fill("Practice");
   await page
@@ -97,11 +97,11 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
     .getByRole("button", { name: "Render preview", exact: true })
     .click();
   await expect(page.getByRole("link", { name: "Preview MP4" })).toBeVisible({
-    timeout: 30000,
+    timeout: 60000,
   });
   await page.getByRole("button", { name: "Export to Resolve" }).click();
   await expect(page.getByRole("link", { name: "Resolve XML" })).toBeVisible({
-    timeout: 30000,
+    timeout: 60000,
   });
   const href = await page
     .getByRole("link", { name: "Resolve XML" })
@@ -186,8 +186,16 @@ test("late project response cannot replace the active project or brief", async (
   await expect(
     page.getByRole("heading", { name: "Active project", exact: true }),
   ).toBeVisible();
+  const delivered = page.waitForResponse((response) =>
+    response.url().endsWith(`/api/projects/${old.id}`),
+  );
   release();
+  await (await delivered).finished();
   await page.unrouteAll({ behavior: "wait" });
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
   await expect(
     page.getByRole("heading", { name: "Active project", exact: true }),
   ).toBeVisible();

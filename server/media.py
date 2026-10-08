@@ -205,7 +205,7 @@ def chunk(source, dest, start, duration, cancelled=lambda: False):
     )
 
 
-def render(board, assets, dest, cancelled=lambda: False):
+def render(board, assets, dest, cancelled=lambda: False, report=lambda fraction, message: None):
     import tempfile
 
     clips = [s for section in board for s in section["selections"]]
@@ -214,6 +214,7 @@ def render(board, assets, dest, cancelled=lambda: False):
     with tempfile.TemporaryDirectory(dir=config.DATA) as tmp:
         parts = []
         for i, clip in enumerate(clips):
+            report(i / len(clips) * 0.9, f"Rendering clip {i + 1}/{len(clips)}")
             asset = assets[clip["asset_id"]]
             source = config.asset_dir(asset["id"]) / "edit.mp4"
             if not source.exists():
@@ -264,6 +265,7 @@ def render(board, assets, dest, cancelled=lambda: False):
             ]
             run(args, cancelled)
             parts.append(part)
+        report(0.95, "Joining rendered clips")
         listing = Path(tmp) / "parts.txt"
         # Generated basenames only; no user text enters the concat manifest.
         listing.write_text("\n".join(f"file '{p.name}'" for p in parts))

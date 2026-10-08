@@ -357,9 +357,9 @@ export default function App() {
             <span>AI development budget</span>
             <strong>
               ${status?.spend.toFixed(2) || "0.00"}{" "}
-              <small>/ ${status?.limit || 45}</small>
+              <small>/ ${status?.limit ?? 45}</small>
             </strong>
-            <progress max={status?.limit || 45} value={status?.spend || 0} />
+            <progress max={status?.limit ?? 45} value={status?.spend || 0} />
           </div>
         </div>
       </aside>
@@ -396,7 +396,11 @@ export default function App() {
             </button>
           </div>
         </header>
-        <div role="status" aria-label="Connection" className="connection-status">
+        <div
+          role="status"
+          aria-label="Connection"
+          className="connection-status"
+        >
           {connection === "loading" ? (
             "Connecting to local server…"
           ) : connection === "connected" ? (

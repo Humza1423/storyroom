@@ -201,6 +201,7 @@ def perform(job):
                 assets,
                 folder / f"{ident}.mp4",
                 lambda: cancelled(ident),
+                lambda fraction, message: progress(ident, fraction, message),
             )
             return {"url": f"/api/jobs/{ident}/download"}
         export_timeline(
