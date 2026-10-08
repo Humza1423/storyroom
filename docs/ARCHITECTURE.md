@@ -74,14 +74,12 @@ Read these entry points in order:
 3. `server/worker.py`: how slow work progresses and fails.
 4. `server/media.py` and `server/exporter.py`: how decisions become actual media/timelines.
 5. `server/ai.py` and `server/search.py`: how uncertain model output becomes searchable evidence.
-6. `src/main.tsx`: how user interaction connects to those operations.
+6. `src/App.tsx` and its feature components: how user interaction connects to those operations.
 
-The interface currently concentrates most behavior in a roughly 1,700-line file.
-Splitting its types, API helper, board operations, and feature components is now on
-the foundation backlog. Preserve behavior and verify the browser workflow through
-that refactor. The database also has initial schema creation and a version marker,
-but no upgrade runner yet. Neither limitation should be mistaken for a finished
-long-term architecture; see [current status](STATUS.md).
+The foundation extracted types, API helpers, board operations, and feature components
+from the original large entry file. App still coordinates the project and dialogs.
+The database now has a transactional migration runner and consistent backups. See
+the detailed boundaries below and [current status](STATUS.md) for verified results.
 
 ## Your first three exercises
 

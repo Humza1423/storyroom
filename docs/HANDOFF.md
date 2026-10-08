@@ -34,6 +34,9 @@ Read [STATUS](STATUS.md) and the acceptance record in
 The work is committed locally; a remote CI run has not been claimed.
 
 Next product milestone: the manual real-footage exercise in
+[REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md), starting with Phase A1's resilient batch
+import, specified in [IMPORT_PLAN](IMPORT_PLAN.md). [LEARNING_PATH](LEARNING_PATH.md) offers the creator a small code contribution
+and request-flow exercise. The source list is in
 [FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md). No listed footage has been downloaded or
 sent to a provider. Use its rights/provenance procedure, then prove import → saved
 three-clip montage → rendered review → actual Resolve import. Ask for the relevant

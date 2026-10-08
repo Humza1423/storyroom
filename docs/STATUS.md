@@ -19,6 +19,16 @@ trained model, or a demonstration of AI retrieval accuracy.
 
 ## Latest engineering checkpoint
 
+Next-milestone planning: [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md) defines app
+preparation, later visible testing, measured fixes, and subsequent AI evaluation.
+Inspection found that one failed upload stops the current multi-file loop; Phase A1
+addresses per-file outcomes and partial success. Timing/rotation/audio checks are
+test gaps to investigate, not claimed failures. [LEARNING_PATH](LEARNING_PATH.md)
+gives the creator an import-flow exercise and a small footage-summary contribution.
+These are documentation changes only; no real footage or new runtime checks were
+performed in this planning pass. A stale architecture paragraph was also corrected
+to reflect the completed frontend extraction and database migration runner.
+
 2026-10-07: **all five foundation checkpoints verified locally** on
 `codex/complete-foundation`. Changes are in local commits; nothing was pushed.
 

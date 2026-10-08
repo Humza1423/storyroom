@@ -4,6 +4,9 @@ The creator is learning software engineering while building this product. Explai
 the user-visible purpose, the relevant code boundary, and one concrete engineering
 concept during substantial changes. Finish with changed-file links, actual check
 results, limitations, a small hands-on exercise, and the next milestone.
+Use docs/LEARNING_PATH.md for hands-on contributions. When the creator explicitly
+owns an exercise, offer hints/review before implementing their portion; continue
+independent work. This does not add an approval gate to ordinary authorized changes.
 
 Read docs/HANDOFF.md on a fresh session. docs/PRODUCT.md owns product intent and
 creator preferences; docs/ROADMAP.md owns delivery order; docs/STATUS.md owns actual
