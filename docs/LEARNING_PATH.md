@@ -15,7 +15,8 @@ test rather than recreating it. No exercise is reserved until you choose to own 
 
 Read only these places initially, following an actual action:
 
-1. src/App.tsx: the hidden file input's onChange handler builds FormData.
+1. src/App.tsx: the hidden file input captures the destination;
+   src/features/library/imports/controller.ts builds FormData and dispatches the batch.
 2. src/lib/api.ts: sends the request to /api/projects/{id}/import.
 3. server/app.py: import_file validates, hashes, copies, and registers the asset/job.
 4. server/db.py: enqueue_in_transaction joins the caller's database transaction.
@@ -33,6 +34,13 @@ the result; and what survives closing the browser. Missing an answer identifies 
 next file to study, not a reason to read the entire repository.
 
 ## Session two: your first feature
+
+The A1 implementation now includes the summary helper in
+`src/features/library/imports/presentation.ts` and tests in
+`e2e/import-controller.spec.ts`. No exercise was reserved, so the whole feature was
+implemented. Follow along by predicting the helper's output for an unknown asset
+state, then add a small regression case for a cancelled preparation job. You can
+still use the design exercise below to explain or revise the existing behavior.
 
 Own a small footage summary near the library title: for example,
 "3 ready · 1 preparing · 1 failed". Current persisted asset status values include

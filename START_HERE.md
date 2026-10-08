@@ -40,6 +40,8 @@ stop the worker; stopping the launcher does.
 | [src/App.tsx](src/App.tsx) | Workspace state and orchestration | Which action sends an HTTP request? |
 | [src/types.ts](src/types.ts), [src/lib/api.ts](src/lib/api.ts) | API contracts and bounded requests | What happens on an error or timeout? |
 | [src/features/](src/features/) | Library, board, and preview components | Which state comes from the parent? |
+| [import controller](src/features/library/imports/controller.ts) | Per-file outcomes, pausing, explicit retry and project ownership | Why is upload acceptance different from ready media? |
+| [server/imports.py](server/imports.py) | Import recovery fields and current preparation-job association | Which stage should be retried? |
 | [src/style.css](src/style.css) | Layout, responsive behavior, visual styling | What changes presentation rather than saved project data? |
 | [server/models.py](server/models.py) | Valid request and AI response shapes | Which malformed values are rejected automatically? |
 | [server/app.py](server/app.py) | API routes, validation, media import, board updates | Which rules must hold even if the browser sends bad data? |

@@ -25,6 +25,10 @@ survives upgrades; refactoring preserves behavior; startup failures are actionab
 
 ## 2. Prove the manual vertical slice
 
+Phase A1's resilient batch import is implemented and tested. Continue with A2's
+independent generated-media timing/orientation/audio checks, then A3's performance
+measurements before acquiring real footage; see [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md).
+
 Import → normalize → select three clips → trim/reorder → save/reopen → preview →
 render → Resolve XML. Edit boundaries are integer frames with an exclusive out
 point. Source assets, observed moments, and placed selections remain distinct.

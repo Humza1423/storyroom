@@ -1,11 +1,11 @@
 # Next milestone: reliable real-footage assembly
 
-Status: planned, not executed. Foundation baseline: local commit 7286856 on
+Status: Phase A1 implemented and tested on 2026-10-08; A2, A3 and later phases remain planned. Foundation baseline: local commit 7286856 on
 codex/complete-foundation. Read STATUS.md for historical verification; the baseline
 has not been pushed and remote CI has not run. This task is about the existing app.
 The guided computer-use test, footage acquisition, and provider evaluation happen
-in subsequent phases below. No runtime changes or new test runs occurred while
-writing this plan.
+in subsequent phases below. No runtime changes or new test runs occurred during the original planning pass;
+see IMPORT_PLAN for subsequent A1 implementation evidence.
 
 ## Outcome
 
@@ -20,10 +20,9 @@ retrieval quality, and usefulness to a creator.
 ### A1. Make multi-file import resilient — first coding task
 
 Execution specification: [IMPORT_PLAN](IMPORT_PLAN.md). The creator authorized
-planning followed by implementation on 2026-10-07; implementation evidence remains
-pending. This scope excludes the later visible real-footage walkthrough.
+planning followed by implementation on 2026-10-07; implementation evidence is recorded in IMPORT_PLAN and STATUS. This scope excludes the later visible real-footage walkthrough.
 
-Observed in src/App.tsx: one task loops over files with an awaited request. A thrown
+Pre-implementation observation in src/App.tsx: one task loops over files with an awaited request. A thrown
 request ends the loop, so one invalid file prevents later files being attempted.
 The UI has no per-file upload outcomes, and ignores the API's duplicate flag.
 
@@ -165,11 +164,9 @@ repetitive fixture generation, focused tests, and evidence-backed review. Use th
 
 ## Next implementation prompt
 
-> Read AGENTS.md, docs/STATUS.md, docs/REAL_FOOTAGE_PLAN.md, and docs/LEARNING_PATH.md.
-> Start with Phase A1, resilient multi-file import. Explain the current request flow
-> before editing, preserve successes when one file is invalid, expose per-file outcomes
-> and duplicate/retry behavior, and test with isolated generated fixtures. Show the
-> creator an optional small learning contribution; no portion is currently reserved.
-> Follow the detailed IMPORT_PLAN.md and implement the complete feature. Keep the work
-> scoped and update status/evidence. Footage downloads, computer-use demonstration,
-> paid AI calls, and model training are later tasks.
+> Read AGENTS.md, docs/STATUS.md and this plan. A1 imports are implemented; begin
+> Phase A2 with independent generated-media orientation, timing and audio checks.
+> Inspect the current pipeline, explain the test plan first, fix only demonstrated
+> failures, and record exact evidence. Preserve import recovery, saved frames and
+> immutable sources. Performance optimization, real downloads, a live walkthrough,
+> Resolve import, paid AI and training are later tasks.

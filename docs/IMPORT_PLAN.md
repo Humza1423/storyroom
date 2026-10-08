@@ -2,7 +2,7 @@
 
 Planned 2026-10-07 against foundation commit 7286856. Execution is authorized by
 the creator after planning. This is Phase A1 of REAL_FOOTAGE_PLAN.md, not the entire
-real-footage milestone. No implementation results are claimed here.
+real-footage milestone. Implementation and verification are recorded in the execution evidence below.
 
 ## Outcome and boundaries
 
@@ -130,3 +130,42 @@ only in memory for explicit retry. Resume dispatches only waiting rows; failed r
 have their own Retry upload action. One controller per mounted app serializes all
 upload dispatch across projects. Leaving a project keeps its batch attached there;
 unmount stops further dispatch. Clearing local outcomes does not delete server data.
+
+
+## Execution evidence — 2026-10-08
+
+Phase A1 is implemented. The planning checkpoint (`ec03f3b`) preceded runtime
+changes, followed by the API contract checkpoint (`0b57c55`) and frontend/tests (`cf810d0`).
+No schema migration, dependency change, extra worker, or supported-format expansion
+was needed. Existing limits and atomic source/asset/job registration are preserved.
+
+| Check | Actual evidence |
+| --- | --- |
+| Backend | `.venv/bin/pytest -q`: 45 passed in 20.26s; one existing Starlette deprecation warning. |
+| Frontend | `npm run build`: TypeScript and Vite passed. |
+| Lint | `.venv/bin/ruff check server tests scripts --select E9,F63,F7,F82`: passed. |
+| Full isolated Playwright | `npm run test:e2e`: 24 passed in 39.8s (12 browser scenarios and 12 controller/board checks). Earlier expanded run: 22 passed in 39.3s. |
+| Mixed outcomes / identity | Real generated files: valid A, corrupt B, valid C; identical filenames with different bytes stay distinct; renamed identical bytes reuse an asset/job. |
+| Uncertain response | Browser test registers a real upload, discards its response, verifies pause, then explicitly retries and receives the existing asset. Timeout classification is exercised with a controlled timer/fetch test. |
+| Capacity / disk | Backend guards tested with reduced capacity/free-space fixtures; browser response interception verifies pause and explicit recovery. No disk was actually filled. |
+| Preparation retry | Backend injects a normalization failure, hides its job behind 45 newer activity rows, then verifies source reuse, replacement-job association and stale-retry deduplication. Browser retry UI uses simulated failed/queued worker responses and asserts no upload request. |
+| Ownership / saved edits | Delayed import stays with its captured project; the other project's board/assets and draft are untouched. Delayed import refresh cannot replace a concurrently saved section. |
+| Reload / memory | Accepted assets persist; waiting Files do not resume after reload. Controller tests check terminal File release, local clearing, disposal and overlap refusal. |
+| Documentation / cleanup | `git diff --check` passed; all 84 local Markdown links resolve; both browser-run temporary roots were removed. |
+| External boundaries | Synthetic fixtures and harness-owned processes/data only. No footage downloads, paid calls, training, live computer-use demo or remote push. No real-footage/Resolve/provider validation claimed. |
+
+One controller belongs to the mounted application. Uploads may finish for a project
+while another is open; only its matching project displays the outcomes. Browser
+refreshes merge media/job fields, preserving board and draft state. A row's upload
+outcome is distinct from the asset's current preparation state. The footage summary
+counts unique saved assets, so duplicate upload rows do not inflate ready counts.
+
+Resume sends only waiting files. Retry upload sends only its selected eligible row.
+Invalid bytes must be corrected and selected again. Explicit retry after an uncertain
+response can resend the entire file; content hashing prevents duplicate registration,
+not retransmission. Closing/reloading a tab loses waiting File objects. Clearing local
+outcomes never deletes managed sources, registered assets, or accepted board choices.
+
+Next scope is Phase A2 in REAL_FOOTAGE_PLAN: independent generated-media checks for
+orientation, frame timing and audio. Performance measurement (A3), real-footage
+acquisition/walkthrough, Resolve import and provider evaluation remain later gates.

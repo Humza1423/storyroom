@@ -61,6 +61,21 @@ For a production UI build: run `npm run build`, then run `.venv/bin/python -m uv
 
 The UI's native sequential playback is a quick assembly preview, not a frame-accurate editing monitor. The rendered MP4 and exported timeline are the outputs to inspect for precise boundaries.
 
+## Import recovery
+
+Select several clips together. Each file has its own outcome: invalid files do not
+block later valid files; capacity, disk and connection problems pause the remaining
+queue. **Retry upload** retries only that eligible row; **Resume remaining files**
+attempts the waiting rows. An unconfirmed upload may already be saved; its explicit
+retry checks content hashes to avoid duplicate assets. It still retransmits the file.
+
+**Already imported** identifies duplicate content, not readiness. Wait for **Ready
+to use** before selecting it. If preparation fails, **Retry preparation** reuses the
+stored source. Switching projects keeps a batch attached to its original destination.
+Reload keeps registered clips/jobs, but waiting files must be selected again. Clearing
+local outcomes never deletes clips or edits. Upload progress is a state, not an
+estimated byte percentage.
+
 ## Media limits and storage
 
 - Up to 30 files, 15 minutes total source duration, and 2 GB total source bytes per project.

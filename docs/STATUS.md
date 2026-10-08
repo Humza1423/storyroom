@@ -1,6 +1,6 @@
 # Project status and release checklist
 
-Updated: 2026-10-07. Status: local development preview; release gates remain open.
+Updated: 2026-10-08. Status: local development preview; release gates remain open.
 
 ## What exists
 
@@ -19,7 +19,37 @@ trained model, or a demonstration of AI retrieval accuracy.
 
 ## Latest engineering checkpoint
 
-Next-milestone planning: [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md) defines app
+2026-10-08: **Phase A1 resilient multi-file import verified locally** on
+`codex/complete-foundation`. The confirmed plan preceded runtime edits; see
+[IMPORT_PLAN](IMPORT_PLAN.md) for the API contract, acceptance matrix and evidence.
+
+- Each file has an independent upload outcome. Invalid files allow later files to
+  continue; capacity, disk, network and unknown errors pause waiting requests.
+- Duplicate badges use content identity. Upload acceptance is separate from current
+  preparation/ready state; the footage summary derives counts from unique assets.
+- Explicit upload retry handles uncertain responses through server deduplication;
+  preparation retry reuses the stored source and current normalization job, even
+  outside the activity panel's 40-job window. No schema migration was needed.
+- Captured project ownership and media-only refreshes preserve other projects,
+  saved boards and typed drafts. Reload keeps accepted assets/jobs but drops local
+  waiting Files; clearing outcomes does not delete server data.
+- Actual checks: full backend **45 passed (20.26s)**; TypeScript/build and fatal-error
+  lint passed; isolated Playwright **24 passed (39.8s)**. The latter includes 12
+  browser scenarios and 12 controller/board-rule checks. One existing Starlette
+  deprecation warning remains. Documentation diff checks and all 84 local links
+  passed; both browser-run temporary roots were removed. No remote CI run or
+  source push was performed.
+- Fault evidence is explicit: lost-response test commits a real upload then drops
+  the response; disk/capacity use controlled guards/responses; preparation UI uses
+  simulated failure states backed by a separate backend failure/retry test.
+
+Next: Phase A2's generated-media orientation/timing/audio checks in
+[REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md). Real footage, performance improvements,
+Resolve compatibility and provider quality remain unverified. No footage downloads,
+paid calls or training occurred in A1.
+
+
+Prior planning checkpoint: [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md) defines app
 preparation, later visible testing, measured fixes, and subsequent AI evaluation.
 Inspection found that one failed upload stops the current multi-file loop; Phase A1
 addresses per-file outcomes and partial success. Timing/rotation/audio checks are
@@ -141,6 +171,10 @@ repository public remains a separate, explicit release decision.
 - [x] Improve startup diagnostics and the disconnected-server experience.
 
 ### 2. Prove the manual handoff — required for release
+
+- [x] Phase A1: resilient multi-file imports with stage-specific recovery and isolated tests.
+- [ ] Phase A2: independently verify generated-media orientation, frame timing and audio.
+- [ ] Phase A3: measure media-stage performance before changing encoding.
 
 - [ ] Import a coherent set of owned or appropriately licensed real training clips.
 - [ ] Assemble three clips; reopen the project and confirm the exact saved order and boundaries.

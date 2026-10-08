@@ -132,3 +132,29 @@ The Ubuntu workflow runs fatal-error lint, backend tests, build and isolated bro
 checks with empty credentials, unconfirmed pricing and zero subprocess AI budget.
 Provider ledger unit tests explicitly use fake clients and a finite test allowance.
 The supported user platform remains macOS; external Resolve/provider gates remain.
+
+
+## Resilient import batches
+
+`features/library/imports/controller.ts` owns browser-only batch state and sequential
+dispatch; `ImportPanel.tsx` presents outcomes; `presentation.ts` derives preparation
+labels and unique-asset counts. `App.tsx` captures the selected destination and merges
+only refreshed assets/moments/jobs. It keeps board revisions and draft forms intact.
+`useSyncExternalStore` subscribes React to the controller's immutable snapshots; no
+global state library or persistent browser queue was added.
+
+The request flow is File → one import request → atomic asset/job registration →
+persistent worker preparation → refreshed asset state. Registration is not proof of
+playability. Accepted and invalid rows release their File; recoverable rows retain it
+for explicit upload retry. Disposing the controller prevents further dispatch.
+
+Import errors retain `detail` and add `code`, `scope` (`file` or `batch`) and
+`uncertain`. Only known file-invalid/file-too-large rejections continue automatically.
+Unknown/systemic failures pause conservatively. A timeout may follow a server commit,
+so the UI never infers success from a filename; explicit retry uses content hashing.
+
+`server/imports.py` derives each asset's `preparation_job` from all its project's
+normalization jobs, exposing only id/status/progress/message. Duplicate imports
+return that job ID. Preparation retry checks for a newer pending/completed job under
+the write transaction before queuing another, protecting against stale buttons.
+These are response/behavior changes; SQLite remains schema version 1.
