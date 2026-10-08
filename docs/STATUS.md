@@ -19,6 +19,11 @@ trained model, or a demonstration of AI retrieval accuracy.
 
 ## Latest engineering checkpoint
 
+2026-10-07: frontend extraction verified. Types/helpers build passed, component
+extraction build and 2-test browser suite passed, then the expanded 4-test suite
+passed (20.4s), including delayed-project response and duplicate-placement rules.
+Fatal-error lint passed. Stable API contracts and saved integer-frame boards remain.
+
 2026-10-07: database migration runner verified: 5 migration tests passed, covering
 competing initialization, existing saved choices/revisions, WAL-aware backup,
 rollback (including refusal of implicit commits), repeat startup, and future-version
@@ -85,7 +90,7 @@ repository public remains a separate, explicit release decision.
 - [x] Create a private GitHub repository, configure `origin`, and push `main`.
 - [x] Isolate browser tests from personal projects and remove dependence on a pre-seeded demo.
 - [x] Add tested, versioned database upgrades before changing the stored schema.
-- [ ] Split frontend types, API calls, board logic, and components into focused modules.
+- [x] Split frontend types, API calls, board logic, and components into focused modules.
 - [ ] Lock Python dependencies and add automated checks for contributions.
 - [ ] Improve startup diagnostics and the disconnected-server experience.
 
@@ -126,7 +131,7 @@ repository public remains a separate, explicit release decision.
 
 ## Known limitations that shape the next design decisions
 
-- `src/main.tsx` contains most frontend behavior in one large file. Refactoring is due before substantial UI expansion.
+- Frontend boundaries are extracted; App still owns orchestration and draft dialogs to avoid unnecessary state abstractions.
 - Ordered transactional migrations now preserve version-1 data; no production version-2 change was needed.
 - Asset/job registration is atomic in SQLite. SQLite and the filesystem are not one transaction: a hard process kill may leave an unreferenced media directory. Automatic orphan reconciliation is not implemented.
 - A retry reuses completed AI response caches, but normalization can redo completed encoding stages. This is retry support, not full resumability.

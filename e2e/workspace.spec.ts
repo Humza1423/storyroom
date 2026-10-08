@@ -14,7 +14,9 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
   await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   await page
     .locator("input[type=file]")
-    .setInputFiles([0, 1, 2].map(i => `${process.env.STORYROOM_FIXTURES}/clip-${i}.mp4`));
+    .setInputFiles(
+      [0, 1, 2].map((i) => `${process.env.STORYROOM_FIXTURES}/clip-${i}.mp4`),
+    );
   await expect(page.locator(".moment-card")).toHaveCount(3, { timeout: 30000 });
   await page.getByRole("button", { name: "Add story section" }).click();
   await page.getByLabel("Section title").fill("Practice");
@@ -24,7 +26,8 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
   await page.getByRole("button", { name: "Save section", exact: true }).click();
   await expect(page.locator(".story-section")).toHaveCount(1);
   await page
-    .getByRole("button", { name: "Add to section", exact: true }).first()
+    .getByRole("button", { name: "Add to section", exact: true })
+    .first()
     .click();
   await expect(page.locator(".clip-row")).toHaveCount(1);
   await page.locator(".clip-main").click();
@@ -35,12 +38,23 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
     "00:00:05 → 00:01:15",
   );
   // Three placements include a repeated source; IDs and ranges stay independent.
-  await page.getByRole("button", { name: "Add to section", exact: true }).nth(1).click();
+  await page
+    .getByRole("button", { name: "Add to section", exact: true })
+    .nth(1)
+    .click();
   await expect(page.locator(".clip-row")).toHaveCount(2);
-  await page.getByRole("button", { name: "Add to section", exact: true }).first().click();
+  await page
+    .getByRole("button", { name: "Add to section", exact: true })
+    .first()
+    .click();
   await expect(page.locator(".clip-row")).toHaveCount(3);
-  await page.getByRole("button", { name: "Move clip later", exact: true }).first().click();
-  await expect(page.locator(".clip-main small").nth(1)).toHaveText("00:00:05 → 00:01:15");
+  await page
+    .getByRole("button", { name: "Move clip later", exact: true })
+    .first()
+    .click();
+  await expect(page.locator(".clip-main small").nth(1)).toHaveText(
+    "00:00:05 → 00:01:15",
+  );
   await page.reload();
   await expect(page.locator(".clip-main small").nth(1)).toHaveText(
     "00:00:05 → 00:01:15",
@@ -85,8 +99,14 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
   expect(errors).toEqual([]);
 });
 
-test("responsive workspace has no horizontal overflow", async ({ page, request }) => {
-  const response = await request.post("/api/projects", {headers: {"X-Storyroom": "local"}, data: {name: "Mobile project", brief: ""}});
+test("responsive workspace has no horizontal overflow", async ({
+  page,
+  request,
+}) => {
+  const response = await request.post("/api/projects", {
+    headers: { "X-Storyroom": "local" },
+    data: { name: "Mobile project", brief: "" },
+  });
   expect(response.ok()).toBeTruthy();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
@@ -98,16 +118,60 @@ test("responsive workspace has no horizontal overflow", async ({ page, request }
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBeTruthy();
-  await page
-    .getByRole("button", { name: "Mobile project" })
-    .click();
+  await page.getByRole("button", { name: "Mobile project" }).click();
   await page.getByRole("button", { name: "Add story section" }).click();
   await page.getByLabel("Section title").fill("Mobile section");
-  await page.getByRole("button", {name: "Save section", exact: true}).click();
+  await page.getByRole("button", { name: "Save section", exact: true }).click();
   await expect(page.locator(".story-section")).toHaveCount(1);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBeTruthy();
+});
+
+test("late project response cannot replace the active project or brief", async ({
+  page,
+  request,
+}) => {
+  const create = async (name: string) =>
+    (
+      await request.post("/api/projects", {
+        headers: { "X-Storyroom": "local" },
+        data: { name, brief: name + " brief" },
+      })
+    ).json();
+  const old = await create("Slow project");
+  await create("Active project");
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let intercepted!: () => void;
+  const arrived = new Promise<void>((resolve) => {
+    intercepted = resolve;
+  });
+  await page.route(`**/api/projects/${old.id}`, async (route) => {
+    const response = await route.fetch();
+    intercepted();
+    await gate;
+    await route.fulfill({ response });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Slow project", exact: true }).click();
+  await arrived;
+  await page
+    .getByRole("button", { name: "Active project", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Active project", exact: true }),
+  ).toBeVisible();
+  release();
+  await page.unrouteAll({ behavior: "wait" });
+  await expect(
+    page.getByRole("heading", { name: "Active project", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".brief-bar textarea")).toHaveValue(
+    "Active project brief",
+  );
 });

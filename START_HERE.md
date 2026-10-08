@@ -36,7 +36,10 @@ stop the worker; stopping the launcher does.
 
 | File | Responsibility | Question to answer while reading |
 | --- | --- | --- |
-| [src/main.tsx](src/main.tsx) | React state, footage library, board, preview, dialogs | Which action sends an HTTP request? |
+| [src/main.tsx](src/main.tsx) | Mounting and styles | Where does React start? |
+| [src/App.tsx](src/App.tsx) | Workspace state and orchestration | Which action sends an HTTP request? |
+| [src/types.ts](src/types.ts), [src/lib/api.ts](src/lib/api.ts) | API contracts and bounded requests | What happens on an error or timeout? |
+| [src/features/](src/features/) | Library, board, and preview components | Which state comes from the parent? |
 | [src/style.css](src/style.css) | Layout, responsive behavior, visual styling | What changes presentation rather than saved project data? |
 | [server/models.py](server/models.py) | Valid request and AI response shapes | Which malformed values are rejected automatically? |
 | [server/app.py](server/app.py) | API routes, validation, media import, board updates | Which rules must hold even if the browser sends bad data? |

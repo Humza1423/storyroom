@@ -100,3 +100,13 @@ saves the committed database including WAL contents beside the database. Failed
 upgrades roll back schema, data, and version together; future schema versions are
 refused. Backups are retained, not automatically deleted. Migration functions cannot
 commit or use `executescript`, which otherwise implicitly commits the transaction.
+
+## Frontend boundaries
+
+`main.tsx` mounts `App.tsx`. Shared API shapes live in `types.ts`; `lib/api.ts`
+handles the local request header, structured HTTP errors, and bounded timeouts.
+Library cards, board rows/sections, pure placement moves, and the preview player
+live under `features/`; processing controls live under `components/`. App keeps
+project orchestration and draft form state. Saved boards/revisions stay in SQLite.
+Project effects discard late responses after selection changes; polling uses an
+epoch to avoid replacing a board with a response that crossed a save.
