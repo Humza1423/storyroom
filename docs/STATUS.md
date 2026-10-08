@@ -1,6 +1,6 @@
 # Project status and release checklist
 
-Updated: 2026-10-06. Status: local development preview; release gates remain open.
+Updated: 2026-10-07. Status: local development preview; release gates remain open.
 
 ## What exists
 
@@ -18,6 +18,19 @@ The generated demo is a technical fixture. It is not real sports footage, a
 trained model, or a demonstration of AI retrieval accuracy.
 
 ## Latest engineering checkpoint
+
+2026-10-07: foundation planning and real-footage sourcing.
+
+- Inspected test setup, launcher, SQLite initialization, frontend structure, local
+  origin rules, and worker recovery. Added [FOUNDATION_PLAN](FOUNDATION_PLAN.md)
+  with ordered implementation checkpoints and acceptance criteria.
+- Added [FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md): four exercise-video source pages
+  with author/license metadata, format conversion needs, and a manual test procedure.
+  No footage was downloaded or evaluated and no cloud call was made.
+- Foundation items below remain unfinished. This checkpoint changes documentation,
+  not runtime behavior; historical test results are not a new test run.
+- Documentation validation: `git diff --check` passed; all 63 relative links across
+  15 Markdown files resolve.
 
 2026-10-06: documentation continuity and GitHub inspection.
 

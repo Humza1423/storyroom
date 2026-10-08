@@ -28,6 +28,11 @@ and [THIRD_PARTY](THIRD_PARTY.md) cover model experiments and licensing boundari
 
 ## Immediate implementation entry point
 
+For the full foundation task, follow [FOUNDATION_PLAN](FOUNDATION_PLAN.md). Its
+five checkpoints have concrete completion checks and a prompt for the executing
+session. [FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md) lists researched real footage for
+the next manual handoff test; it has not been downloaded or evaluated yet.
+
 Unless STATUS or the user sets a newer priority, isolate the browser tests before
 the frontend refactor. Inspect `playwright.config.ts`, `e2e/workspace.spec.ts`,
 `scripts/dev.py`, and `server/config.py`. Design a dedicated test data directory,

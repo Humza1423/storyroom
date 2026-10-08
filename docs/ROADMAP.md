@@ -7,6 +7,10 @@ exists; finish evidence and reliability before adding more surface area.
 
 ## 1. Reliable local foundation
 
+The executable scope and acceptance gates are in
+[FOUNDATION_PLAN](FOUNDATION_PLAN.md). The subsequent real-footage exercise is in
+[FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md).
+
 Use the existing React/TypeScript interface, FastAPI validation boundary, SQLite
 storage, and one persistent Python worker. Keep FFmpeg processing outside HTTP
 requests. See [ARCHITECTURE](ARCHITECTURE.md) for the implemented flows.
