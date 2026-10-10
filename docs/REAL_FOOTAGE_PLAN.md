@@ -91,6 +91,9 @@ tone-map HDR or claim all phone footage is supported.
 
 ### A3. Measure performance before changing encoding
 
+Execution specification: [PERFORMANCE_PLAN](PERFORMANCE_PLAN.md), prepared from
+parallel read-only inspection after A2. No A3 runtime changes or benchmark yet.
+
 The foundation record contains an earlier render timeout whose cause was not
 isolated. It increased the bounded browser deadline and added render-stage messages;
 that is not evidence of a speed improvement.

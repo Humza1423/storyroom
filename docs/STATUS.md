@@ -1,6 +1,6 @@
 # Project status and release checklist
 
-Updated: 2026-10-09. Status: local development preview; release gates remain open.
+Updated: 2026-10-10. Status: local development preview; release gates remain open.
 
 ## What exists
 
@@ -12,7 +12,7 @@ Updated: 2026-10-09. Status: local development preview; release gates remain ope
 | AI adapter | Video chunks, validated observations, embeddings, story proposals, cost reservations | Fake-provider tests cover response validation, caching, budget, and failure. No real provider or quality benchmark has been verified. |
 | Search | Keyword matching and optional description-embedding similarity | Manual keyword behavior tested. The 20-query real-footage benchmark has not been completed. |
 | Training | Permission-aware judgments, grouped split, logistic-regression experiment, report export | Script and labeling interface exist. No trained or deployed custom model has been established. |
-| Project access | Source opens in VS Code; onboarding, architecture, contribution and learning docs; public GitHub remote | Foundation history and A2 plan pushed to `codex/media-correctness`; baseline Ubuntu CI passed at c913929. Final A2 evidence is recorded separately below. |
+| Project access | Source opens in VS Code; onboarding, architecture, contribution and learning docs; public GitHub remote | Foundation and A2 commits are on `codex/media-correctness`; both Ubuntu checks passed at 3372a3a. PR #1 remains draft. |
 
 The generated demo is a technical fixture. It is not real sports footage, a
 trained model, or a demonstration of AI retrieval accuracy.
@@ -56,12 +56,14 @@ No additional product choice required an interview.
   added a shared-clock learning exercise. Public repository access and the
   creator's standing checkpoint-push preference are documented.
 - Foundation history and the plan are already on `codex/media-correctness` in
-  [PR #1](https://github.com/Humza1423/storyroom/pull/1). Baseline Ubuntu CI passed
-  at c913929 ([push run](https://github.com/Humza1423/storyroom/actions/runs/37891926662),
-  [PR run](https://github.com/Humza1423/storyroom/actions/runs/37891963008)). Final
-  A2 remote execution will be recorded separately after the verified changes push.
+  [PR #1](https://github.com/Humza1423/storyroom/pull/1). Ubuntu push CI and PR CI
+  both passed at 3372a3a ([push run](https://github.com/Humza1423/storyroom/actions/runs/38022060117),
+  [PR run](https://github.com/Humza1423/storyroom/actions/runs/38022063786)). PR #1
+  remains draft while A3 work is underway.
 
-Next: Phase A3's bounded stage measurements before optimizing. Unfamiliar real
+Next: Phase A3's bounded stage measurements before optimizing, specified in
+[PERFORMANCE_PLAN](PERFORMANCE_PLAN.md) after two read-only agent planning passes.
+A3 code and benchmarks are not implemented. Unfamiliar real
 footage, actual Resolve import, provider quality and training remain separate
 gates. No footage download, paid request or training occurred in A2.
 

@@ -34,7 +34,8 @@ formula could reproduce the same mistake and still pass.
 Try this exercise:
 
 1. Predict the output duration for ranges `[0, 10)`, `[29, 30)`, and `[10, 20)`.
-2. Find the corresponding frame-count and timestamp-spacing assertions in the test.
+2. Find the test's five selected ranges, calculate their total separately, then
+   compare it with the frame-count and timestamp-spacing assertions.
 3. Explain why a correct total count alone cannot prove correct cut order or sound.
 4. Read the change in `server/media.py` and identify which operation preserves
    geometry and which preserves the shared clock.
