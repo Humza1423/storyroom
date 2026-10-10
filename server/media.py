@@ -80,6 +80,11 @@ def probe(path):
             "transfer": v.get("color_transfer"),
             "pix_fmt": v.get("pix_fmt"),
             "format": data["format"].get("format_name", ""),
+            "major_brand": data["format"]
+            .get("tags", {})
+            .get("major_brand", "")
+            .strip(),
+            "video_start": float(v.get("start_time") or 0),
         }
     except subprocess.TimeoutExpired as exc:
         raise InspectionUnavailable(
@@ -92,7 +97,11 @@ def probe(path):
 
 
 def validate(info):
-    if info["codec"] != "h264" or "mp4" not in info["format"]:
+    if (
+        info["codec"] != "h264"
+        or "mp4" not in info["format"]
+        or info.get("major_brand") == "qt"
+    ):
         raise ValueError("Version 1 supports H.264 MP4 footage only.")
     if (
         max(info["width"], info["height"]) > 1920
@@ -108,11 +117,18 @@ def validate(info):
 
 
 def encode(source, dest, proxy=False, cancelled=lambda: False):
-    vf = "fps=30,setsar=1"
+    video_start = probe(source)["video_start"]
+    # A pixel can represent a non-square region of the displayed image. Resize
+    # using that display geometry before discarding SAR, including after FFmpeg's
+    # automatic rotation. Keep either orientation inside the supported 1080p box.
+    factor = "min(1,min(1920/max(iw*sar,ih),1080/min(iw*sar,ih)))"
+    vf = (
+        f"setpts=PTS-({video_start})/TB,fps=30:start_time=0,"
+        f"scale=w='max(2,trunc(iw*sar*{factor}/2)*2)':"
+        f"h='max(2,trunc(ih*{factor}/2)*2)',setsar=1"
+    )
     if proxy:
-        vf += (
-            ",scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2"
-        )
+        vf += ",scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1"
     temp = dest.with_name(dest.stem + ".partial.mp4")
     run(
         [
@@ -121,6 +137,7 @@ def encode(source, dest, proxy=False, cancelled=lambda: False):
             "-y",
             "-v",
             "error",
+            "-copyts",
             "-i",
             str(source),
             "-map",
@@ -146,7 +163,9 @@ def encode(source, dest, proxy=False, cancelled=lambda: False):
             "-ac",
             "2",
             "-af",
-            "aresample=async=1:first_pts=0",
+            # Both streams lose the same origin. Resetting audio independently
+            # would erase a real delay; first_pts pads/trims relative to video.
+            f"asetpts=PTS-({video_start})/TB,aresample=async=1:first_pts=0",
             "-movflags",
             "+faststart",
             str(temp),
@@ -233,8 +252,12 @@ def render(
                 raise ValueError(
                     f"Editing media is missing for {asset['name']}. Retry its media job."
                 )
-            part = Path(tmp) / f"part{i:04}.mp4"
-            length = (clip["end_frame"] - clip["start_frame"]) / 30
+            # PCM has exact sample boundaries. Separate AAC encodes introduce
+            # packet padding at each cut and make concat offset video timestamps.
+            # Encode AAC only once, after joining the sequential temporary parts.
+            part = Path(tmp) / f"part{i:04}.mov"
+            frame_count = clip["end_frame"] - clip["start_frame"]
+            length = frame_count / 30
             args = [
                 "ffmpeg",
                 "-nostdin",
@@ -258,7 +281,9 @@ def render(
                 "-vf",
                 "scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30",
                 "-af",
-                "apad",
+                # Seeking AAC may leave its first decoded packet after zero.
+                # Align/pad before trimming to exactly 1600 samples per frame.
+                f"aresample=48000:async=1:first_pts=0,apad,atrim=end_sample={frame_count * 1600}",
                 "-c:v",
                 "libx264",
                 "-preset",
@@ -268,7 +293,7 @@ def render(
                 "-threads",
                 "2",
                 "-c:a",
-                "aac",
+                "pcm_s16le",
                 "-ar",
                 "48000",
                 "-ac",
@@ -276,11 +301,13 @@ def render(
                 str(part),
             ]
             run(args, cancelled)
-            parts.append(part)
+            parts.append((part, length))
         report(0.95, "Joining rendered clips")
         listing = Path(tmp) / "parts.txt"
         # Generated basenames only; no user text enters the concat manifest.
-        listing.write_text("\n".join(f"file '{p.name}'" for p in parts))
+        listing.write_text(
+            "\n".join(f"file '{p.name}'\nduration {length:.12f}" for p, length in parts)
+        )
         partial = dest.with_suffix(".partial.mp4")
         run(
             [
@@ -295,8 +322,10 @@ def render(
                 "1",
                 "-i",
                 str(listing),
-                "-c",
+                "-c:v",
                 "copy",
+                "-c:a",
+                "aac",
                 "-movflags",
                 "+faststart",
                 str(partial),
