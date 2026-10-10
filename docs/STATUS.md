@@ -1,6 +1,6 @@
 # Project status and release checklist
 
-Updated: 2026-10-08. Status: local development preview; release gates remain open.
+Updated: 2026-10-09. Status: local development preview; release gates remain open.
 
 ## What exists
 
@@ -8,16 +8,62 @@ Updated: 2026-10-08. Status: local development preview; release gates remain ope
 | --- | --- | --- |
 | Manual assembly | Projects, import, proxies, descriptions, story sections, drag/reorder, frame trimming, save/reopen, undo | Backend tests cover persistence and frame rules. Isolated browser tests cover three generated inputs, repeated placement, exact saved ranges/order, undo, playback and outputs. Real footage remains separate. |
 | Processing | One SQLite-backed worker, progress, cancel/retry, response caching | Real worker subprocess tests cover pending/interrupted normalization/render, second-worker refusal and explicit retry. Encoding restarts; it is not stage-resumable. |
-| Output | MP4 render, FCP7 XML, OTIO, media manifest | Generated-media tests check render duration and XML round-trip through OTIO. No verified import in DaVinci Resolve yet. |
+| Output | MP4 render, FCP7 XML, OTIO, media manifest | Independent generated-media checks verify pixels, exact frame count/spacing, audio boundaries, and XML references/ranges/gaps. No verified import in DaVinci Resolve yet. |
 | AI adapter | Video chunks, validated observations, embeddings, story proposals, cost reservations | Fake-provider tests cover response validation, caching, budget, and failure. No real provider or quality benchmark has been verified. |
 | Search | Keyword matching and optional description-embedding similarity | Manual keyword behavior tested. The 20-query real-footage benchmark has not been completed. |
 | Training | Permission-aware judgments, grouped split, logistic-regression experiment, report export | Script and labeling interface exist. No trained or deployed custom model has been established. |
-| Project access | Source opens in VS Code; onboarding, architecture, contribution and learning docs; private GitHub remote | Fresh macOS checkout/virtual environment installation is verified below. Public release and remote CI remain separate. |
+| Project access | Source opens in VS Code; onboarding, architecture, contribution and learning docs; public GitHub remote | Foundation history and A2 plan pushed to `codex/media-correctness`; baseline Ubuntu CI passed at c913929. Final A2 evidence is recorded separately below. |
 
 The generated demo is a technical fixture. It is not real sports footage, a
 trained model, or a demonstration of AI retrieval accuracy.
 
 ## Latest engineering checkpoint
+
+2026-10-09: **Phase A2 media correctness and coordinated GitHub delivery**.
+[MEDIA_CORRECTNESS_PLAN](MEDIA_CORRECTNESS_PLAN.md) was committed before runtime
+edits. Separate agents owned media code, independent acceptance fixtures, and
+README/development documentation; the coordinator reviewed and ran integration.
+No additional product choice required an interview.
+
+- Reproduced a 32:9 anamorphic image squeezed to 16:9, non-square proxy pixels,
+  and an editing video starting at 0.2 seconds when audio preceded video. New
+  normalization preserves displayed geometry and subtracts the first video
+  timestamp from both streams, padding/trimming audio against that shared origin.
+- Reproduced a QuickTime MOV renamed `.mp4` passing the codec/container guard.
+  The `qt` container brand is now rejected; supported formats did not expand.
+- A five-cut fixture with silent portrait footage, repeated ranges and a one-frame
+  final-frame selection reproduced 123 ms excess decoded audio and an 8 ms video
+  timestamp gap. Render parts now use exact-length PCM audio and frame-derived
+  concat durations; AAC is encoded once in the final review MP4. Video remains
+  sequentially encoded per part, then stream-copied at the join.
+- Final independent media matrix: **19 passed (11.41s)**. Checks decode RGB pixels,
+  frame counts/PTS and PCM audio rather than trusting production metadata alone.
+  The 46-frame rendered fixture has exact cut order/count and continuous 30 fps
+  timestamps; silent/audio boundaries are within one normalized frame. XML checks
+  verify media references, ranges, order and silent gaps, not Resolve compatibility.
+- Coordinator checks on macOS/Python 3.12.4/Node 22.4.1/FFmpeg 9.0.1:
+  `.venv/bin/pytest -q` **66 passed (93.97s)**; isolated `npm run test:e2e`
+  **25 passed (53.2s)**; TypeScript/production build, fatal-error Ruff lint and
+  whitespace checks passed. One existing Starlette deprecation warning remains.
+  All 105 local Markdown file links resolve. Runtime fixes and independent tests
+  are recorded in commit `9d57a4b`.
+- Existing editing copies and saved selections were not rewritten. New imports
+  and renders use the fixes; older copies can retain historical errors. PCM adds
+  approximately 192 KB of temporary audio per assembly second. This is not a
+  speed benchmark. No schema, worker concurrency or dependencies changed.
+- Rewrote README around the actual product/workflow, runnable branch setup,
+  architecture and honest limits; moved deep operations into DEVELOPMENT and
+  added a shared-clock learning exercise. Public repository access and the
+  creator's standing checkpoint-push preference are documented.
+- Foundation history and the plan are already on `codex/media-correctness` in
+  [PR #1](https://github.com/Humza1423/storyroom/pull/1). Baseline Ubuntu CI passed
+  at c913929 ([push run](https://github.com/Humza1423/storyroom/actions/runs/37891926662),
+  [PR run](https://github.com/Humza1423/storyroom/actions/runs/37891963008)). Final
+  A2 remote execution will be recorded separately after the verified changes push.
+
+Next: Phase A3's bounded stage measurements before optimizing. Unfamiliar real
+footage, actual Resolve import, provider quality and training remain separate
+gates. No footage download, paid request or training occurred in A2.
 
 2026-10-08: **independent A1 review and two consistency fixes**. Reviewed the four
 import checkpoints after 7286856, including controller, UI integration, API errors,
@@ -176,8 +222,9 @@ The mobile test exposed and fixed missing accessible labels on project icons.
 - One existing Starlette test-client deprecation warning remains. Browser tests were not rerun in this checkpoint; earlier partial results are not a current full-suite pass.
 
 No cloud credentials, footage, database, or generated exports belong in Git.
-The private GitHub remote contains tracked source and documentation. Making the
-repository public remains a separate, explicit release decision.
+GitHub access was initially private. On 2026-10-09 the connected repository was
+verified public; tracked source and documentation are published there. The creator
+authorized routine feature-branch pushes for verified implementation checkpoints.
 
 ## Next milestones, in order
 
@@ -198,7 +245,7 @@ repository public remains a separate, explicit release decision.
 ### 2. Prove the manual handoff — required for release
 
 - [x] Phase A1: resilient multi-file imports with stage-specific recovery and isolated tests.
-- [ ] Phase A2: independently verify generated-media orientation, frame timing and audio.
+- [x] Phase A2: independently verify generated-media orientation, frame timing and audio.
 - [ ] Phase A3: measure media-stage performance before changing encoding.
 
 - [ ] Import a coherent set of owned or appropriately licensed real training clips.
@@ -224,8 +271,8 @@ repository public remains a separate, explicit release decision.
 - [x] Test installation from a fresh macOS checkout and locked environment.
 - [ ] Review dependency/media licenses for the release and real-footage exercise.
 - [ ] Demonstrate with real footage and clearly disclose remaining limitations.
-- [ ] Review release contents and explicitly make the repository public when ready;
-  keep credentials and personal media excluded.
+- [x] Public source access verified on 2026-10-09; this is not a validated product release.
+- [ ] Review release contents, keeping credentials and personal media excluded.
 
 ### 5. Learn a better ranker after labels exist
 

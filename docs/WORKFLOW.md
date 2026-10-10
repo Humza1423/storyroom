@@ -42,6 +42,14 @@ and context so future sessions know what to read. See
 5. Commit a coherent checkpoint locally. Push the branch when you want those
    commits on GitHub. Review/merge via a pull request when useful.
 
+For this project, the creator requested on 2026-10-09 that verified implementation
+checkpoints be pushed routinely with descriptive commit messages and updates.
+The connected remote [Humza1423/storyroom](https://github.com/Humza1423/storyroom)
+is public (verified through GitHub that day). Agents should push the feature branch,
+open/update its pull request, check CI and provide direct links. Merging to main and
+changing visibility are separate decisions. On GitHub, select the feature branch
+or follow the provided PR link to see its updated README before merge.
+
 Git vocabulary: **save** updates a file; **commit** records a local snapshot;
 **push** sends commits to the configured remote; **pull** brings remote changes
 into the local branch. Inspect local changes before pulling. Git is not automatic

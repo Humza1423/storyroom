@@ -9,7 +9,7 @@ Suppose you import a clip and add two seconds of it to “Show the work.”
 3. **SQLite is the durable memory.** It remembers the asset, pending work, board, and prior revisions. Reloading a browser does not erase them.
 4. **The worker handles long operations.** It picks one persistent job at a time. FFmpeg makes a consistent editing copy and smaller preview proxy. A lock prevents two normal workers from simultaneously processing expensive jobs.
 5. **A board selection is data.** It contains an asset ID, an in-frame, an exclusive out-frame, and an order. Adding the same source twice creates two selections, not two new video files.
-6. **Export interprets those decisions.** OpenTimelineIO produces a timeline; its adapter writes Resolve-importable FCP7 XML. A separate render stitches actual selected ranges for review.
+6. **Export interprets those decisions.** OpenTimelineIO produces a timeline; its adapter writes FCP7 XML intended for Resolve. Actual editor import remains an acceptance gate. A separate render stitches actual selected ranges for review.
 
 This is non-destructive editing: a decision changes without rewriting the source. That distinction matters more than the AI model.
 
@@ -47,6 +47,30 @@ The pipeline is bounded, not an autonomous agent loop:
 An embedding is a numerical representation whose distance can help compare meanings. We compute embeddings once, save them, and compare a query against them. We do not ask a large model to reread every video on every search.
 
 The current retrieval baseline searches descriptions. If the captioner misses a red jersey, text search cannot recover that visual evidence. A direct frame-text encoder such as SigLIP is a separate experiment for fixing that failure, not a reason to rewrite the board or export code.
+
+## Media coordinates and the shared clock
+
+`server/media.py` prepares new editing copies at 30 fps. The first video timestamp
+defines time zero; video and audio lose the same origin. Audio before that origin
+is trimmed and delayed audio gets silence, rather than independently resetting
+both streams and erasing their relative offset. FFmpeg applies rotation, resizes
+using the displayed pixel aspect, then writes square pixels. Editing copies fit
+inside 1920-by-1080 in either orientation; playback proxies fit inside 1280-by-720.
+
+Selections use exclusive integer out points. Rendering each range produces a
+1280-by-720 padded video part and uncompressed 48 kHz stereo PCM audio. At 30 fps,
+each selected frame gets exactly 1,600 audio samples. The concat manifest uses the
+saved frame duration, not a container's padded audio duration; final video packets
+are copied and AAC is encoded once. Encoding AAC separately at every cut produced
+excess audio and irregular video timestamps in the regression fixture.
+
+PCM adds approximately 192 KB of temporary audio per second of assembly, alongside
+the encoded video parts. Processing remains sequential. This is a measured
+correctness fix, not a performance improvement claim; profiling is the next step.
+Existing editing files and selections are not silently rewritten. New imports
+and renders use the corrected policy; older copies can retain historical errors.
+See [media clocks](learning/02-media-clocks.md) and
+[the independent regression tests](../tests/test_media_correctness.py).
 
 ## Boundaries that prevent expensive bugs
 

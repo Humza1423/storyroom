@@ -25,8 +25,8 @@ survives upgrades; refactoring preserves behavior; startup failures are actionab
 
 ## 2. Prove the manual vertical slice
 
-Phase A1's resilient batch import is implemented and tested. Continue with A2's
-independent generated-media timing/orientation/audio checks, then A3's performance
+Phases A1 and A2 now cover resilient batch import and independent generated-media
+timing/orientation/audio checks with regression fixes. Continue with A3's performance
 measurements before acquiring real footage; see [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md).
 
 Import → normalize → select three clips → trim/reorder → save/reopen → preview →
@@ -81,8 +81,9 @@ complete manual and AI-assisted workflows on unfamiliar footage.
 
 Acceptance: clean-machine setup from README, full relevant automated checks, real
 Resolve evidence, honest demo, license/provenance review, and documented limits.
-Publish source only with authorization. A private GitHub backup is not a public
-launch. Interview and adoption tasks remain saved for later in STATUS.
+Source is public and verified checkpoints are routinely pushed under the creator's
+authorization. Public source is not proof of a validated product launch. Interview
+and adoption tasks remain saved for later in STATUS.
 
 ## 6. Custom ranking experiment after usable labels exist
 

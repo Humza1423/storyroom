@@ -80,3 +80,27 @@ with changes and verification; inspect remote CI and fix relevant failures. Do n
 force-push or change repository visibility. Report the branch/PR link so the creator
 can actually find the updated code and README. Persist the preference to push
 verified future implementation checkpoints in project working instructions.
+
+## Execution record — 2026-10-09
+
+The three agents completed their assigned files, shared fixture failures before
+fixes, and performed an additional read-only integration review. Confirmed defects
+were squeezed anamorphic geometry, non-square proxy pixels, shifted video time zero
+with leading audio, renamed QuickTime acceptance, and excess audio/irregular video
+PTS across short cuts. Corrections remain in `server/media.py`; no worker, exporter,
+schema or dependency changes were required.
+
+The renderer uses PCM MOV intermediates with exactly 1,600 samples per 30 fps frame
+and explicit concat durations from selection ranges, then one final AAC encode.
+This bounded algorithm change adds about 192 KB/second of temporary stereo audio;
+video work is still sequential. An initial PCM-only correction did not remove the
+8 ms clock gap; source-AAC leading padding also needed alignment before exact trim.
+That sequence is why the acceptance checks inspect PTS and sound, not just length.
+
+Independent targeted matrix: 19 passed in 11.41s. Coordinator full checks: 66 backend
+tests passed in 93.97s, 25 isolated Playwright/controller checks passed in 53.2s,
+build and fatal-error lint passed. Local environment: macOS, Python 3.12.4,
+Node 22.4.1, FFmpeg 9.0.1. Actual remote runs and delivery are recorded in STATUS.
+The README, development guide, architecture/handoff and learning path were aligned.
+Historical media was not rewritten; actual footage, performance, Resolve and AI
+evaluation are still separate gates.

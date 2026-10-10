@@ -27,3 +27,15 @@ Do not touch the parent home-directory Git repository. This folder is the dedica
 repository. Keep credentials and user data excluded. Do not publish source, send
 footage to a provider, or claim an editor import succeeded without the relevant
 authorization and evidence.
+
+GitHub delivery preference (2026-10-09): the creator explicitly authorized pushing
+verified implementation checkpoints to the existing Humza1423/storyroom remote.
+Use descriptive commits, a normal feature-branch push and a reviewable pull request;
+report links and actual CI results. Do not ask again for routine authorized pushes.
+Do not force-push, change visibility, merge to main, or include credentials/media
+as part of that preference. Keep each milestone planned before runtime edits and
+divide agent ownership by files when parallel work is requested.
+The creator prefers parallel agents for independent implementation, validation and
+documentation work. Start with a written plan and read-only code inspection; assign
+non-overlapping files, share findings, and have the coordinator review the combined
+result. Ask an interview question only for a material unresolved product choice.

@@ -69,6 +69,10 @@ Explain why a variable-rate input is normalized before those boundaries are appl
 Compare a measured output with the expected value; do not accept a screenshot as
 evidence of an exact frame count.
 
+For the A2 implementation, continue with [media clocks](learning/02-media-clocks.md):
+predict how a visual event and sound keep their relative time when a source does
+not start at zero, then follow the independent generated-media assertions.
+
 ## Session four: own the evaluation target
 
 When the licensed real clips are prepared, watch them before running AI. Write five

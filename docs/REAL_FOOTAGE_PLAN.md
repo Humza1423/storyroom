@@ -1,8 +1,10 @@
 # Next milestone: reliable real-footage assembly
 
-Status: Phase A1 implemented and tested on 2026-10-08; A2, A3 and later phases remain planned. Foundation baseline: local commit 7286856 on
-codex/complete-foundation. Read STATUS.md for historical verification; the baseline
-has not been pushed and remote CI has not run. This task is about the existing app.
+Status: Phase A1 verified on 2026-10-08 and A2's generated-media regressions and fixes
+verified on 2026-10-09. A3 and later phases remain planned. The foundation history
+and current work are pushed on `codex/media-correctness`, under
+[PR #1](https://github.com/Humza1423/storyroom/pull/1). Read STATUS.md for exact
+local/remote verification. This task is about the existing app.
 The guided computer-use test, footage acquisition, and provider evaluation happen
 in subsequent phases below. No runtime changes or new test runs occurred during the original planning pass;
 see IMPORT_PLAN for subsequent A1 implementation evidence.
@@ -56,10 +58,16 @@ handing off an implementation task.
 ### A2. Verify media properties and timing
 
 Inspect server/media.py, server/worker.py, server/exporter.py, and the current
-media tests. Today probe derives frames by rounding duration × 30. That estimate
+media tests. At planning time, probe derived frames by rounding duration × 30. That estimate
 is not independent evidence of the decoded frame count. Rotation/display metadata,
 stream start times, and sample aspect ratio are not exposed by the probe result.
-These are test gaps and possible failure paths, not confirmed corruption bugs.
+These were test gaps and possible failure paths, not yet confirmed corruption bugs.
+Subsequent A2 tests reproduced display-aspect and shared-clock errors, a renamed
+MOV rejection gap, and audio/video timing errors across short rendered cuts.
+The fixes and independent acceptance evidence are in
+[MEDIA_CORRECTNESS_PLAN](MEDIA_CORRECTNESS_PLAN.md) and [STATUS](STATUS.md).
+Production metadata still derives normalized frames from duration; decoded count
+is independently checked in the generated regression matrix, not on every import.
 
 Add targeted generated fixtures and independent assertions for:
 
@@ -164,9 +172,11 @@ repetitive fixture generation, focused tests, and evidence-backed review. Use th
 
 ## Next implementation prompt
 
-> Read AGENTS.md, docs/STATUS.md and this plan. A1 imports are implemented; begin
-> Phase A2 with independent generated-media orientation, timing and audio checks.
-> Inspect the current pipeline, explain the test plan first, fix only demonstrated
-> failures, and record exact evidence. Preserve import recovery, saved frames and
-> immutable sources. Performance optimization, real downloads, a live walkthrough,
-> Resolve import, paid AI and training are later tasks.
+> Read AGENTS.md, docs/STATUS.md and this plan. A1/A2 are verified; plan Phase A3
+> media-stage diagnostics before coding. Inspect the current pipeline and split
+> implementation, independent tests and documentation among non-overlapping agents.
+> Measure inspect, editing-copy/proxy encode, thumbnail, render parts and final join.
+> Prefer bounded local reporting over new infrastructure. Optimize only a measured
+> bottleneck while retaining A2 correctness. Preserve saved frames and immutable
+> sources; push verified checkpoints as authorized. Real downloads, a live walkthrough,
+> Resolve import, paid AI and training remain separate tasks.

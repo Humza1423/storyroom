@@ -28,15 +28,17 @@ and [THIRD_PARTY](THIRD_PARTY.md) cover model experiments and licensing boundari
 
 ## Next entry point
 
-The five foundation checkpoints are implemented on `codex/complete-foundation`.
-Read [STATUS](STATUS.md) and the acceptance record in
-[FOUNDATION_PLAN](FOUNDATION_PLAN.md) for actual checks and any outstanding gates.
-The work is committed locally; a remote CI run has not been claimed.
+The foundation history and A1/A2 work are on `codex/media-correctness`, pushed to
+the existing public repository under [PR #1](https://github.com/Humza1423/storyroom/pull/1).
+Read [STATUS](STATUS.md), [FOUNDATION_PLAN](FOUNDATION_PLAN.md), and
+[MEDIA_CORRECTNESS_PLAN](MEDIA_CORRECTNESS_PLAN.md) for exact local/remote checks
+and outstanding gates. Do not infer that `main` contains this work before merge.
 
 Next product milestone: the manual real-footage exercise in
 [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md), with Phase A1's resilient batch import now verified in
-[IMPORT_PLAN](IMPORT_PLAN.md). The next coding task is Phase A2: independent generated
-orientation, frame-timing and audio checks; Phase A3 measures performance. [LEARNING_PATH](LEARNING_PATH.md) offers the creator a small code contribution
+[IMPORT_PLAN](IMPORT_PLAN.md). A2 now has independent generated-media geometry,
+frame-timing and audio regressions with bounded fixes. The next coding task is
+Phase A3: measure performance before optimizing. [LEARNING_PATH](LEARNING_PATH.md) offers the creator a small code contribution
 and request-flow exercise. The source list is in
 [FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md). No listed footage has been downloaded or
 sent to a provider. Use its rights/provenance procedure, then prove import → saved
@@ -66,5 +68,7 @@ Suggested fresh-session prompt:
 > Read AGENTS.md and docs/HANDOFF.md and follow the linked project context. Confirm
 > the current state before editing. Continue the next unfinished milestone in
 > docs/STATUS.md with a small tested change. Explain what you are changing and why
-> as you work, show me the code, and update the handoff evidence. Do not make paid
-> calls, upload footage, or publish externally without the relevant authorization.
+> as you work, show me the code, and update the handoff evidence. Plan before coding
+> and use non-overlapping parallel agents. Push verified checkpoints to the existing
+> feature branch and update its PR as authorized in AGENTS. Do not merge, make paid
+> calls, upload footage, or change visibility without the relevant authorization.
