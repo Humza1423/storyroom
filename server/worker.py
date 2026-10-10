@@ -4,10 +4,12 @@ import logging
 import tempfile
 import time
 from pathlib import Path
-from . import db, config, media, ai
+
+from . import ai, config, db, media
+from .diagnostics import MediaDiagnostics
+from .exporter import export_timeline
 from .models import Observations, Proposal, Rerank
 from .search import search
-from .exporter import export_timeline
 
 log = logging.getLogger("storyroom.worker")
 
@@ -108,13 +110,13 @@ def analyze(job, asset):
     return {"moments": len(observations)}
 
 
-def perform(job):
+def perform(job, diagnostics=None):
     payload = json.loads(job["payload"])
     ident = job["id"]
     if job["kind"] == "normalize":
         asset = db.one("SELECT * FROM assets WHERE id=?", (payload["asset_id"],))
         progress(ident, 0.1, "Creating editing copy")
-        info = media.normalize(asset, lambda: cancelled(ident))
+        info = media.normalize(asset, lambda: cancelled(ident), diagnostics=diagnostics)
         with db.connect() as c:
             c.execute(
                 "UPDATE assets SET status='ready',frames=?,duration=?,width=?,height=?,error=NULL WHERE id=?",
@@ -202,6 +204,7 @@ def perform(job):
                 folder / f"{ident}.mp4",
                 lambda: cancelled(ident),
                 lambda fraction, message: progress(ident, fraction, message),
+                diagnostics=diagnostics,
             )
             return {"url": f"/api/jobs/{ident}/download"}
         export_timeline(
@@ -244,10 +247,36 @@ def once():
             "UPDATE jobs SET status='running',started=?,message='Starting' WHERE id=?",
             (time.time(), job["id"]),
         )
+
+    def persist_diagnostics(snapshot):
+        with db.connect() as c:
+            c.execute("BEGIN IMMEDIATE")
+            row = c.execute(
+                "SELECT result,status FROM jobs WHERE id=?", (job["id"],)
+            ).fetchone()
+            if not row or row["status"] != "running":
+                return
+            result = json.loads(row["result"]) if row["result"] else {}
+            result["diagnostics"] = snapshot
+            c.execute(
+                "UPDATE jobs SET result=? WHERE id=? AND status='running'",
+                (json.dumps(result, separators=(",", ":")), job["id"]),
+            )
+
+    diagnostics = (
+        MediaDiagnostics(
+            on_change=persist_diagnostics,
+            is_cancelled=lambda exc: isinstance(exc, media.Cancelled),
+        )
+        if job["kind"] in ("normalize", "render")
+        else None
+    )
     try:
-        result = perform(job)
+        result = perform(job, diagnostics)
         if cancelled(job["id"]):
             raise media.Cancelled()
+        if diagnostics:
+            result["diagnostics"] = diagnostics.snapshot()
         db.execute(
             "UPDATE jobs SET status='done',progress=1,message='Complete',result=?,finished=? WHERE id=?",
             (json.dumps(result), time.time(), job["id"]),
@@ -265,9 +294,21 @@ def once():
         # have that newer state overwritten by this worker's old failure.
         with db.connect() as c:
             c.execute("BEGIN IMMEDIATE")
+            row = c.execute(
+                "SELECT result FROM jobs WHERE id=?", (job["id"],)
+            ).fetchone()
+            result = json.loads(row["result"]) if row and row["result"] else {}
+            if diagnostics:
+                result["diagnostics"] = diagnostics.snapshot()
             c.execute(
-                "UPDATE jobs SET status=?,message=?,finished=? WHERE id=?",
-                (status, message, time.time(), job["id"]),
+                "UPDATE jobs SET status=?,message=?,finished=?,result=? WHERE id=?",
+                (
+                    status,
+                    message,
+                    time.time(),
+                    json.dumps(result, separators=(",", ":")),
+                    job["id"],
+                ),
             )
             if job["kind"] == "normalize":
                 c.execute(
@@ -290,11 +331,17 @@ def main():
     message = "Interrupted. Retry to resume cached work."
     with db.connect() as c:
         c.execute("BEGIN IMMEDIATE")
-        for job in c.execute("SELECT payload FROM jobs WHERE status='running' AND kind='normalize'").fetchall():
-            c.execute("UPDATE assets SET status='failed',error=? WHERE id=? AND status!='ready'",
-                      (message, json.loads(job["payload"])["asset_id"]))
-        c.execute("UPDATE jobs SET status='failed',message=?,finished=? WHERE status='running'",
-                  (message, time.time()))
+        for job in c.execute(
+            "SELECT payload FROM jobs WHERE status='running' AND kind='normalize'"
+        ).fetchall():
+            c.execute(
+                "UPDATE assets SET status='failed',error=? WHERE id=? AND status!='ready'",
+                (message, json.loads(job["payload"])["asset_id"]),
+            )
+        c.execute(
+            "UPDATE jobs SET status='failed',message=?,finished=? WHERE status='running'",
+            (message, time.time()),
+        )
     logging.basicConfig(level=logging.INFO)
     while True:
         if not once():

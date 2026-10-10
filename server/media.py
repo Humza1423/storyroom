@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+
 from . import config
 
 
@@ -175,11 +176,29 @@ def encode(source, dest, proxy=False, cancelled=lambda: False):
     temp.replace(dest)
 
 
-def normalize(asset, cancelled=lambda: False):
+def normalize(asset, cancelled=lambda: False, diagnostics=None):
     folder = config.asset_dir(asset["id"])
-    encode(folder / "original.mp4", folder / "edit.mp4", cancelled=cancelled)
-    encode(folder / "edit.mp4", folder / "proxy.mp4", proxy=True, cancelled=cancelled)
-    thumbnail(folder / "proxy.mp4", folder / "thumb.jpg", cancelled)
+
+    def run_editing_encode():
+        return encode(folder / "original.mp4", folder / "edit.mp4", cancelled=cancelled)
+
+    def run_proxy_encode():
+        return encode(
+            folder / "edit.mp4", folder / "proxy.mp4", proxy=True, cancelled=cancelled
+        )
+
+    if diagnostics:
+        diagnostics.measure("editing_copy", run_editing_encode, folder / "edit.mp4")
+        diagnostics.measure("proxy", run_proxy_encode, folder / "proxy.mp4")
+        diagnostics.measure(
+            "thumbnail",
+            lambda: thumbnail(folder / "proxy.mp4", folder / "thumb.jpg", cancelled),
+            folder / "thumb.jpg",
+        )
+    else:
+        run_editing_encode()
+        run_proxy_encode()
+        thumbnail(folder / "proxy.mp4", folder / "thumb.jpg", cancelled)
     return probe(folder / "edit.mp4")
 
 
@@ -235,7 +254,12 @@ def chunk(source, dest, start, duration, cancelled=lambda: False):
 
 
 def render(
-    board, assets, dest, cancelled=lambda: False, report=lambda fraction, message: None
+    board,
+    assets,
+    dest,
+    cancelled=lambda: False,
+    report=lambda fraction, message: None,
+    diagnostics=None,
 ):
     import tempfile
 
@@ -300,8 +324,15 @@ def render(
                 "2",
                 str(part),
             ]
-            run(args, cancelled)
+            if diagnostics:
+                diagnostics.render_part(
+                    i, lambda current_args=args: run(current_args, cancelled), part
+                )
+            else:
+                run(args, cancelled)
             parts.append((part, length))
+        if diagnostics:
+            diagnostics.finish_parts()
         report(0.95, "Joining rendered clips")
         listing = Path(tmp) / "parts.txt"
         # Generated basenames only; no user text enters the concat manifest.
@@ -309,7 +340,7 @@ def render(
             "\n".join(f"file '{p.name}'\nduration {length:.12f}" for p, length in parts)
         )
         partial = dest.with_suffix(".partial.mp4")
-        run(
+        join = lambda: run(
             [
                 "ffmpeg",
                 "-nostdin",
@@ -332,4 +363,12 @@ def render(
             ],
             cancelled,
         )
-        partial.replace(dest)
+
+        def finish_join():
+            join()
+            partial.replace(dest)
+
+        if diagnostics:
+            diagnostics.measure("render_join", finish_join, dest)
+        else:
+            finish_join()

@@ -60,6 +60,34 @@ export type Job = {
     sections?: ProposalSection[];
     candidate_ids?: string[];
     explanation?: string;
+    diagnostics?: {
+      version: 1;
+      stages: Record<
+        string,
+        | { status: "running" }
+        | { status: "complete"; elapsed_seconds: number; output_bytes: number | null }
+        | {
+            status: "failed" | "cancelled";
+            elapsed_seconds: number;
+            error_type: string;
+          }
+      >;
+      render_parts?: {
+        status: "running" | "complete" | "failed" | "cancelled";
+        attempted_parts: number;
+        completed_parts: number;
+        elapsed_seconds: number;
+        output_bytes: number;
+        max_part_seconds: number;
+        slowest_parts: {
+          index: number;
+          elapsed_seconds: number;
+          output_bytes: number | null;
+        }[];
+        failed_part: number | null;
+        failed_part_seconds?: number;
+      };
+    };
   };
 };
 export type Project = {

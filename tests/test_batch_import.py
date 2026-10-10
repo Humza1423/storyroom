@@ -158,7 +158,7 @@ def test_failed_preparation_and_asset_become_visible_atomically(
             ).fetchone()
             observed.append(tuple(states))
 
-    def broken(*_):
+    def broken(*_, **__):
         if cancelled:
             raise media.Cancelled()
         raise ValueError("Synthetic preparation failure")
