@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+
 from . import config
 
 
@@ -40,9 +41,15 @@ def run(args, cancelled=lambda: False):
                     process.wait()
 
 
+class InspectionUnavailable(ValueError):
+    pass
+
+
 def probe(path):
     if not shutil.which("ffprobe"):
-        raise ValueError("Install FFmpeg (including ffprobe) before importing footage.")
+        raise InspectionUnavailable(
+            "Install FFmpeg (including ffprobe) before importing footage."
+        )
     try:
         r = subprocess.run(
             [
@@ -74,7 +81,16 @@ def probe(path):
             "transfer": v.get("color_transfer"),
             "pix_fmt": v.get("pix_fmt"),
             "format": data["format"].get("format_name", ""),
+            "major_brand": data["format"]
+            .get("tags", {})
+            .get("major_brand", "")
+            .strip(),
+            "video_start": float(v.get("start_time") or 0),
         }
+    except subprocess.TimeoutExpired as exc:
+        raise InspectionUnavailable(
+            "Media inspection timed out. Check the local server before retrying."
+        ) from exc
     except (subprocess.SubprocessError, KeyError, StopIteration, json.JSONDecodeError):
         raise ValueError(
             "Cannot read this video. Use an intact H.264 MP4 file."
@@ -82,7 +98,11 @@ def probe(path):
 
 
 def validate(info):
-    if info["codec"] != "h264" or "mp4" not in info["format"]:
+    if (
+        info["codec"] != "h264"
+        or "mp4" not in info["format"]
+        or info.get("major_brand") == "qt"
+    ):
         raise ValueError("Version 1 supports H.264 MP4 footage only.")
     if (
         max(info["width"], info["height"]) > 1920
@@ -98,11 +118,18 @@ def validate(info):
 
 
 def encode(source, dest, proxy=False, cancelled=lambda: False):
-    vf = "fps=30,setsar=1"
+    video_start = probe(source)["video_start"]
+    # A pixel can represent a non-square region of the displayed image. Resize
+    # using that display geometry before discarding SAR, including after FFmpeg's
+    # automatic rotation. Keep either orientation inside the supported 1080p box.
+    factor = "min(1,min(1920/max(iw*sar,ih),1080/min(iw*sar,ih)))"
+    vf = (
+        f"setpts=PTS-({video_start})/TB,fps=30:start_time=0,"
+        f"scale=w='max(2,trunc(iw*sar*{factor}/2)*2)':"
+        f"h='max(2,trunc(ih*{factor}/2)*2)',setsar=1"
+    )
     if proxy:
-        vf += (
-            ",scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2"
-        )
+        vf += ",scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1"
     temp = dest.with_name(dest.stem + ".partial.mp4")
     run(
         [
@@ -111,6 +138,7 @@ def encode(source, dest, proxy=False, cancelled=lambda: False):
             "-y",
             "-v",
             "error",
+            "-copyts",
             "-i",
             str(source),
             "-map",
@@ -136,7 +164,9 @@ def encode(source, dest, proxy=False, cancelled=lambda: False):
             "-ac",
             "2",
             "-af",
-            "aresample=async=1:first_pts=0",
+            # Both streams lose the same origin. Resetting audio independently
+            # would erase a real delay; first_pts pads/trims relative to video.
+            f"asetpts=PTS-({video_start})/TB,aresample=async=1:first_pts=0",
             "-movflags",
             "+faststart",
             str(temp),
@@ -146,11 +176,29 @@ def encode(source, dest, proxy=False, cancelled=lambda: False):
     temp.replace(dest)
 
 
-def normalize(asset, cancelled=lambda: False):
+def normalize(asset, cancelled=lambda: False, diagnostics=None):
     folder = config.asset_dir(asset["id"])
-    encode(folder / "original.mp4", folder / "edit.mp4", cancelled=cancelled)
-    encode(folder / "edit.mp4", folder / "proxy.mp4", proxy=True, cancelled=cancelled)
-    thumbnail(folder / "proxy.mp4", folder / "thumb.jpg", cancelled)
+
+    def run_editing_encode():
+        return encode(folder / "original.mp4", folder / "edit.mp4", cancelled=cancelled)
+
+    def run_proxy_encode():
+        return encode(
+            folder / "edit.mp4", folder / "proxy.mp4", proxy=True, cancelled=cancelled
+        )
+
+    if diagnostics:
+        diagnostics.measure("editing_copy", run_editing_encode, folder / "edit.mp4")
+        diagnostics.measure("proxy", run_proxy_encode, folder / "proxy.mp4")
+        diagnostics.measure(
+            "thumbnail",
+            lambda: thumbnail(folder / "proxy.mp4", folder / "thumb.jpg", cancelled),
+            folder / "thumb.jpg",
+        )
+    else:
+        run_editing_encode()
+        run_proxy_encode()
+        thumbnail(folder / "proxy.mp4", folder / "thumb.jpg", cancelled)
     return probe(folder / "edit.mp4")
 
 
@@ -205,7 +253,14 @@ def chunk(source, dest, start, duration, cancelled=lambda: False):
     )
 
 
-def render(board, assets, dest, cancelled=lambda: False):
+def render(
+    board,
+    assets,
+    dest,
+    cancelled=lambda: False,
+    report=lambda fraction, message: None,
+    diagnostics=None,
+):
     import tempfile
 
     clips = [s for section in board for s in section["selections"]]
@@ -214,14 +269,19 @@ def render(board, assets, dest, cancelled=lambda: False):
     with tempfile.TemporaryDirectory(dir=config.DATA) as tmp:
         parts = []
         for i, clip in enumerate(clips):
+            report(i / len(clips) * 0.9, f"Rendering clip {i + 1}/{len(clips)}")
             asset = assets[clip["asset_id"]]
             source = config.asset_dir(asset["id"]) / "edit.mp4"
             if not source.exists():
                 raise ValueError(
                     f"Editing media is missing for {asset['name']}. Retry its media job."
                 )
-            part = Path(tmp) / f"part{i:04}.mp4"
-            length = (clip["end_frame"] - clip["start_frame"]) / 30
+            # PCM has exact sample boundaries. Separate AAC encodes introduce
+            # packet padding at each cut and make concat offset video timestamps.
+            # Encode AAC only once, after joining the sequential temporary parts.
+            part = Path(tmp) / f"part{i:04}.mov"
+            frame_count = clip["end_frame"] - clip["start_frame"]
+            length = frame_count / 30
             args = [
                 "ffmpeg",
                 "-nostdin",
@@ -245,7 +305,9 @@ def render(board, assets, dest, cancelled=lambda: False):
                 "-vf",
                 "scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30",
                 "-af",
-                "apad",
+                # Seeking AAC may leave its first decoded packet after zero.
+                # Align/pad before trimming to exactly 1600 samples per frame.
+                f"aresample=48000:async=1:first_pts=0,apad,atrim=end_sample={frame_count * 1600}",
                 "-c:v",
                 "libx264",
                 "-preset",
@@ -255,20 +317,30 @@ def render(board, assets, dest, cancelled=lambda: False):
                 "-threads",
                 "2",
                 "-c:a",
-                "aac",
+                "pcm_s16le",
                 "-ar",
                 "48000",
                 "-ac",
                 "2",
                 str(part),
             ]
-            run(args, cancelled)
-            parts.append(part)
+            if diagnostics:
+                diagnostics.render_part(
+                    i, lambda current_args=args: run(current_args, cancelled), part
+                )
+            else:
+                run(args, cancelled)
+            parts.append((part, length))
+        if diagnostics:
+            diagnostics.finish_parts()
+        report(0.95, "Joining rendered clips")
         listing = Path(tmp) / "parts.txt"
         # Generated basenames only; no user text enters the concat manifest.
-        listing.write_text("\n".join(f"file '{p.name}'" for p in parts))
+        listing.write_text(
+            "\n".join(f"file '{p.name}'\nduration {length:.12f}" for p, length in parts)
+        )
         partial = dest.with_suffix(".partial.mp4")
-        run(
+        join = lambda: run(
             [
                 "ffmpeg",
                 "-nostdin",
@@ -281,12 +353,22 @@ def render(board, assets, dest, cancelled=lambda: False):
                 "1",
                 "-i",
                 str(listing),
-                "-c",
+                "-c:v",
                 "copy",
+                "-c:a",
+                "aac",
                 "-movflags",
                 "+faststart",
                 str(partial),
             ],
             cancelled,
         )
-        partial.replace(dest)
+
+        def finish_join():
+            join()
+            partial.replace(dest)
+
+        if diagnostics:
+            diagnostics.measure("render_join", finish_join, dest)
+        else:
+            finish_join()

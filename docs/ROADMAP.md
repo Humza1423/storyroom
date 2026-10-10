@@ -7,19 +7,27 @@ exists; finish evidence and reliability before adding more surface area.
 
 ## 1. Reliable local foundation
 
+The executable scope and acceptance gates are in
+[FOUNDATION_PLAN](FOUNDATION_PLAN.md). The subsequent real-footage exercise is in
+[FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md).
+
 Use the existing React/TypeScript interface, FastAPI validation boundary, SQLite
 storage, and one persistent Python worker. Keep FFmpeg processing outside HTTP
 requests. See [ARCHITECTURE](ARCHITECTURE.md) for the implemented flows.
 
-Next: isolate Playwright's database/media and generate its own fixtures. Then add
-tested schema migrations, split the large frontend into types/API/components/board
-logic, lock Python dependencies, automate checks, and improve disconnected-server
-diagnostics. Do not combine these into one speculative rewrite.
+Foundation implementation now includes the isolated browser harness, transactional
+migrations, frontend modules, startup/recovery checks, Python lockfile and CI workflow.
+See STATUS and FOUNDATION_PLAN for measured acceptance results. Next is the manual
+real-footage handoff below; hosted infrastructure and model training remain deferred.
 
 Acceptance: a fresh test run cannot change personal projects; old project data
 survives upgrades; refactoring preserves behavior; startup failures are actionable.
 
 ## 2. Prove the manual vertical slice
+
+Phases A1 and A2 now cover resilient batch import and independent generated-media
+timing/orientation/audio checks with regression fixes. Continue with A3's performance
+measurements before acquiring real footage; see [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md).
 
 Import → normalize → select three clips → trim/reorder → save/reopen → preview →
 render → Resolve XML. Edit boundaries are integer frames with an exclusive out
@@ -73,8 +81,9 @@ complete manual and AI-assisted workflows on unfamiliar footage.
 
 Acceptance: clean-machine setup from README, full relevant automated checks, real
 Resolve evidence, honest demo, license/provenance review, and documented limits.
-Publish source only with authorization. A private GitHub backup is not a public
-launch. Interview and adoption tasks remain saved for later in STATUS.
+Source is public and verified checkpoints are routinely pushed under the creator's
+authorization. Public source is not proof of a validated product launch. Interview
+and adoption tasks remain saved for later in STATUS.
 
 ## 6. Custom ranking experiment after usable labels exist
 

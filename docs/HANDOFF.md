@@ -26,23 +26,39 @@ and [THIRD_PARTY](THIRD_PARTY.md) cover model experiments and licensing boundari
 - Check existing processes before launching another API or worker. Do not run the
   demo seeder alongside the worker. Never print `.env` or credentials into chat.
 
-## Immediate implementation entry point
+## Next entry point
 
-Unless STATUS or the user sets a newer priority, isolate the browser tests before
-the frontend refactor. Inspect `playwright.config.ts`, `e2e/workspace.spec.ts`,
-`scripts/dev.py`, and `server/config.py`. Design a dedicated test data directory,
-generated fixtures, controlled server lifecycle, and cleanup restricted to that
-test directory. Preserve the normal development startup path.
+The foundation history and A1/A2 work are on `codex/media-correctness`, pushed to
+the existing public repository under [PR #1](https://github.com/Humza1423/storyroom/pull/1).
+Read [STATUS](STATUS.md), [FOUNDATION_PLAN](FOUNDATION_PLAN.md), and
+[MEDIA_CORRECTNESS_PLAN](MEDIA_CORRECTNESS_PLAN.md) for exact local/remote checks
+and outstanding gates. Do not infer that `main` contains this work before merge.
 
-Acceptance: run the browser suite from a clean test state, repeat it successfully,
-and prove the existing user database/media were not modified. No paid requests.
-This is the next task, not a claim it has already been implemented.
+Next product milestone: the manual real-footage exercise in
+[REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md), with Phase A1's resilient batch import now verified in
+[IMPORT_PLAN](IMPORT_PLAN.md). A2 now has independent generated-media geometry,
+frame-timing and audio regressions with bounded fixes. Phase A3 added bounded
+processing-time/output-size diagnostics and a generated-media baseline; see
+[STATUS](STATUS.md) and [PERFORMANCE_PLAN](PERFORMANCE_PLAN.md). The next coding
+task is unfamiliar licensed-footage testing and an actual Resolve import.
+[LEARNING_PATH](LEARNING_PATH.md) offers the creator a small code contribution
+and request-flow exercise. The source list is in
+[FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md). No listed footage has been downloaded or
+sent to a provider. Use its rights/provenance procedure, then prove import → saved
+three-clip montage → rendered review → actual Resolve import. Ask for the relevant
+external action authorization when needed. Do not substitute an XML round-trip for
+an editor import, or fake-provider tests for real model quality.
+
+For further foundation changes, browser tests are now self-contained:
+`npm run test:e2e` owns a fresh temporary root, fixtures and process groups. Never
+run Playwright directly against personal development data. Existing databases stay
+at schema version 1; future changes go through `server/migrations.py` with backup
+and rollback tests. `main.tsx` mounts the UI; `App.tsx` owns orchestration and drafts.
 
 ## Verification and handoff discipline
 
 For backend changes run `.venv/bin/pytest -q`; for frontend changes run
-`npm run build` plus the relevant browser checks. See CONTRIBUTING before running
-the current non-isolated browser suite. Record the date and exact checks actually
+`npm run build` plus the relevant browser checks. See CONTRIBUTING for the locked setup and isolated browser harness. Record the date and exact checks actually
 run. Existing test counts are historical evidence, not a new session's result.
 
 Explain purpose → code boundary → engineering concept → evidence. End with changed
@@ -55,5 +71,7 @@ Suggested fresh-session prompt:
 > Read AGENTS.md and docs/HANDOFF.md and follow the linked project context. Confirm
 > the current state before editing. Continue the next unfinished milestone in
 > docs/STATUS.md with a small tested change. Explain what you are changing and why
-> as you work, show me the code, and update the handoff evidence. Do not make paid
-> calls, upload footage, or publish externally without the relevant authorization.
+> as you work, show me the code, and update the handoff evidence. Plan before coding
+> and use parallel agents only when independent work justifies the overhead. Push verified checkpoints to the existing
+> feature branch and update its PR as authorized in AGENTS. Do not merge, make paid
+> calls, upload footage, or change visibility without the relevant authorization.
