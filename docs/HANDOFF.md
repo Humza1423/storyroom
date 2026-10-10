@@ -37,9 +37,11 @@ and outstanding gates. Do not infer that `main` contains this work before merge.
 Next product milestone: the manual real-footage exercise in
 [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md), with Phase A1's resilient batch import now verified in
 [IMPORT_PLAN](IMPORT_PLAN.md). A2 now has independent generated-media geometry,
-frame-timing and audio regressions with bounded fixes. The next coding task is
-Phase A3: measure performance before optimizing, using the read-only-reviewed
-[PERFORMANCE_PLAN](PERFORMANCE_PLAN.md). [LEARNING_PATH](LEARNING_PATH.md) offers the creator a small code contribution
+frame-timing and audio regressions with bounded fixes. Phase A3 added bounded
+processing-time/output-size diagnostics and a generated-media baseline; see
+[STATUS](STATUS.md) and [PERFORMANCE_PLAN](PERFORMANCE_PLAN.md). The next coding
+task is unfamiliar licensed-footage testing and an actual Resolve import.
+[LEARNING_PATH](LEARNING_PATH.md) offers the creator a small code contribution
 and request-flow exercise. The source list is in
 [FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md). No listed footage has been downloaded or
 sent to a provider. Use its rights/provenance procedure, then prove import → saved

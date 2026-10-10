@@ -1,7 +1,8 @@
 # Next milestone: reliable real-footage assembly
 
-Status: Phase A1 verified on 2026-10-08 and A2's generated-media regressions and fixes
-verified on 2026-10-09. A3 and later phases remain planned. The foundation history
+Status: Phase A1 verified on 2026-10-08, A2's generated-media regressions and fixes
+verified on 2026-10-09, and A3 diagnostics/baseline verified on 2026-10-10.
+The foundation history
 and current work are pushed on `codex/media-correctness`, under
 [PR #1](https://github.com/Humza1423/storyroom/pull/1). Read STATUS.md for exact
 local/remote verification. This task is about the existing app.
@@ -89,19 +90,20 @@ Fix only demonstrated failures, with a regression fixture. Keep WebM/HEVC/HDR/MO
 outside initial supported imports; document conversion requirements. Do not silently
 tone-map HDR or claim all phone footage is supported.
 
-### A3. Measure performance before changing encoding
+### A3. Measure performance before changing encoding — complete
 
-Execution specification: [PERFORMANCE_PLAN](PERFORMANCE_PLAN.md), prepared from
-parallel read-only inspection after A2. No A3 runtime changes or benchmark yet.
+Execution record and baseline: [PERFORMANCE_PLAN](PERFORMANCE_PLAN.md) and
+[STATUS](STATUS.md). The implementation records editing-copy, proxy, thumbnail,
+bounded render-parts aggregate, and final-join time/output sizes in existing jobs.
+Failure/cancellation preserve completed evidence; no migration or encoder change.
 
 The foundation record contains an earlier render timeout whose cause was not
 isolated. It increased the bounded browser deadline and added render-stage messages;
 that is not evidence of a speed improvement.
 
-Add bounded local diagnostic reporting for inspect/upload, editing-copy encode,
-proxy encode, thumbnail, render parts, and final concat. Record source duration,
-resolution, frame rate, output sizes, elapsed time, and errors. Reuse existing jobs
-and local logs; add a database migration only if durable fields are actually needed.
+The generated technical baseline identifies render-part encoding as its slowest
+measured stage. It is not camera-footage performance evidence. The next step is
+real-footage validation, not optimization based on this one synthetic run.
 Separate a project's upload status from media-processing progress. Do not show
 invented percentage precision when only stage progress is known.
 

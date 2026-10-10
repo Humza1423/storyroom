@@ -2,6 +2,32 @@
 
 Updated: 2026-10-10. Status: local development preview; release gates remain open.
 
+## A3 performance measurement (2026-10-10)
+
+Bounded optional stage diagnostics now live in existing media-job results; no
+schema migration was needed. Editing-copy, proxy, thumbnail, render-part aggregate,
+and final-join durations/output sizes are recorded. Render-part storage is capped;
+terminal failure/cancellation preserves completed stages, and legacy results and
+download URLs remain compatible. A monotonic clock keeps duration measurements
+independent of wall-clock changes.
+
+Generated-media baseline (one run; temporary media removed): macOS 26.5.1,
+arm64 Mac14,2, 8 CPUs; FFmpeg 9.0.1. Fixture: generated 640x360, 30 fps,
+2-second H.264 video with 880 Hz, 48 kHz AAC; render assembly used three
+overlapping 30-frame placements. Editing copy: 0.2713 s / 286,385 bytes; proxy:
+0.3659 s / 309,766 bytes; thumbnail: 0.1045 s / 13,094 bytes; render-parts
+aggregate: 0.8569 s over 3 parts / 1,108,038 temporary bytes (slowest measured
+stage; max part 0.3236 s); final join: 0.2099 s / 578,815 bytes. These are
+technical-fixture measurements only, not a prediction for camera footage.
+Reproduce with `python scripts/performance_baseline.py` after local setup.
+
+Verification on this machine: backend suite **74 passed**; isolated browser
+workflow **25 passed**; TypeScript/production build passed; fatal-error Ruff lint,
+controlled-clock and bounded-diagnostics tests, generated-media output-size
+comparison, and A2 geometry/frame-clock/audio-sync/cut-order regressions passed.
+One existing Starlette/httpx deprecation warning remains. Remote CI is tracked in
+PR #1 after this checkpoint is pushed. No encoder optimization was made.
+
 ## What exists
 
 | Area | Implemented | Evidence and remaining work |
@@ -61,11 +87,10 @@ No additional product choice required an interview.
   [PR run](https://github.com/Humza1423/storyroom/actions/runs/38022063786)). PR #1
   remains draft while A3 work is underway.
 
-Next: Phase A3's bounded stage measurements before optimizing, specified in
-[PERFORMANCE_PLAN](PERFORMANCE_PLAN.md) after two read-only agent planning passes.
-A3 code and benchmarks are not implemented. Unfamiliar real
-footage, actual Resolve import, provider quality and training remain separate
-gates. No footage download, paid request or training occurred in A2.
+Next: use owned or appropriately licensed unfamiliar footage, then verify a real
+import in DaVinci Resolve. Diagnose any issue against the baseline before changing
+encoding. Provider quality and custom training remain separate gates. No footage
+download, paid request or training occurred in A3.
 
 2026-10-08: **independent A1 review and two consistency fixes**. Reviewed the four
 import checkpoints after 7286856, including controller, UI integration, API errors,
@@ -248,7 +273,7 @@ authorized routine feature-branch pushes for verified implementation checkpoints
 
 - [x] Phase A1: resilient multi-file imports with stage-specific recovery and isolated tests.
 - [x] Phase A2: independently verify generated-media orientation, frame timing and audio.
-- [ ] Phase A3: measure media-stage performance before changing encoding.
+- [x] Phase A3: measure media-stage performance before changing encoding.
 
 - [ ] Import a coherent set of owned or appropriately licensed real training clips.
 - [ ] Assemble three clips; reopen the project and confirm the exact saved order and boundaries.

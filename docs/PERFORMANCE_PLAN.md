@@ -1,9 +1,8 @@
 # A3: measure the media pipeline before optimizing
 
-Planned 2026-10-09 after local A2 acceptance and its feature-branch push. Two agents
-inspected measurement boundaries and test risks read-only; the coordinator selected
-the approach below. This is a future implementation plan,
-not evidence that diagnostics or a performance improvement already exist.
+Planned 2026-10-09 after local A2 acceptance and implemented on 2026-10-10.
+This document preserves the original scope and acceptance intent; actual evidence
+and the measured baseline are in [STATUS](STATUS.md).
 
 ## Outcome and choice
 
