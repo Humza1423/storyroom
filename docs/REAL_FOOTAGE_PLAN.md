@@ -1,19 +1,19 @@
-# Real-footage workflow and remaining Resolve gate
+# Real-footage workflow: verified Storyroom-to-Resolve slice
 
 Status: Phase A1 verified on 2026-10-08, A2's generated-media regressions and fixes
 verified on 2026-10-09, A3 diagnostics/baseline verified on 2026-10-10, and the
-local licensed real-footage Storyroom workflow verified on 2026-10-11. Resolve 21
-opened the XML import settings at 30 fps but reported all four media files missing.
-Their paths exist; the Resolve/macOS folder-access flow was interrupted when the
-Mac locked again. Timeline compatibility remains unverified.
+licensed Storyroom-to-Resolve workflow visually verified on 2026-10-11 in Resolve
+21.1.1. The FCP7 timeline is 30 fps, 1920×1080, 780 frames, with visible footage and
+the tested silent/repeated-range cases. See STATUS for evidence and limitations.
 The foundation history
 and current work are pushed on `codex/media-correctness`, under
 [PR #1](https://github.com/Humza1423/storyroom/pull/1). Read STATUS.md for exact
 local/remote verification. This task is about the existing app.
-The acquisition, conversion, and Storyroom computer-use workflow are complete; see
-STATUS.md and FOOTAGE_TEST_SET.md. No reproducible application defect blocked the
-workflow, so this pass required no runtime edits. Actual Resolve UI inspection is the
-remaining gate. Provider evaluation remains a separate later milestone.
+The acquisition, conversion, Storyroom workflow, and actual Resolve UI import are
+complete for this small H.264 test set; see STATUS.md and FOOTAGE_TEST_SET.md. No
+reproducible application defect blocked the workflow, so this pass required no
+runtime edits. Broad device/codec compatibility and provider quality remain later
+gates.
 
 ## Outcome
 
@@ -124,12 +124,15 @@ pass; batch failures are recoverable; the generated media matrix has reported
 results; diagnostics identify where time goes. At this point the app is ready for
 real-footage testing, not already validated on real footage.
 
-## Phase B: actual footage and guided computer-use session — Storyroom complete; Resolve pending
+## Phase B: actual footage and guided computer-use session — verified for the test set
 
 The four sources in FOOTAGE_TEST_SET.md were rechecked, acquired, hashed, converted,
 and kept under ignored `data/evaluation/`. Conversion is external preparation, not
-native WebM support. Cloud-analysis/training flags stayed off. The manual Storyroom
-steps below were completed; only the actual Resolve application inspection remains.
+native WebM support. Cloud-analysis/training flags stayed off. Storyroom processing
+and the actual Resolve import were completed and visually checked. The macOS picker
+needed the XML selected by its full path before enabling Import; this was not a
+Storyroom export defect. See STATUS for timeline, duration, source-range, audio and
+section-label behavior.
 
 Before using the app, the creator watches the clips and writes a brief plus three
 or more useful ranges. These independent expectations let us judge the application.
@@ -150,15 +153,19 @@ Completed Storyroom workflow and evidence:
 6. Export and import XML in the actual Resolve application. Record version,
    references, order, cut points within one normalized frame, and audio alignment.
 
-Steps 1–5 were completed. The 26-second render decoded to exactly 780 frames at 30
-fps; its six placements follow the saved order, audio aligns with source ranges, and
-silent sources remain silent. The app restarted and reopened the exact saved board.
-FCP7 XML was produced and opened in Resolve 21 at 30 fps. Resolve reported 4/4
-media files missing although their absolute paths exist. The app file-access/relink
-flow was not completed before macOS locked again. Therefore cuts, audio, repetition,
-and section metadata remain unverified. Resume after unlock, complete media
-access/relink, and inspect the actual timeline. Do not use shell automation or XML
-inspection as a substitute for that UI check.
+Steps 1–6 were completed for the prepared test set. The 26-second render decoded to
+exactly 780 frames at 30 fps; its six placements follow the saved order, audio aligns
+with source ranges, and silent sources remain silent. The app restarted and reopened
+the exact saved board. FCP7 XML imported into Resolve 21.1.1 as a 30-fps, 1920×1080
+timeline. Real frames were visibly checked at sequence positions 00:00:00, 00:00:08,
+00:00:12, 00:00:16 and 00:00:22; the latter showed the repeated source's separate
+range. The sequence duration matched 780 frames, source references resolved, audio
+was present on supported ranges and absent under the final silent selection, and
+section labels were retained in clip names rather than converted to Resolve bins.
+The first missing-media warning came from an earlier incomplete import attempt; it
+did not recur after selecting the XML by its full path in the macOS picker. Do not
+use XML inspection as a substitute for the recorded application check, but retain
+the distinction between tested local H.264 inputs and untested general camera media.
 
 Show the creator what each action is testing. Retain screenshots and a concise
 pass/fail evidence record. If Resolve is unavailable, report that specific gate as

@@ -34,22 +34,23 @@ Read [STATUS](STATUS.md), [FOUNDATION_PLAN](FOUNDATION_PLAN.md), and
 [MEDIA_CORRECTNESS_PLAN](MEDIA_CORRECTNESS_PLAN.md) for exact local/remote checks
 and outstanding gates. Do not infer that `main` contains this work before merge.
 
-Next product milestone: close the final real-footage handoff gate in
+Next product milestone: evaluate search/retrieval quality on permissioned, unfamiliar footage in
 [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md), with Phase A1's resilient batch import now verified in
 [IMPORT_PLAN](IMPORT_PLAN.md). A2 now has independent generated-media geometry,
 frame-timing and audio regressions with bounded fixes. Phase A3 added bounded
 processing-time/output-size diagnostics and a generated-media baseline; see
-[STATUS](STATUS.md) and [PERFORMANCE_PLAN](PERFORMANCE_PLAN.md). The next coding
+[STATUS](STATUS.md) and [PERFORMANCE_PLAN](PERFORMANCE_PLAN.md).
+
 The four licensed sources have been downloaded, hashed, converted, and run through
 the actual local Storyroom workflow. The project survived restart; search, bins,
-repeated source ranges, preview, and FCP7 XML export were checked. Resolve 21 opened
-the XML import settings at 30 fps, then reported all four media files missing. Their
-exact absolute paths exist on disk. Resolve's file-access/relink flow was still in
-progress when macOS locked again; do not claim compatibility yet. Resume from the
-open Resolve project, complete media access/relink, then inspect the timeline.
-Evidence and exact ranges are
-in [STATUS](STATUS.md); local media and provenance are ignored under
-`data/evaluation/cavemantraining/`. No cloud analysis or training was run.
+repeated source ranges, preview, and FCP7 XML export were checked. DaVinci Resolve
+21.1.1 imported the XML at 30 fps / 1920×1080; visible footage is in the 26-second,
+six-cut timeline. The final silent placement has no audio lane, the repeated source
+range remains distinct, and Storyroom section labels appear in clip names (not as
+Resolve bins). See [STATUS](STATUS.md) for evidence and scope limits. Local media
+and provenance are ignored under `data/evaluation/cavemantraining/`. No cloud
+analysis or training was run. Next, measure retrieval quality on permissioned,
+unfamiliar footage before expanding computer-vision infrastructure.
 [LEARNING_PATH](LEARNING_PATH.md) offers the creator a small code contribution and
 request-flow exercise. Do not substitute XML parsing for an editor import.
 

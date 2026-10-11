@@ -2,7 +2,7 @@
 
 Updated: 2026-10-11. Status: local development preview; release gates remain open.
 
-## Real-footage Storyroom workflow (2026-10-11) — Resolve gate pending
+## Real-footage Storyroom workflow (2026-10-11) — Resolve import verified
 
 Four CC BY-SA 4.0 Cavemantraining exercise videos were downloaded from their
 Commons originals, hashed, probed, and converted locally from WebM to supported
@@ -24,24 +24,26 @@ The rendered review decoded to exactly 780 frames / 26.000 seconds at 30 fps, in
 the expected six-shot order. Source media hashes stayed unchanged. Audio was present
 only on source-backed ranges; silent inputs/ranges remained silent with no invented
 audio. FCP7 XML export contains the same six cuts, source ranges and section labels.
-This is export evidence only—not proof of Resolve compatibility. DaVinci Resolve 21
-opened the FCP7 XML import settings at the expected 30 fps, then warned that 4/4
-source files were missing. The XML's absolute file URIs point to four
-`data/evaluation/runtime/media/<asset-id>/edit.mp4` files that exist at those paths.
-Resolve's search-folder dialog exposed only its configured media-storage location;
-importing an editing copy invoked a macOS folder-access flow. The Mac locked again
-before that access/relink step completed. This may be an application folder
-permission/storage-root issue, not yet evidence of malformed Storyroom paths. No
-timeline with resolved media was confirmed, so cut/audio/repeat/section inspection
-and a Resolve screenshot remain pending. Do not alter the exporter until the exact
-files have been tried through Resolve's access/relink flow and the path behavior is
-isolated. No reproducible Storyroom defect was confirmed; no product code changed.
+On 2026-10-11, DaVinci Resolve 21.1.1 imported the XML through File → Import →
+Timeline at 30 fps / 1920×1080. The initial 4/4-missing warning was from an earlier
+incomplete attempt; it was not reproduced during this completed import. In the
+macOS file picker, selecting the XML by its full path enabled Import. Resolve loaded
+the 26-second timeline, with real frames visible at 00:00:00, 00:00:08, 00:00:12,
+00:00:16, and 00:00:22. The four distinct absolute `edit.mp4` references resolved;
+the timeline has six ordered cuts and duration 00:00:26:00 (780 frames at 30 fps),
+matching the saved assembly. The source repeated at sequence 00:00:22 uses a distinct
+source range from its earlier placement at 00:00:08. Resolve showed audio on
+audio-backed selections and no audio under the final silent selection, while that
+video's duration remained intact. Storyroom section labels remain in Resolve clip
+names, but FCP7 XML did not create Resolve bins. The project was saved after import.
+No reproducible Storyroom defect was found; no product code changed.
 
 Verification on 2026-10-11: `.venv/bin/pytest -q` **74 passed** (one existing
 Starlette/httpx deprecation warning); isolated `npm run test:e2e` **25 passed**;
 `npm run build` passed. The backend suite includes A2 geometry, frame-clock,
-audio-sync and cut-order checks. The required Resolve UI acceptance check is not
-passed, so this milestone is partial and must not be described as fully complete.
+audio-sync and cut-order checks. The actual Resolve UI import was visually checked.
+This validates these local H.264 files and cuts-only FCP7 interchange, not every
+camera codec, storage location, Resolve version, or creator workflow.
 
 ## A3 performance measurement (2026-10-10)
 
@@ -73,9 +75,9 @@ PR #1 after this checkpoint is pushed. No encoder optimization was made.
 
 | Area | Implemented | Evidence and remaining work |
 | --- | --- | --- |
-| Manual assembly | Projects, import, proxies, descriptions, story sections, drag/reorder, frame trimming, save/reopen, undo | Automated suite covers generated fixtures; four licensed exercise videos also completed manual import/search/board/restart/render workflow. Actual Resolve inspection remains pending. |
+| Manual assembly | Projects, import, proxies, descriptions, story sections, drag/reorder, frame trimming, save/reopen, undo | Automated suite covers generated fixtures; four licensed exercise videos completed manual import/search/board/restart/render and a visually checked Resolve 21.1.1 XML import. |
 | Processing | One SQLite-backed worker, progress, cancel/retry, response caching | Real worker subprocess tests cover pending/interrupted normalization/render, second-worker refusal and explicit retry. Encoding restarts; it is not stage-resumable. |
-| Output | MP4 render, FCP7 XML, OTIO, media manifest | Independent generated-media checks verify pixels, exact frame count/spacing, audio boundaries, and XML references/ranges/gaps. No verified import in DaVinci Resolve yet. |
+| Output | MP4 render, FCP7 XML, OTIO, media manifest | Independent generated-media checks verify pixels, exact frame count/spacing, audio boundaries, and XML references/ranges/gaps. A 780-frame / 26-second licensed-footage timeline opened in Resolve 21.1.1 with footage visible and the repeated source range preserved. |
 | AI adapter | Video chunks, validated observations, embeddings, story proposals, cost reservations | Fake-provider tests cover response validation, caching, budget, and failure. No real provider or quality benchmark has been verified. |
 | Search | Keyword matching and optional description-embedding similarity | Manual keyword behavior tested. The 20-query real-footage benchmark has not been completed. |
 | Training | Permission-aware judgments, grouped split, logistic-regression experiment, report export | Script and labeling interface exist. No trained or deployed custom model has been established. |
@@ -128,11 +130,12 @@ No additional product choice required an interview.
   [PR run](https://github.com/Humza1423/storyroom/actions/runs/38022063786)). PR #1
   remains draft while A3 work is underway.
 
-Next: unlock the Mac, import the exported XML into the actual DaVinci Resolve
-application, inspect the timeline, and record version/evidence. Diagnose any issue
-against the baseline before changing encoding. Provider quality and custom training
-remain separate gates. The footage acquisition happened after the A3 checkpoint;
-no paid request or training occurred.
+Next: evaluate retrieval quality on manually reviewed queries across multiple
+permissioned footage sets before adding computer-vision complexity. Start with a
+narrow pretrained-model slice and a baseline comparison; the verified manual,
+persistence, render, and Resolve handoff flow is now a usable foundation. Provider
+quality and custom training remain separate gates. Footage acquisition happened
+after the A3 checkpoint; no paid request or training occurred.
 
 2026-10-08: **independent A1 review and two consistency fixes**. Reviewed the four
 import checkpoints after 7286856, including controller, UI integration, API errors,

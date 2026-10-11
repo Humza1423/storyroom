@@ -28,19 +28,19 @@ survives upgrades; refactoring preserves behavior; startup failures are actionab
 Phases A1–A3 cover resilient batch import, independent generated-media correctness,
 and bounded processing diagnostics. A four-source licensed real-footage workflow has
 now passed inside Storyroom, including restart persistence and rendered-preview
-checks. The actual Resolve application import is the remaining handoff gate; see
-[REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md) and current evidence in [STATUS](STATUS.md).
+checks. The actual Resolve 21.1.1 application import was also visually verified;
+see current evidence and limits in [STATUS](STATUS.md).
 
 Import → normalize → select clips → trim/reorder → save/reopen → preview →
 render → export and inspect in Resolve. Edit boundaries are integer frames with an exclusive out
 point. Source assets, observed moments, and placed selections remain distinct.
 Board revisions provide recovery and prevent stale writes from overwriting changes.
 
-Acceptance: real Resolve import preserves order, references, audio, and cut points
-within one normalized frame. Record Resolve version, source properties, and results.
-A valid XML file or OTIO round-trip alone does not pass this gate. Detect missing
-media before handing over a broken export. Include portrait, silent, corrupt,
-duplicate, unsupported, and variable-frame-rate inputs and interrupted processing.
+The small licensed-footage Resolve import preserves tested order, references,
+audio/silent ranges, and 30-fps cuts. Expand verification with unfamiliar footage
+before claiming broad codec compatibility. A valid XML file or OTIO round-trip alone
+does not pass this gate. Continue testing portrait, silent, corrupt, duplicate,
+unsupported, variable-frame-rate inputs and interrupted processing.
 
 ## 3. Validate footage intelligence, not just the adapter
 
