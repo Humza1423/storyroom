@@ -2,9 +2,10 @@
 
 Status: Phase A1 verified on 2026-10-08, A2's generated-media regressions and fixes
 verified on 2026-10-09, A3 diagnostics/baseline verified on 2026-10-10, and the
-local licensed real-footage Storyroom workflow verified on 2026-10-11. Actual
-DaVinci Resolve inspection remains pending because the Mac locked before the app
-could be opened.
+local licensed real-footage Storyroom workflow verified on 2026-10-11. Resolve 21
+opened the XML import settings at 30 fps but reported all four media files missing.
+Their paths exist; the Resolve/macOS folder-access flow was interrupted when the
+Mac locked again. Timeline compatibility remains unverified.
 The foundation history
 and current work are pushed on `codex/media-correctness`, under
 [PR #1](https://github.com/Humza1423/storyroom/pull/1). Read STATUS.md for exact
@@ -152,10 +153,12 @@ Completed Storyroom workflow and evidence:
 Steps 1–5 were completed. The 26-second render decoded to exactly 780 frames at 30
 fps; its six placements follow the saved order, audio aligns with source ranges, and
 silent sources remain silent. The app restarted and reopened the exact saved board.
-FCP7 XML was produced, but step 6 is not complete: the computer-use tool reported
-that macOS was locked and could not unlock it. Resume only after the user unlocks the
-Mac, then import the XML in Resolve and inspect the real timeline. Do not use shell
-automation or XML inspection as a substitute for that UI check.
+FCP7 XML was produced and opened in Resolve 21 at 30 fps. Resolve reported 4/4
+media files missing although their absolute paths exist. The app file-access/relink
+flow was not completed before macOS locked again. Therefore cuts, audio, repetition,
+and section metadata remain unverified. Resume after unlock, complete media
+access/relink, and inspect the actual timeline. Do not use shell automation or XML
+inspection as a substitute for that UI check.
 
 Show the creator what each action is testing. Retain screenshots and a concise
 pass/fail evidence record. If Resolve is unavailable, report that specific gate as
@@ -188,8 +191,11 @@ repetitive fixture generation, focused tests, and evidence-backed review. Use th
 
 ## Next task
 
-> After the Mac has been unlocked, open the installed official free DaVinci Resolve
-> application and import `data/evaluation/cavemantraining/storyroom.xml`. Inspect
+> After the Mac has been unlocked, return to the open Resolve 21 project and finish
+> granting access to/searching `data/evaluation/runtime/media`. The XML points to
+> four existing `edit.mp4` files there, but Resolve first reported all missing. If
+> relinking those exact files does not work, reproduce with one clip and diagnose
+> path/sandbox behavior before changing the exporter. Then inspect actual
 > actual resolved media, timeline order, source ranges/cuts within one 30-fps frame,
 > audio on expected clips, silence duration, repeated independent source ranges, and
 > what section names/metadata survive. Capture evidence and record Resolve version.

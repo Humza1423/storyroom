@@ -42,10 +42,12 @@ processing-time/output-size diagnostics and a generated-media baseline; see
 [STATUS](STATUS.md) and [PERFORMANCE_PLAN](PERFORMANCE_PLAN.md). The next coding
 The four licensed sources have been downloaded, hashed, converted, and run through
 the actual local Storyroom workflow. The project survived restart; search, bins,
-repeated source ranges, preview, and FCP7 XML export were checked. The sole remaining
-gate is importing that XML into the actual DaVinci Resolve application and inspecting
-the timeline. The local Mac was locked before Resolve could be opened; do not claim
-Resolve compatibility until the UI check is complete. Evidence and exact ranges are
+repeated source ranges, preview, and FCP7 XML export were checked. Resolve 21 opened
+the XML import settings at 30 fps, then reported all four media files missing. Their
+exact absolute paths exist on disk. Resolve's file-access/relink flow was still in
+progress when macOS locked again; do not claim compatibility yet. Resume from the
+open Resolve project, complete media access/relink, then inspect the timeline.
+Evidence and exact ranges are
 in [STATUS](STATUS.md); local media and provenance are ignored under
 `data/evaluation/cavemantraining/`. No cloud analysis or training was run.
 [LEARNING_PATH](LEARNING_PATH.md) offers the creator a small code contribution and

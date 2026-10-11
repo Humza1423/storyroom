@@ -24,11 +24,18 @@ The rendered review decoded to exactly 780 frames / 26.000 seconds at 30 fps, in
 the expected six-shot order. Source media hashes stayed unchanged. Audio was present
 only on source-backed ranges; silent inputs/ranges remained silent with no invented
 audio. FCP7 XML export contains the same six cuts, source ranges and section labels.
-This is export evidence only—not proof of Resolve compatibility. Resolve could not
-be opened because macOS was locked and the computer-use tool could not unlock it.
-Thus the actual application import, media relink, cut/audio/section inspection, and
-Resolve version/screenshot are explicitly pending. No reproducible Storyroom defect
-blocked this workflow, so no product code was changed in this pass.
+This is export evidence only—not proof of Resolve compatibility. DaVinci Resolve 21
+opened the FCP7 XML import settings at the expected 30 fps, then warned that 4/4
+source files were missing. The XML's absolute file URIs point to four
+`data/evaluation/runtime/media/<asset-id>/edit.mp4` files that exist at those paths.
+Resolve's search-folder dialog exposed only its configured media-storage location;
+importing an editing copy invoked a macOS folder-access flow. The Mac locked again
+before that access/relink step completed. This may be an application folder
+permission/storage-root issue, not yet evidence of malformed Storyroom paths. No
+timeline with resolved media was confirmed, so cut/audio/repeat/section inspection
+and a Resolve screenshot remain pending. Do not alter the exporter until the exact
+files have been tried through Resolve's access/relink flow and the path behavior is
+isolated. No reproducible Storyroom defect was confirmed; no product code changed.
 
 Verification on 2026-10-11: `.venv/bin/pytest -q` **74 passed** (one existing
 Starlette/httpx deprecation warning); isolated `npm run test:e2e` **25 passed**;
