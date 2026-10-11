@@ -30,6 +30,13 @@ export function ProcessingPanel({
               {j.kind} <small>{j.status}</small>
             </strong>
             <p>{j.message}</p>
+            {j.kind === "export" && j.status === "done" && (
+              <p>
+                Resolve reports missing clips? Grant it access to Storyroom's
+                media folder, then import the XML again. Keep the editing copies
+                in place.
+              </p>
+            )}
             {j.status === "running" && <progress max={1} value={j.progress} />}
           </div>
           {["failed", "cancelled"].includes(j.status) && (

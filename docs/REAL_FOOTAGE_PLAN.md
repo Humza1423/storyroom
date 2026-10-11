@@ -162,9 +162,11 @@ timeline. Real frames were visibly checked at sequence positions 00:00:00, 00:00
 range. The sequence duration matched 780 frames, source references resolved, audio
 was present on supported ranges and absent under the final silent selection, and
 section labels were retained in clip names rather than converted to Resolve bins.
-The first missing-media warning came from an earlier incomplete import attempt; it
-did not recur after selecting the XML by its full path in the macOS picker. Do not
-use XML inspection as a substitute for the recorded application check, but retain
+The initial missing-media warning did not recur in that completed import, but a
+later mixed-profile import reproduced it until Resolve was granted access to the
+managed media folder. See the [compatibility check](MEDIA_COMPATIBILITY.md) and
+[development guide](DEVELOPMENT.md) for the handoff step. Do not use XML
+inspection as a substitute for the recorded application check, but retain
 the distinction between tested local H.264 inputs and untested general camera media.
 
 Show the creator what each action is testing. Retain screenshots and a concise
@@ -198,13 +200,10 @@ repetitive fixture generation, focused tests, and evidence-backed review. Use th
 
 ## Next task
 
-> After the Mac has been unlocked, return to the open Resolve 21 project and finish
-> granting access to/searching `data/evaluation/runtime/media`. The XML points to
-> four existing `edit.mp4` files there, but Resolve first reported all missing. If
-> relinking those exact files does not work, reproduce with one clip and diagnose
-> path/sandbox behavior before changing the exporter. Then inspect actual
-> actual resolved media, timeline order, source ranges/cuts within one 30-fps frame,
-> audio on expected clips, silence duration, repeated independent source ranges, and
-> what section names/metadata survive. Capture evidence and record Resolve version.
-> If installation requests admin credentials or personal registration details, stop
-> for the user. Do not claim successful editor compatibility from XML validity alone.
+The earlier missing-media warning was resolved by granting Resolve access to
+Storyroom's local media folder; the real-footage sequence was visually verified
+in Resolve 21.1.1. A later [mixed-profile compatibility check](MEDIA_COMPATIBILITY.md)
+confirmed landscape, portrait, variable-rate-derived and rotation-tagged H.264
+inputs in a four-cut Resolve timeline. The next engineering gate is a bounded,
+permissioned AI-search evaluation on the supported H.264 path. Do not infer broad
+phone/HEVC/HDR support from the compatibility matrix.

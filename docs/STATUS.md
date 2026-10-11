@@ -2,6 +2,41 @@
 
 Updated: 2026-10-11. Status: local development preview; release gates remain open.
 
+## Mixed-profile Storyroom-to-Resolve check (2026-10-11)
+
+One CC BY-SA 3.0 real running clip was transformed into four explicit technical
+profiles: 1080p/24 fps with audio, portrait/60 fps silent, 720p variable-rate
+silent, and 90° rotation metadata with audio. All four H.264 MP4s imported and
+prepared in an isolated Storyroom project. A saved four-section board rendered
+to exactly 360 frames/12.000 seconds; visual cut order and audio/silent regions
+were checked independently. Original/source hashes remained unchanged. The
+original WebM and an H.264 MOV were clearly rejected. An HEVC import was
+inconclusive because the machine dropped below Storyroom's 3 GB free-space
+minimum before codec validation; no user files were deleted to bypass it.
+
+DaVinci Resolve 21.1.1 initially reported 4/4 missing clips from the XML. A
+one-clip XML and a localhost-style file URL failed the same way. Direct MP4
+import revealed Resolve's **Grant Access To Folder** prompt; after granting
+the isolated Storyroom media folder and re-importing the unchanged XML, all
+four distinct pictures appeared in the actual Resolve timeline at the intended
+cuts, 30 fps/00:00:12:00, with source audio lanes on the first and fourth cuts
+only. The compatibility project was saved. This is a folder-permission setup
+gap; no media/export code change was warranted. The export-panel instruction,
+README, and development guide now explain the handoff. The full source rights,
+fixture settings, results, and untested boundaries are in
+[MEDIA_COMPATIBILITY](MEDIA_COMPATIBILITY.md). About 2.6 GiB was free after the
+run; further import tests require free space, not a relaxed safety guard.
+
+Verification for this checkpoint: 74 backend tests passed, including explicit
+low-disk behavior; the TypeScript/production build and fatal-error Ruff lint
+passed; 12 isolated board/import-controller browser checks passed. The full
+upload-to-export browser suite could not run meaningfully on this machine while
+its real import preflight sees less than 3 GB free. The test-client fixture now
+uses a controlled free-space result so backend behavior tests are not coupled to
+host capacity, while production and explicit disk-error tests keep the guard.
+The actual four-profile Storyroom and Resolve workflow above was exercised
+separately. Remote CI on the pushed PR is the remaining full-suite check.
+
 ## Real-footage Storyroom workflow (2026-10-11) — Resolve import verified
 
 Four CC BY-SA 4.0 Cavemantraining exercise videos were downloaded from their

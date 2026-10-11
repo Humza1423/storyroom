@@ -3,8 +3,9 @@
 Source pages inspected 2026-10-07; four files were acquired and evaluated locally
 on 2026-10-11. These are freely licensed videos, rather than "open-source" software.
 The Storyroom import, manual search, assembly, restart/reopen, rendered review, and
-FCP7 XML export were exercised. The actual Resolve application import is still
-pending and must not be inferred from XML generation. Full file hashes, exact source
+FCP7 XML export were exercised. The actual Resolve 21.1.1 application import
+was subsequently visually verified; see [STATUS](STATUS.md) for the exact
+evidence and limits. Full file hashes, exact source
 properties, and conversion records are in the ignored local manifest
 `data/evaluation/cavemantraining/provenance.json`; no media is committed. The small
 related set does not establish model accuracy or messy-footage generalization.

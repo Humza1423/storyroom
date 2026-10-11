@@ -1,4 +1,5 @@
 import subprocess
+from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 from server import config, db
@@ -8,6 +9,11 @@ from server.app import app
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DATA", tmp_path / "data")
+    # Import behavior under test should not depend on free space on the host.
+    # Disk-error tests explicitly override this with a low-space result.
+    monkeypatch.setattr(
+        "server.app.shutil.disk_usage", lambda _: SimpleNamespace(free=10_000_000_000)
+    )
     monkeypatch.setenv("GEMINI_API_KEY", "")
     monkeypatch.setenv("GOOGLE_API_KEY", "")
     monkeypatch.setattr(config, "PRICING_CONFIRMED", False)

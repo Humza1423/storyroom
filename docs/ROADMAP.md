@@ -17,8 +17,9 @@ requests. See [ARCHITECTURE](ARCHITECTURE.md) for the implemented flows.
 
 Foundation implementation now includes the isolated browser harness, transactional
 migrations, frontend modules, startup/recovery checks, Python lockfile and CI workflow.
-See STATUS and FOUNDATION_PLAN for measured acceptance results. Next is the manual
-real-footage handoff below; hosted infrastructure and model training remain deferred.
+See STATUS and FOUNDATION_PLAN for measured acceptance results. The manual
+real-footage handoff has been verified; hosted infrastructure and model training
+remain deferred.
 
 Acceptance: a fresh test run cannot change personal projects; old project data
 survives upgrades; refactoring preserves behavior; startup failures are actionable.
@@ -37,10 +38,12 @@ point. Source assets, observed moments, and placed selections remain distinct.
 Board revisions provide recovery and prevent stale writes from overwriting changes.
 
 The small licensed-footage Resolve import preserves tested order, references,
-audio/silent ranges, and 30-fps cuts. Expand verification with unfamiliar footage
-before claiming broad codec compatibility. A valid XML file or OTIO round-trip alone
-does not pass this gate. Continue testing portrait, silent, corrupt, duplicate,
-unsupported, variable-frame-rate inputs and interrupted processing.
+audio/silent ranges, and 30-fps cuts. A later
+[mixed-profile check](MEDIA_COMPATIBILITY.md) covers portrait, silent, VFR-derived,
+and rotation-tagged H.264 inputs through an actual Resolve import. Expand only
+where real camera evidence warrants it before claiming broad codec compatibility;
+HEVC/HDR and portable relinking remain unproven. A valid XML file or OTIO
+round-trip alone does not pass this gate.
 
 ## 3. Validate footage intelligence, not just the adapter
 

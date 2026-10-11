@@ -13,7 +13,8 @@ story sections; accepted edits remain separate from suggestions. The complete
 manual workflow runs without a provider account or API key.
 
 **Development preview.** The source is public under MIT. Generated-media tests
-exercise the application, but unfamiliar real footage, an actual Resolve import,
+and a small licensed-footage compatibility matrix have exercised the manual
+workflow in DaVinci Resolve 21.1.1. Broader camera formats, unfamiliar footage,
 and real-provider AI quality remain release gates. See the
 [verification record](docs/STATUS.md) for current evidence and limitations.
 
@@ -37,7 +38,7 @@ and real-provider AI quality remain release gates. See the
 | Import and recovery | Per-file outcomes, content-hash deduplication, paused batches, and separate upload/preparation retries |
 | Search | Keyword search over stored descriptions; optional embedding search requires cloud setup and footage analysis |
 | Story workspace | Custom sections, repeated clip placement, drag/reorder controls, frame trimming, notes, and saved revisions |
-| Preview and export | MP4 rendering and cuts-only timeline generation; actual Resolve compatibility still needs an editor import check |
+| Preview and export | MP4 rendering and cuts-only FCP7 XML imported into Resolve 21.1.1 with tested H.264 footage; broader formats remain unverified |
 | AI assistance | Provider adapter, validated observations, proposals, cache, and cost ledger implemented; usefulness not yet established |
 | Learning to rank | Labeling and grouped evaluation scripts implemented; no trained model is deployed |
 
@@ -85,6 +86,14 @@ footage or evidence of AI quality. Do not run the seeder alongside the worker.
 
 Browser playback is approximate. Inspect the rendered output for precise cuts;
 verify the exported sequence inside Resolve before relying on its handoff.
+On macOS, Resolve may initially report missing clips even when the XML contains
+valid local paths. Grant Resolve access to Storyroom's managed `data/media/`
+folder (or the media folder under your `STORYROOM_DATA` root), then import the
+XML again. In the tested Resolve version, importing one editing copy directly
+first triggered the **Grant Access To Folder** prompt; selecting the media
+folder allowed the complete XML timeline to load. Keep those editing copies in
+place. See the [compatibility record](docs/MEDIA_COMPATIBILITY.md) for exactly
+which profiles were tested and what remains unproven.
 
 ## How it is built
 
@@ -162,10 +171,10 @@ your personal development project. [GitHub Actions](.github/workflows/checks.yml
 runs the automated suite; [STATUS](docs/STATUS.md) records completed checks and
 keeps generated-media results separate from real-world validation.
 
-Current media work checks geometry, frame timing, and audio. The following gates
-are measured media performance, a coherent real-footage assembly, an actual
-Resolve import, and a human-reviewed retrieval benchmark. Broader format support
-and custom ranking follow evidence from those checks. See the
+Current media work checks geometry, frame timing, and audio; one real-footage
+assembly and a mixed-profile XML have opened in Resolve. The next gates are
+broader real camera footage and a human-reviewed retrieval benchmark. Broader
+format support and custom ranking follow evidence from those checks. See the
 [roadmap](docs/ROADMAP.md) and [contribution guide](CONTRIBUTING.md).
 
 ## License

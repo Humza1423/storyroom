@@ -88,6 +88,16 @@ Exports point to these local editing copies. Moving or deleting them breaks the
 handoff. Browser sequential playback is approximate; inspect rendered media and
 the actual imported editor sequence for cut precision.
 
+DaVinci Resolve on macOS may show "clips not found" for an otherwise valid XML
+until its sandbox can read Storyroom's managed media folder. In Resolve, import
+one `edit.mp4` directly from `data/media/<asset-id>/` (or your custom
+`STORYROOM_DATA/media/`), choose **Select Folder** at the access prompt, and
+grant the `media/` parent folder. Re-import the XML and check actual frames,
+cut order, and audio before relying on the timeline. Grant only the intended
+local folder; this is not a Storyroom upload or an XML path rewrite. Resolve
+21.1.1 then loaded the four-profile matrix described in
+[MEDIA_COMPATIBILITY](MEDIA_COMPATIBILITY.md).
+
 This preview has no project-deletion or backup/restore interface. With the
 application stopped, back up the complete `data/` directory, not just the SQLite
 file. Keep credentials separately. Do not commit personal projects or sample
