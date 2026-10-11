@@ -1,10 +1,13 @@
 # Real footage for the first manual test
 
-Source pages inspected 2026-10-07. These are freely licensed videos, rather than
-"open-source" software. No video has been downloaded, played through, inspected
-with ffprobe, imported, or evaluated in Storyroom in this documentation task.
-Metadata below is reported by the file pages and rounded. License checks establish
-a useful starting set; they do not establish model accuracy or editor compatibility.
+Source pages inspected 2026-10-07; four files were acquired and evaluated locally
+on 2026-10-11. These are freely licensed videos, rather than "open-source" software.
+The Storyroom import, manual search, assembly, restart/reopen, rendered review, and
+FCP7 XML export were exercised. The actual Resolve application import is still
+pending and must not be inferred from XML generation. Full file hashes, exact source
+properties, and conversion records are in the ignored local manifest
+`data/evaluation/cavemantraining/provenance.json`; no media is committed. The small
+related set does not establish model accuracy or messy-footage generalization.
 
 ## Starter set
 
@@ -43,7 +46,17 @@ training flags merely because an asset appears in this list; make those decision
 for the later authorized operation and applicable provider terms. Custom training is
 outside this exercise; there are no fabricated permissions, labels, or model results.
 
-## Preparation after foundation completion
+## Preparation record
+
+Preparation was completed on 2026-10-11. Original WebM files remain unchanged under
+`data/evaluation/cavemantraining/originals/`; supported SDR H.264 MP4 copies are in
+`inputs/`. FFmpeg 9.0.1 conversion used 30 fps/yuv420p and AAC only where the source
+had audio. All sources were 640×480; elapsed duration remained within one 30-fps
+frame. The two kettlebell-swing source files contain different views; they are not
+independent footage sets. See `provenance.json` for exact values and hashes.
+
+The following describes how to reproduce preparation on another machine, not work
+still outstanding:
 
 1. Download Original file from each Commons page into
    `data/evaluation/cavemantraining/originals/`; keep originals unchanged.

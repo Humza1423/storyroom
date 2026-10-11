@@ -1,6 +1,40 @@
 # Project status and release checklist
 
-Updated: 2026-10-10. Status: local development preview; release gates remain open.
+Updated: 2026-10-11. Status: local development preview; release gates remain open.
+
+## Real-footage Storyroom workflow (2026-10-11) — Resolve gate pending
+
+Four CC BY-SA 4.0 Cavemantraining exercise videos were downloaded from their
+Commons originals, hashed, probed, and converted locally from WebM to supported
+640×480 SDR H.264 MP4 inputs. Provenance (permanent page revisions, URLs, authors,
+license, byte counts/hashes, stream properties, and exact FFmpeg conversion profile)
+is in ignored `data/evaluation/cavemantraining/provenance.json`. Originals and
+derived files stay out of Git. No cloud analysis or training ran.
+
+In an isolated Storyroom data root, all four inputs imported and became ready. Manual
+search found jumping jacks, burpees, kettlebell swing, double kettlebell clean and
+jerk, and technique/detail framing. The saved three-section board was: Warm-up
+(jumping jacks 0–120, burpee 240–360); Technique detail (wide swing 300–420, zoom
+swing 120–240); Lift/finish (double clean-and-jerk 330–510, then the same wide-swing
+source again at 1080–1200). Boundaries are 30-fps frames with exclusive out points;
+the repeated source uses independent ranges. After stopping and restarting
+Storyroom, exact section/clip order and boundaries reopened unchanged.
+
+The rendered review decoded to exactly 780 frames / 26.000 seconds at 30 fps, in
+the expected six-shot order. Source media hashes stayed unchanged. Audio was present
+only on source-backed ranges; silent inputs/ranges remained silent with no invented
+audio. FCP7 XML export contains the same six cuts, source ranges and section labels.
+This is export evidence only—not proof of Resolve compatibility. Resolve could not
+be opened because macOS was locked and the computer-use tool could not unlock it.
+Thus the actual application import, media relink, cut/audio/section inspection, and
+Resolve version/screenshot are explicitly pending. No reproducible Storyroom defect
+blocked this workflow, so no product code was changed in this pass.
+
+Verification on 2026-10-11: `.venv/bin/pytest -q` **74 passed** (one existing
+Starlette/httpx deprecation warning); isolated `npm run test:e2e` **25 passed**;
+`npm run build` passed. The backend suite includes A2 geometry, frame-clock,
+audio-sync and cut-order checks. The required Resolve UI acceptance check is not
+passed, so this milestone is partial and must not be described as fully complete.
 
 ## A3 performance measurement (2026-10-10)
 
@@ -32,7 +66,7 @@ PR #1 after this checkpoint is pushed. No encoder optimization was made.
 
 | Area | Implemented | Evidence and remaining work |
 | --- | --- | --- |
-| Manual assembly | Projects, import, proxies, descriptions, story sections, drag/reorder, frame trimming, save/reopen, undo | Backend tests cover persistence and frame rules. Isolated browser tests cover three generated inputs, repeated placement, exact saved ranges/order, undo, playback and outputs. Real footage remains separate. |
+| Manual assembly | Projects, import, proxies, descriptions, story sections, drag/reorder, frame trimming, save/reopen, undo | Automated suite covers generated fixtures; four licensed exercise videos also completed manual import/search/board/restart/render workflow. Actual Resolve inspection remains pending. |
 | Processing | One SQLite-backed worker, progress, cancel/retry, response caching | Real worker subprocess tests cover pending/interrupted normalization/render, second-worker refusal and explicit retry. Encoding restarts; it is not stage-resumable. |
 | Output | MP4 render, FCP7 XML, OTIO, media manifest | Independent generated-media checks verify pixels, exact frame count/spacing, audio boundaries, and XML references/ranges/gaps. No verified import in DaVinci Resolve yet. |
 | AI adapter | Video chunks, validated observations, embeddings, story proposals, cost reservations | Fake-provider tests cover response validation, caching, budget, and failure. No real provider or quality benchmark has been verified. |
@@ -87,10 +121,11 @@ No additional product choice required an interview.
   [PR run](https://github.com/Humza1423/storyroom/actions/runs/38022063786)). PR #1
   remains draft while A3 work is underway.
 
-Next: use owned or appropriately licensed unfamiliar footage, then verify a real
-import in DaVinci Resolve. Diagnose any issue against the baseline before changing
-encoding. Provider quality and custom training remain separate gates. No footage
-download, paid request or training occurred in A3.
+Next: unlock the Mac, import the exported XML into the actual DaVinci Resolve
+application, inspect the timeline, and record version/evidence. Diagnose any issue
+against the baseline before changing encoding. Provider quality and custom training
+remain separate gates. The footage acquisition happened after the A3 checkpoint;
+no paid request or training occurred.
 
 2026-10-08: **independent A1 review and two consistency fixes**. Reviewed the four
 import checkpoints after 7286856, including controller, UI integration, API errors,
@@ -275,9 +310,9 @@ authorized routine feature-branch pushes for verified implementation checkpoints
 - [x] Phase A2: independently verify generated-media orientation, frame timing and audio.
 - [x] Phase A3: measure media-stage performance before changing encoding.
 
-- [ ] Import a coherent set of owned or appropriately licensed real training clips.
-- [ ] Assemble three clips; reopen the project and confirm the exact saved order and boundaries.
-- [ ] Render and check mixed silent/audio, portrait/landscape, and variable-frame-rate inputs.
+- [x] Import four appropriately licensed real training clips (640×480 landscape SDR; see manifest).
+- [x] Assemble/search/trim/repeat clips; restart and confirm exact saved section and clip order/boundaries.
+- [x] Render and check expected order/duration and source-backed versus silent audio ranges. Portrait and VFR real-footage cases remain untested.
 - [ ] Import XML in DaVinci Resolve and check cuts within one normalized frame, audio, order, and references.
 - [ ] Record Resolve version, footage characteristics, test date, result, and any limitations.
 

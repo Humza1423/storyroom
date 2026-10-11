@@ -25,12 +25,14 @@ survives upgrades; refactoring preserves behavior; startup failures are actionab
 
 ## 2. Prove the manual vertical slice
 
-Phases A1 and A2 now cover resilient batch import and independent generated-media
-timing/orientation/audio checks with regression fixes. Continue with A3's performance
-measurements before acquiring real footage; see [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md).
+Phases A1–A3 cover resilient batch import, independent generated-media correctness,
+and bounded processing diagnostics. A four-source licensed real-footage workflow has
+now passed inside Storyroom, including restart persistence and rendered-preview
+checks. The actual Resolve application import is the remaining handoff gate; see
+[REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md) and current evidence in [STATUS](STATUS.md).
 
-Import → normalize → select three clips → trim/reorder → save/reopen → preview →
-render → Resolve XML. Edit boundaries are integer frames with an exclusive out
+Import → normalize → select clips → trim/reorder → save/reopen → preview →
+render → export and inspect in Resolve. Edit boundaries are integer frames with an exclusive out
 point. Source assets, observed moments, and placed selections remain distinct.
 Board revisions provide recovery and prevent stale writes from overwriting changes.
 

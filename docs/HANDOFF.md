@@ -34,20 +34,22 @@ Read [STATUS](STATUS.md), [FOUNDATION_PLAN](FOUNDATION_PLAN.md), and
 [MEDIA_CORRECTNESS_PLAN](MEDIA_CORRECTNESS_PLAN.md) for exact local/remote checks
 and outstanding gates. Do not infer that `main` contains this work before merge.
 
-Next product milestone: the manual real-footage exercise in
+Next product milestone: close the final real-footage handoff gate in
 [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md), with Phase A1's resilient batch import now verified in
 [IMPORT_PLAN](IMPORT_PLAN.md). A2 now has independent generated-media geometry,
 frame-timing and audio regressions with bounded fixes. Phase A3 added bounded
 processing-time/output-size diagnostics and a generated-media baseline; see
 [STATUS](STATUS.md) and [PERFORMANCE_PLAN](PERFORMANCE_PLAN.md). The next coding
-task is unfamiliar licensed-footage testing and an actual Resolve import.
-[LEARNING_PATH](LEARNING_PATH.md) offers the creator a small code contribution
-and request-flow exercise. The source list is in
-[FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md). No listed footage has been downloaded or
-sent to a provider. Use its rights/provenance procedure, then prove import → saved
-three-clip montage → rendered review → actual Resolve import. Ask for the relevant
-external action authorization when needed. Do not substitute an XML round-trip for
-an editor import, or fake-provider tests for real model quality.
+The four licensed sources have been downloaded, hashed, converted, and run through
+the actual local Storyroom workflow. The project survived restart; search, bins,
+repeated source ranges, preview, and FCP7 XML export were checked. The sole remaining
+gate is importing that XML into the actual DaVinci Resolve application and inspecting
+the timeline. The local Mac was locked before Resolve could be opened; do not claim
+Resolve compatibility until the UI check is complete. Evidence and exact ranges are
+in [STATUS](STATUS.md); local media and provenance are ignored under
+`data/evaluation/cavemantraining/`. No cloud analysis or training was run.
+[LEARNING_PATH](LEARNING_PATH.md) offers the creator a small code contribution and
+request-flow exercise. Do not substitute XML parsing for an editor import.
 
 For further foundation changes, browser tests are now self-contained:
 `npm run test:e2e` owns a fresh temporary root, fixtures and process groups. Never

@@ -1,14 +1,18 @@
-# Next milestone: reliable real-footage assembly
+# Real-footage workflow and remaining Resolve gate
 
 Status: Phase A1 verified on 2026-10-08, A2's generated-media regressions and fixes
-verified on 2026-10-09, and A3 diagnostics/baseline verified on 2026-10-10.
+verified on 2026-10-09, A3 diagnostics/baseline verified on 2026-10-10, and the
+local licensed real-footage Storyroom workflow verified on 2026-10-11. Actual
+DaVinci Resolve inspection remains pending because the Mac locked before the app
+could be opened.
 The foundation history
 and current work are pushed on `codex/media-correctness`, under
 [PR #1](https://github.com/Humza1423/storyroom/pull/1). Read STATUS.md for exact
 local/remote verification. This task is about the existing app.
-The guided computer-use test, footage acquisition, and provider evaluation happen
-in subsequent phases below. No runtime changes or new test runs occurred during the original planning pass;
-see IMPORT_PLAN for subsequent A1 implementation evidence.
+The acquisition, conversion, and Storyroom computer-use workflow are complete; see
+STATUS.md and FOOTAGE_TEST_SET.md. No reproducible application defect blocked the
+workflow, so this pass required no runtime edits. Actual Resolve UI inspection is the
+remaining gate. Provider evaluation remains a separate later milestone.
 
 ## Outcome
 
@@ -119,20 +123,19 @@ pass; batch failures are recoverable; the generated media matrix has reported
 results; diagnostics identify where time goes. At this point the app is ready for
 real-footage testing, not already validated on real footage.
 
-## Phase B: actual footage and guided computer-use session — later
+## Phase B: actual footage and guided computer-use session — Storyroom complete; Resolve pending
 
-Use the four sources already researched in FOOTAGE_TEST_SET.md. Recheck source
-pages at acquisition, download originals, preserve provenance, and make separate
-supported H.264 MP4 inputs. The WebM-to-MP4 conversion is external preparation;
-record it so this test does not imply native WebM support. Keep media under the
-ignored data/evaluation directory and out of Git. Initial cloud/training flags stay off.
+The four sources in FOOTAGE_TEST_SET.md were rechecked, acquired, hashed, converted,
+and kept under ignored `data/evaluation/`. Conversion is external preparation, not
+native WebM support. Cloud-analysis/training flags stayed off. The manual Storyroom
+steps below were completed; only the actual Resolve application inspection remains.
 
 Before using the app, the creator watches the clips and writes a brief plus three
 or more useful ranges. These independent expectations let us judge the application.
 Do not copy AI answers into the expected results. The four related demonstrations
 are a smoke test; they are not three independent evaluation footage sets.
 
-In the later visible browser session:
+Completed Storyroom workflow and evidence:
 
 1. Verify the running app uses the intended code and evaluation data root; restart
    stale API/worker processes cleanly if needed. Open a dedicated evaluation project.
@@ -145,6 +148,14 @@ In the later visible browser session:
    decoded frame count against the sum of exclusive-out minus in-frame boundaries.
 6. Export and import XML in the actual Resolve application. Record version,
    references, order, cut points within one normalized frame, and audio alignment.
+
+Steps 1–5 were completed. The 26-second render decoded to exactly 780 frames at 30
+fps; its six placements follow the saved order, audio aligns with source ranges, and
+silent sources remain silent. The app restarted and reopened the exact saved board.
+FCP7 XML was produced, but step 6 is not complete: the computer-use tool reported
+that macOS was locked and could not unlock it. Resume only after the user unlocks the
+Mac, then import the XML in Resolve and inspect the real timeline. Do not use shell
+automation or XML inspection as a substitute for that UI check.
 
 Show the creator what each action is testing. Retain screenshots and a concise
 pass/fail evidence record. If Resolve is unavailable, report that specific gate as
@@ -175,13 +186,12 @@ milestone, and an explanation of the request flow. Codex owns implementation sup
 repetitive fixture generation, focused tests, and evidence-backed review. Use the
 [learning path](LEARNING_PATH.md) to turn that division into concrete practice.
 
-## Next implementation prompt
+## Next task
 
-> Read AGENTS.md, docs/STATUS.md and this plan. A1/A2 are verified; plan Phase A3
-> media-stage diagnostics before coding. Inspect the current pipeline and split
-> implementation, independent tests and documentation among non-overlapping agents.
-> Measure inspect, editing-copy/proxy encode, thumbnail, render parts and final join.
-> Prefer bounded local reporting over new infrastructure. Optimize only a measured
-> bottleneck while retaining A2 correctness. Preserve saved frames and immutable
-> sources; push verified checkpoints as authorized. Real downloads, a live walkthrough,
-> Resolve import, paid AI and training remain separate tasks.
+> After the Mac has been unlocked, open the installed official free DaVinci Resolve
+> application and import `data/evaluation/cavemantraining/storyroom.xml`. Inspect
+> actual resolved media, timeline order, source ranges/cuts within one 30-fps frame,
+> audio on expected clips, silence duration, repeated independent source ranges, and
+> what section names/metadata survive. Capture evidence and record Resolve version.
+> If installation requests admin credentials or personal registration details, stop
+> for the user. Do not claim successful editor compatibility from XML validity alone.
