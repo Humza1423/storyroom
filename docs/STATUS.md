@@ -35,7 +35,9 @@ its real import preflight sees less than 3 GB free. The test-client fixture now
 uses a controlled free-space result so backend behavior tests are not coupled to
 host capacity, while production and explicit disk-error tests keep the guard.
 The actual four-profile Storyroom and Resolve workflow above was exercised
-separately. Remote CI on the pushed PR is the remaining full-suite check.
+separately. Both GitHub Actions checks for commit `84376d2` passed the full
+isolated browser suite and other workflow steps: [push run](https://github.com/Humza1423/storyroom/actions/runs/38182532282),
+[PR run](https://github.com/Humza1423/storyroom/actions/runs/38182534442).
 
 ## Real-footage Storyroom workflow (2026-10-11) — Resolve import verified
 
