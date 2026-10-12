@@ -48,6 +48,27 @@ evaluation directory.
 | H.264 QuickTime MOV | HTTP 400, `file_invalid` | Not applicable | Not a Storyroom-supported input |
 | HEVC MP4 derivative | **Not determined:** import stopped at disk-space preflight | Not run | Not tested; code policy rejects HEVC |
 
+## Expanded format probes (2026-10-11)
+
+Follow-up probes used small generated media in ignored
+`data/evaluation/compatibility/expanded/`; these check format detection and
+the supported high-bitrate path, not camera image quality. Their input hashes
+and exact encodings are preserved locally, not committed.
+
+| Probe | Storyroom result | What this establishes |
+| --- | --- | --- |
+| Synthetic 3840×2160 SDR H.264 MP4 | HTTP 400: supports up to 1080p | Resolution limit is enforced before processing. This is not a test of an actual 4K camera file. |
+| Synthetic 1920×1080 PQ / 10-bit H.264 MP4 | HTTP 400: HDR / 10-bit unsupported | PQ color metadata and 10-bit pixels are rejected with the expected conversion guidance. |
+| Synthetic 1280×720 HEVC MP4 | HTTP 400: supports H.264 MP4 only | Codec boundary is enforced. |
+| Synthetic 1280×720 ProRes MOV | HTTP 400: import an H.264 MP4 | MOV is rejected at the filename/container gate; ProRes decoding is not attempted. |
+| Real Runners scene, 1920×1080 H.264 MP4 at about 26.6 Mb/s, AAC | Imported, normalized, proxied, manually selected, and rendered | High-bitrate footage within the supported SDR H.264 / 1080p limits works through the review-render path. Normalization recorded 2.60 s for the editing copy, 1.37 s for the proxy, and 0.11 s for the thumbnail on this machine. A 60-frame selection rendered to 1280×720 H.264 at 30 fps, exactly 2.000 s. |
+
+The earlier VFR sample remains a transformed segment from the same licensed
+Runners source. No genuine phone recording, actual 4K capture, Resolve import
+of the high-bitrate probe, HDR display pipeline, or ProRes decode was tested.
+These results support proceeding with AI work on the tested H.264 path; they do
+not justify expanding Storyroom's accepted formats. No application code changed.
+
 The saved four-section board selected 90 frames from each ready asset, for a
 360-frame/12.000-second assembly. Independent ffprobe inspection found 360
 decoded video frames and 12.000-second video/audio durations in the review MP4.
