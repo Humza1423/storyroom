@@ -105,10 +105,12 @@ def validate(info):
     ):
         raise ValueError("Version 1 supports H.264 MP4 footage only.")
     if (
-        max(info["width"], info["height"]) > 1920
-        or min(info["width"], info["height"]) > 1080
+        max(info["width"], info["height"]) > 3840
+        or min(info["width"], info["height"]) > 2160
     ):
-        raise ValueError("Version 1 supports up to 1080p, including portrait footage.")
+        raise ValueError(
+            "Storyroom supports up to 3840×2160 SDR, including portrait footage."
+        )
     if info["transfer"] in ("smpte2084", "arib-std-b67") or "10" in (
         info["pix_fmt"] or ""
     ):
@@ -121,8 +123,9 @@ def encode(source, dest, proxy=False, cancelled=lambda: False):
     video_start = probe(source)["video_start"]
     # A pixel can represent a non-square region of the displayed image. Resize
     # using that display geometry before discarding SAR, including after FFmpeg's
-    # automatic rotation. Keep either orientation inside the supported 1080p box.
-    factor = "min(1,min(1920/max(iw*sar,ih),1080/min(iw*sar,ih)))"
+    # automatic rotation. Keep either orientation inside the supported 4K box.
+    # The proxy gets its separate 720p bound below; Resolve uses the 4K edit.
+    factor = "min(1,min(3840/max(iw*sar,ih),2160/min(iw*sar,ih)))"
     vf = (
         f"setpts=PTS-({video_start})/TB,fps=30:start_time=0,"
         f"scale=w='max(2,trunc(iw*sar*{factor}/2)*2)':"

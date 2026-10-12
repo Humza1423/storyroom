@@ -1,6 +1,66 @@
 # Project status and release checklist
 
-Updated: 2026-10-11. Status: local development preview; release gates remain open.
+Updated: 2026-10-12. Status: local development preview; release gates remain open.
+
+## Online 4K footage check (2026-10-12) — Resolve gate still open
+
+Six Pexels exercise clips were downloaded individually for a small demo/workflow
+check, not AI training or a search benchmark. Original media and a per-file
+rights/hash/stream manifest are kept only in ignored `data/evaluation/pexels/`.
+Five downloaded files are actually 3840×2160; the page/filename for the
+push-up clip suggested 4K but its downloaded stream is 2560×1440. Do not infer
+media properties from the stock-site listing.
+
+Storyroom now accepts SDR H.264 MP4 up to 3840×2160 in either orientation,
+preserves 4K in its normalized editing copy, and still makes a 720p browser
+proxy. Three real 4K clips imported in the normal local project named
+`4K gym demo — Pexels`. Manual search found the entered exercise descriptions.
+A three-section/four-placement board used one source twice at independent ranges.
+After a full app restart it reopened with exact section order and frame bounds.
+The review MP4 decoded to 330 frames/11.000 seconds at 30 fps, and sampled
+frames showed the expected four-shot order. XML inspection found those same
+four full-resolution source ranges. Original-file SHA-256 values were unchanged.
+This proves the local import/assembly/export-file path, **not** AI retrieval.
+
+The first actual Resolve 21 import attempt found the XML but showed 3/3 source
+files as missing. Prior A2 testing showed Resolve can require explicit folder
+access even for valid absolute paths. A folder-relink attempt was interrupted
+by a macOS computer-control timeout; this 4K timeline has **not** yet been
+visually verified in Resolve. The earlier 1080p mixed-profile Resolve import
+remains verified. Do not call the 4K handoff complete until the media is visible
+and ranges/cuts are checked in the actual editor.
+
+On this 8 GB Mac, full-resolution editing-copy creation took 264.36, 514.08,
+and 338.82 seconds for sources lasting about 15.3, 8.5, and 17.4 seconds.
+The corresponding proxies took 66.04, 6.56, and 18.30 seconds; four 720p
+render parts took 9.79 seconds and joining took 0.22 seconds. No stage failed.
+The clear bottleneck is Storyroom's unconditional 4K software re-encode to
+constant 30 fps, amplified by limited hardware. 4K is technically accepted but
+is **not yet seamless** on this machine. Do not lower export resolution silently.
+Next optimization experiment: compare current CPU encode with VideoToolbox on
+the same short inputs, checking frame counts/timestamps, displayed geometry,
+audio alignment, quality, output size, and Resolve import; retain CPU fallback.
+Measure peak free space as well: the fixed 3 GB import guard and a 2 GB input
+limit do not guarantee enough room for long 4K editing copies. Add an
+output-aware disk budget before treating larger 4K projects as supported.
+Use 1080p inputs for rapid iteration until that measured path passes.
+
+For later AI-search evaluation, a 21-video subset of the CC BY 4.0 Mendeley
+seven-exercise archive was selectively extracted into ignored storage without
+downloading the whole 3.1 GB ZIP. It has source exercise labels but no reviewed
+query judgments or search score yet. Qwen3-VL-Embedding-2B was researched, not
+installed or benchmarked: its full weights and this Mac's 8 GB memory/limited
+free disk make an unmeasured local deployment irresponsible. Search is still
+manual description/keyword search, not visual natural-language retrieval.
+
+Verification for this checkpoint: 77 backend tests passed (one existing
+Starlette/httpx deprecation warning); TypeScript/production build passed; the
+full isolated browser suite passed 25/25 on a clean rerun. An earlier concurrent
+run timed out one UI readiness assertion at 24/25 while all corresponding worker
+jobs completed; that case passed alone and in the clean full rerun. The 4K
+geometry/frame-rate regression, prior audio/cut-order checks, immutable-source
+hash comparison, and saved-project restart check passed. The remaining gate is
+the visually confirmed 4K Resolve import, not another XML parser check.
 
 ## Mixed-profile Storyroom-to-Resolve check (2026-10-11)
 

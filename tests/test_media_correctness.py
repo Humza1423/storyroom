@@ -202,6 +202,20 @@ def test_non_square_pixels_preserve_display_aspect(tmp_path):
     assert min(stream["width"], stream["height"]) <= 1080
 
 
+def test_4k_edit_keeps_resolution_while_proxy_stays_small(client, tmp_path):
+    source = make_video(
+        tmp_path / "source.mp4", size="3840x2160", rate=25, duration=0.2
+    )
+    _, aid = create_ready(client, source)
+    folder = config.asset_dir(aid)
+    edit = video_stream(folder / "edit.mp4")
+    proxy = video_stream(folder / "proxy.mp4")
+    assert (edit["width"], edit["height"]) == (3840, 2160)
+    assert edit["avg_frame_rate"] == "30/1"
+    assert (proxy["width"], proxy["height"]) == (1280, 720)
+    assert video_stream(folder / "original.mp4")["avg_frame_rate"] == "25/1"
+
+
 @pytest.mark.parametrize("rate", [24, 30, 60, "vfr"])
 def test_normalization_has_independently_counted_constant_frames(tmp_path, rate):
     # Keep frames 0..11, then alternate frames12..34 of a36-frame clock.

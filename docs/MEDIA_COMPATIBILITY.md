@@ -1,7 +1,9 @@
 # Media compatibility check — 2026-10-11
 
 This is a bounded engineering check, not a claim of general camera support.
-Storyroom still accepts only SDR H.264 MP4 up to 1080p. Four *test profiles*
+At the time of this check, Storyroom accepted SDR H.264 MP4 up to 1080p. Later
+4K support and its separate real-footage evidence are recorded in [STATUS](STATUS.md).
+Four *test profiles*
 were derived from one licensed real sports video, then imported into an isolated
 Storyroom project and one cuts-only timeline in DaVinci Resolve 21.1.1 (free,
 macOS). The earlier four 640×480 Cavemantraining clips are a separate, narrower

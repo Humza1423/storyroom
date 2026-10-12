@@ -10,6 +10,28 @@ properties, and conversion records are in the ignored local manifest
 `data/evaluation/cavemantraining/provenance.json`; no media is committed. The small
 related set does not establish model accuracy or messy-footage generalization.
 
+## Later 4K demo and search-evaluation sources (2026-10-12)
+
+Six individual [Pexels](https://www.pexels.com/license/) gym clips were acquired
+for a small edited demo and 4K workflow check, **not** for AI training or a
+formal search benchmark: [kettlebell 1](https://www.pexels.com/video/woman-doing-some-lifting-exercises-3196564/),
+[kettlebell 2](https://www.pexels.com/video/woman-doing-lifting-exercises-in-a-gym-3196428/),
+[weights](https://www.pexels.com/video/a-man-lifting-weights-in-a-fitness-gym-3196220/),
+[push-ups](https://www.pexels.com/video/man-doing-a-push-up-at-the-gym-4742661/),
+[sit-ups](https://www.pexels.com/video/man-working-out-at-the-gym-4742756/), and
+[boxing](https://www.pexels.com/video/woman-training-at-the-gym-8469963/).
+The downloaded push-up file is actually 2560×1440; the other five are
+3840×2160. Pexels [terms](https://www.pexels.com/terms-of-service/) restrict
+systematic collection for ML purposes. Exact attribution, hashes, streams and
+source URLs remain in ignored `data/evaluation/pexels/PROVENANCE.md`.
+
+For a separate search experiment, the [Mendeley seven-exercise raw-video
+dataset](https://data.mendeley.com/datasets/kgbb3yn47p/3) is CC BY 4.0. A
+21-file subset across exercise types, subjects and camera views was extracted
+with `scripts/inspect_mendeley_zip.py` into ignored local storage. The archive
+labels are not yet a human-reviewed set of natural-language query judgments;
+participant/privacy review is still required before publishing clips.
+
 ## Starter set
 
 All four are exercise demonstrations attributed to Taco Fleur / Cavemantraining,
@@ -94,8 +116,9 @@ Suggested manual checks:
 These are clean, already composed exercise demonstrations at modest resolution.
 They test real pixels and plumbing, but not the central challenge of messy raw
 footage, competing takes, setup/recovery, camera movement, or story discovery.
-After this works, use a permissioned short phone shoot with those characteristics
-and at least two further independent footage sets for retrieval evaluation.
+After this works, use permissioned online raw-footage datasets with those
+characteristics and at least two further independent footage sets for retrieval
+evaluation. The creator does not plan to record footage for this project.
 
 An alternative found during research was
 [Half rack resistance exercise workout](https://commons.wikimedia.org/wiki/File:Half_rack_resistance_exercise_workout.webm)

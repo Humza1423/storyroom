@@ -45,6 +45,14 @@ where real camera evidence warrants it before claiming broad codec compatibility
 HEVC/HDR and portable relinking remain unproven. A valid XML file or OTIO
 round-trip alone does not pass this gate.
 
+The subsequent 4K online-footage check exposed a performance gap: 4K imports
+complete but unconditional full-resolution software transcoding is too slow on
+the 8 GB development Mac. Before calling 4K support polished, benchmark a
+hardware-encoder path against the existing CPU path and verify unchanged media
+correctness; retain a CPU fallback. Also finish the actual 4K Resolve relink and
+timeline check. Use 1080p material for fast AI-search iteration meanwhile; this
+does not lower the intended quality ceiling or weaken the verified manual flow.
+
 ## 3. Validate footage intelligence, not just the adapter
 
 Keep pretrained inference behind the existing AI boundary. Verify current model

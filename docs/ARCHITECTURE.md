@@ -55,7 +55,7 @@ defines time zero; video and audio lose the same origin. Audio before that origi
 is trimmed and delayed audio gets silence, rather than independently resetting
 both streams and erasing their relative offset. FFmpeg applies rotation, resizes
 using the displayed pixel aspect, then writes square pixels. Editing copies fit
-inside 1920-by-1080 in either orientation; playback proxies fit inside 1280-by-720.
+inside 3840-by-2160 in either orientation; playback proxies fit inside 1280-by-720.
 
 Selections use exclusive integer out points. Rendering each range produces a
 1280-by-720 padded video part and uncompressed 48 kHz stereo PCM audio. At 30 fps,

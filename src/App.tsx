@@ -689,7 +689,7 @@ export default function App() {
                       <Upload size={25} />
                       <strong>Bring your footage in</strong>
                       <span>
-                        H.264 MP4 · up to 1080p
+                        SDR H.264 MP4 · up to 4K
                         <br />
                         30 clips · 15 minutes · 2 GB
                       </span>

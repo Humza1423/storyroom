@@ -136,7 +136,7 @@ design tradeoffs, or follow one request through the [source map](START_HERE.md).
 
 ## Scope and data
 
-- **Input:** SDR H.264 MP4 up to 1080p, including portrait footage; at most
+- **Input:** SDR H.264 MP4 up to 3840×2160, including portrait footage; at most
   30 clips, 15 minutes, and 2 GB of source files per project.
 - **Storage:** sources are copied into local managed storage and remain unchanged.
   Editing copies, smaller proxies, database state, and exports stay on your machine.
@@ -145,6 +145,9 @@ design tradeoffs, or follow one request through the [source map](START_HERE.md).
   in place after export.
 - **Output:** review MP4s use a 1280×720 canvas with padding. Transitions, captions,
   music synchronization, multicamera editing, and finishing are outside this release.
+- **4K workflow:** Storyroom keeps the 4K resolution in the normalized editing
+  copy referenced by Resolve XML. Browser playback uses a 720p proxy. Encoding
+  six 4K clips can take several minutes and needs room for sources and both copies.
 - **AI:** explicitly enabled analysis sends reduced-resolution video chunks without
   audio; it does not transcribe speech. Suggestions never replace accepted edits
   automatically. Credentials stay on the backend.
