@@ -522,7 +522,7 @@ export default function App() {
                 ) : (
                   <Circle size={12} />
                 )}{" "}
-                Processing{" "}
+                Activity{" "}
                 {activeJobs.length > 0 && (
                   <span className="badge">{activeJobs.length}</span>
                 )}
