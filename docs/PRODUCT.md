@@ -54,7 +54,9 @@ without cloud AI. Cloud analysis requires explicit permission and budget checks.
 ## Bounded first release
 
 - Local browser application, single local user; development targets an 8 GB Mac.
-- Short SDR H.264 MP4 clips, up to 3840×2160; 30 files, 15 minutes, 2 GB per project.
+- Short SDR H.264 MP4 clips; 1080p is the practical development, test, and demo
+  target. The app accepts up to 3840×2160, but 4K is experimental and slow on the
+  current 8 GB Mac. Limits remain 30 files, 15 minutes, and 2 GB per project.
 - Managed source copies, constant-30-fps editing copies, smaller playback proxies.
 - Cuts-only Resolve handoff using normalized copies, not camera-original relinking.
 - Cloud AI development budget of US$50; local dispatch guardrail at US$45.

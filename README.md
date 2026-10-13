@@ -38,7 +38,7 @@ and real-provider AI quality remain release gates. See the
 | Import and recovery | Per-file outcomes, content-hash deduplication, paused batches, and separate upload/preparation retries |
 | Search | Keyword search over stored descriptions; optional embedding search requires cloud setup and footage analysis |
 | Story workspace | Custom sections, repeated clip placement, drag/reorder controls, frame trimming, notes, and saved revisions |
-| Preview and export | MP4 rendering and cuts-only FCP7 XML imported into Resolve 21.1.1 with tested H.264 footage; broader formats remain unverified |
+| Preview and export | MP4 rendering and cuts-only FCP7 XML imported into Resolve 21.1.1 with tested H.264 footage, including a 4K timeline; broader formats remain unverified |
 | AI assistance | Provider adapter, validated observations, proposals, cache, and cost ledger implemented; usefulness not yet established |
 | Learning to rank | Labeling and grouped evaluation scripts implemented; no trained model is deployed |
 
@@ -145,9 +145,10 @@ design tradeoffs, or follow one request through the [source map](START_HERE.md).
   in place after export.
 - **Output:** review MP4s use a 1280×720 canvas with padding. Transitions, captions,
   music synchronization, multicamera editing, and finishing are outside this release.
-- **4K workflow:** Storyroom keeps the 4K resolution in the normalized editing
-  copy referenced by Resolve XML. Browser playback uses a 720p proxy. Encoding
-  six 4K clips can take several minutes and needs room for sources and both copies.
+- **Resolution target:** 1080p is the practical development, test, and demo
+  backbone. The build accepts SDR H.264 MP4 up to 4K and the 4K Resolve handoff
+  was verified, but 4K preparation is experimental and slow on this 8 GB Mac.
+  Browser playback uses a 720p proxy; the app does not silently lower resolution.
 - **AI:** explicitly enabled analysis sends reduced-resolution video chunks without
   audio; it does not transcribe speech. Suggestions never replace accepted edits
   automatically. Credentials stay on the backend.

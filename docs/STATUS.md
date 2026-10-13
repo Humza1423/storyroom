@@ -2,7 +2,7 @@
 
 Updated: 2026-10-12. Status: local development preview; release gates remain open.
 
-## Online 4K footage check (2026-10-12) — Resolve gate still open
+## Online 4K footage check (2026-10-12) — Resolve import verified; 4K deferred
 
 Six Pexels exercise clips were downloaded individually for a small demo/workflow
 check, not AI training or a search benchmark. Original media and a per-file
@@ -22,28 +22,27 @@ frames showed the expected four-shot order. XML inspection found those same
 four full-resolution source ranges. Original-file SHA-256 values were unchanged.
 This proves the local import/assembly/export-file path, **not** AI retrieval.
 
-The first actual Resolve 21 import attempt found the XML but showed 3/3 source
-files as missing. Prior A2 testing showed Resolve can require explicit folder
-access even for valid absolute paths. A folder-relink attempt was interrupted
-by a macOS computer-control timeout; this 4K timeline has **not** yet been
-visually verified in Resolve. The earlier 1080p mixed-profile Resolve import
-remains verified. Do not call the 4K handoff complete until the media is visible
-and ranges/cuts are checked in the actual editor.
+DaVinci Resolve 21.1.1 initially showed missing sources because macOS had not
+granted it access to Storyroom's managed-media folder. After granting access,
+the Storyroom FCP7 XML was imported through Resolve's actual File → Import →
+Timeline flow. The 3840×2160, 30-fps timeline opened with all four cuts visible
+and playable, and Resolve reported an 11-second duration. The sequence shows
+the expected shot order, including the repeated source as a separate placement;
+audio appears only over the source range with audio, while silent footage keeps
+its full duration. This closes the 4K Resolve-import check for these files, not
+a general compatibility claim. Resolve preserves the section/clip names in the
+timeline but does not recreate Storyroom's bins as Resolve bins.
 
 On this 8 GB Mac, full-resolution editing-copy creation took 264.36, 514.08,
 and 338.82 seconds for sources lasting about 15.3, 8.5, and 17.4 seconds.
 The corresponding proxies took 66.04, 6.56, and 18.30 seconds; four 720p
 render parts took 9.79 seconds and joining took 0.22 seconds. No stage failed.
 The clear bottleneck is Storyroom's unconditional 4K software re-encode to
-constant 30 fps, amplified by limited hardware. 4K is technically accepted but
-is **not yet seamless** on this machine. Do not lower export resolution silently.
-Next optimization experiment: compare current CPU encode with VideoToolbox on
-the same short inputs, checking frame counts/timestamps, displayed geometry,
-audio alignment, quality, output size, and Resolve import; retain CPU fallback.
-Measure peak free space as well: the fixed 3 GB import guard and a 2 GB input
-limit do not guarantee enough room for long 4K editing copies. Add an
-output-aware disk budget before treating larger 4K projects as supported.
-Use 1080p inputs for rapid iteration until that measured path passes.
+constant 30 fps, amplified by limited hardware. On this 8 GB Mac, 4K is accepted
+but slow and remains experimental; it is not the current demo target. Treat
+1080p as Storyroom's practical development, testing, and demo backbone. The
+existing 4K resolution is preserved when used; do not silently reduce it. Defer
+4K speed and disk-budget work until better hardware or user demand justifies it.
 
 For later AI-search evaluation, a 21-video subset of the CC BY 4.0 Mendeley
 seven-exercise archive was selectively extracted into ignored storage without
@@ -59,8 +58,10 @@ full isolated browser suite passed 25/25 on a clean rerun. An earlier concurrent
 run timed out one UI readiness assertion at 24/25 while all corresponding worker
 jobs completed; that case passed alone and in the clean full rerun. The 4K
 geometry/frame-rate regression, prior audio/cut-order checks, immutable-source
-hash comparison, and saved-project restart check passed. The remaining gate is
-the visually confirmed 4K Resolve import, not another XML parser check.
+hash comparison, and saved-project restart check passed. The 4K XML was then
+imported and visually checked in Resolve 21.1.1, including its playable image,
+four cuts, 11-second duration, repeated source placement, and audio/silent spans.
+No code fix was needed; the initial missing-media prompt was macOS folder access.
 
 ## Mixed-profile Storyroom-to-Resolve check (2026-10-11)
 

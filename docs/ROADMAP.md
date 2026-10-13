@@ -45,13 +45,13 @@ where real camera evidence warrants it before claiming broad codec compatibility
 HEVC/HDR and portable relinking remain unproven. A valid XML file or OTIO
 round-trip alone does not pass this gate.
 
-The subsequent 4K online-footage check exposed a performance gap: 4K imports
-complete but unconditional full-resolution software transcoding is too slow on
-the 8 GB development Mac. Before calling 4K support polished, benchmark a
-hardware-encoder path against the existing CPU path and verify unchanged media
-correctness; retain a CPU fallback. Also finish the actual 4K Resolve relink and
-timeline check. Use 1080p material for fast AI-search iteration meanwhile; this
-does not lower the intended quality ceiling or weaken the verified manual flow.
+The subsequent 4K online-footage check confirmed the FCP7 timeline imports and
+plays in Resolve 21.1.1, but also exposed a performance gap: unconditional
+full-resolution software transcoding is too slow on the 8 GB development Mac.
+Treat 1080p as the practical backbone for development, testing, and demos; 4K
+remains accepted but experimental. Defer encoder/disk optimization until better
+hardware or user demand justifies it. This does not silently lower the output
+resolution or weaken the verified 1080p and 4K handoff checks.
 
 ## 3. Validate footage intelligence, not just the adapter
 
