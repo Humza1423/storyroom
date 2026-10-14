@@ -80,6 +80,7 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
   expect(placements[1].asset_id).toBe(placements[2].asset_id);
   expect(placements[0].asset_id).not.toBe(placements[1].asset_id);
   await page.getByRole("button", { name: "Play assembly" }).click();
+  await expect(page.getByText("Clip 1 of 3")).toBeVisible();
   await expect(page.locator("video")).toBeVisible();
   await expect
     .poll(() =>
@@ -93,6 +94,7 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
         .evaluate((v) => (v as HTMLVideoElement).currentTime),
     )
     .toBeGreaterThan(0.3);
+  await expect(page.getByText("Clip 2 of 3")).toBeVisible({ timeout: 8000 });
   await page
     .getByRole("button", { name: "Render preview", exact: true })
     .click();

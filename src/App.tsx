@@ -1083,7 +1083,11 @@ export default function App() {
                       {sequenceIndex !== null ? "Assembly playback" : "Preview"}
                     </h2>
                     <span className="subtle">
-                      {preview ? timecode(preview.start_frame) : "—"}
+                      {sequenceIndex !== null
+                        ? `Clip ${sequenceIndex + 1} of ${clips.length}`
+                        : preview
+                          ? timecode(preview.start_frame)
+                          : "—"}
                     </span>
                   </div>
                   <Player preview={preview} video={video} advance={advance} />

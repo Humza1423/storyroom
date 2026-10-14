@@ -57,7 +57,7 @@ resolution or weaken the verified 1080p and 4K handoff checks.
 
 The provider/index/retrieval/UI code is implemented on the feature branch; see
 [STATUS](STATUS.md) for the exact test evidence. It adds a distinct Gemini
-Embedding 2 path over overlapping six-second ranges of prepared 720p proxies,
+Embedding 2 path over overlapping two-second ranges (one-second stride) of prepared 720p proxies,
 cached text-query embeddings, SQLite persistence, exact cosine ranking, and
 playable candidates that become ordinary frame-range selections. Existing keyword
 and description search remain separate. The model is a candidate generator, not

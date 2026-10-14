@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,9 +17,9 @@ OUTPUT_RATE = float(os.getenv("STORYROOM_OUTPUT_RATE", "9.00"))
 EMBED_RATE = float(os.getenv("STORYROOM_EMBED_RATE", "0.20"))
 EMBED_PROVIDER = os.getenv("STORYROOM_EMBED_PROVIDER", "gemini").strip().lower()
 EMBED_DIMENSIONS = 768
-VISUAL_INDEX_VERSION = "visual-v1-6s-3s-1fps"
-VISUAL_WINDOW_FRAMES = 6 * FPS
-VISUAL_STRIDE_FRAMES = 3 * FPS
+VISUAL_INDEX_VERSION = "visual-v2-2s-1s-1fps"
+VISUAL_WINDOW_FRAMES = 2 * FPS
+VISUAL_STRIDE_FRAMES = 1 * FPS
 VISUAL_VIDEO_FRAME_RATE = float(
     os.getenv("STORYROOM_VIDEO_EMBED_FRAME_RATE", "0.00079")
 )

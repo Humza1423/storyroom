@@ -3,10 +3,11 @@ import subprocess
 from types import SimpleNamespace
 
 import pytest
-
 from conftest import create_ready
+
 from server import ai, config, db
-from server.vector_index import collapse_overlapping
+from server.vector_index import ExactVectorIndex, collapse_overlapping
+from server.visual_index import segment_windows
 from server.worker import once
 
 
@@ -189,15 +190,25 @@ def test_partial_visual_index_survives_failure_or_cancel_and_retry(
     assert once()
     done = db.one("SELECT status,result FROM jobs WHERE id=?", (retry,))
     assert done["status"] == "done"
-    assert json.loads(done["result"])["indexed_segments"] == 2
+    expected_segments = len(segment_windows(8 * config.FPS))
+    assert json.loads(done["result"])["indexed_segments"] == expected_segments
     assert db.one(
         "SELECT COUNT(*) AS n FROM visual_segments WHERE asset_id=?", (aid,)
-    )["n"] == 2
+    )["n"] == expected_segments
     # The already completed range was skipped when retrying.
-    assert provider.video_calls == 3
+    assert provider.video_calls == expected_segments + 1
 
 
-def test_search_does_not_mix_provider_models(client, clip, monkeypatch):
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [
+        ("model", "different-model"),
+        ("index_version", "visual-v1-6s-3s-1fps"),
+    ],
+)
+def test_search_does_not_mix_provider_models_or_old_indexes(
+    client, clip, monkeypatch, column, value
+):
     pid, aid = create_ready(client, clip)
     permit_cloud_analysis(client, aid)
     enable_visual_ai(monkeypatch)
@@ -207,9 +218,7 @@ def test_search_does_not_mix_provider_models(client, clip, monkeypatch):
         f"/api/projects/{pid}/visual-index", json={"asset_ids": [aid]}
     ).raise_for_status()
     assert once()
-    db.execute(
-        "UPDATE visual_segments SET model='different-model' WHERE asset_id=?", (aid,)
-    )
+    db.execute(f"UPDATE visual_segments SET {column}=? WHERE asset_id=?", (value, aid))
     response = client.post(
         f"/api/projects/{pid}/search",
         json={"query": "lifting", "mode": "visual"},
@@ -217,6 +226,27 @@ def test_search_does_not_mix_provider_models(client, clip, monkeypatch):
     assert response.status_code == 400
     assert "index" in response.json()["detail"].lower()
     assert provider.query_calls == []
+
+
+def test_visual_ranking_uses_vectors_not_video_filenames():
+    rows = [
+        {
+            "asset_id": "misleading-name",
+            "asset_name": "jumping_jacks.mp4",
+            "start_frame": 0,
+            "end_frame": 60,
+            "embedding": [0.0, 1.0],
+        },
+        {
+            "asset_id": "opaque-name",
+            "asset_name": "clip_opaque_91f7.mp4",
+            "start_frame": 0,
+            "end_frame": 60,
+            "embedding": [1.0, 0.0],
+        },
+    ]
+    results = ExactVectorIndex().search([1.0, 0.0], rows)
+    assert results[0][1]["asset_id"] == "opaque-name"
 
 
 def test_gemini_embedding2_query_format_and_cache(client, monkeypatch):
@@ -255,7 +285,19 @@ def test_gemini_embedding2_query_format_and_cache(client, monkeypatch):
     assert usage["reserved"] > 0
 
 
-def test_overlapping_visual_results_merge_all_bridged_windows():
+def test_short_visual_windows_cover_clip_with_one_second_stride():
+    assert config.VISUAL_WINDOW_FRAMES == 60
+    assert config.VISUAL_STRIDE_FRAMES == 30
+    assert segment_windows(165) == [
+        (0, 60),
+        (30, 90),
+        (60, 120),
+        (90, 150),
+        (120, 165),
+    ]
+
+
+def test_overlapping_visual_results_keep_best_window_without_broadening():
     rows = [
         {
             "asset_id": "asset",
@@ -267,7 +309,9 @@ def test_overlapping_visual_results_merge_all_bridged_windows():
     ]
     candidates = collapse_overlapping(
         [(0.9, rows[0]), (0.8, rows[1]), (0.7, rows[2])],
-        max_group_frames=360,
     )
-    assert len(candidates) == 1
-    assert (candidates[0]["start_frame"], candidates[0]["end_frame"]) == (0, 360)
+    assert len(candidates) == 2
+    assert [
+        (candidate["start_frame"], candidate["end_frame"])
+        for candidate in candidates
+    ] == [(0, 180), (180, 360)]

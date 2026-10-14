@@ -122,7 +122,7 @@ settings button. Only index material suitable for this provider and tier.
 
 Restart Storyroom, select **Visual AI**, click **Estimate & index permitted
 clips**, review the displayed ranges/cost/tier notice, then explicitly start
-indexing. The worker sends six-second ranges from prepared 720p proxies; it does
+indexing. The worker sends two-second ranges, one second apart, from prepared 720p proxies; it does
 not send audio. Search uses the same model to embed the query and compares it
 against saved visual-range vectors. A candidate is a useful range to inspect,
 not a guaranteed action label or exact boundary. Keyword and description search

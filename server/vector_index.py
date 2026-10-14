@@ -27,59 +27,37 @@ class ExactVectorIndex:
         return scored[:limit]
 
 
-def collapse_overlapping(scored, limit=5, max_group_frames=12 * 30):
-    """Merge only overlapping top-ranked windows; cap broad chained ranges."""
-    groups = []
+def collapse_overlapping(scored, limit=5):
+    """Keep the strongest playable window; suppress overlapping duplicates.
+
+    Do not union adjacent ranges: doing so can stretch a result across distinct
+    actions and imply temporal precision the video embedding does not provide.
+    """
+    candidates = []
     for score, row in scored:
-        matching = [
-            group
-            for group in groups
-            if group["asset_id"] == row["asset_id"]
-            and max(group["start_frame"], row["start_frame"])
-            < min(group["end_frame"], row["end_frame"])
-            and max(group["end_frame"], row["end_frame"])
-            - min(group["start_frame"], row["start_frame"])
-            <= max_group_frames
-        ]
-        if matching:
-            group = matching[0]
-            start = min(
-                row["start_frame"], *(item["start_frame"] for item in matching)
+        duplicate = any(
+            item["asset_id"] == row["asset_id"]
+            and max(item["start_frame"], row["start_frame"])
+            < min(item["end_frame"], row["end_frame"])
+            for item in candidates
+        )
+        if not duplicate:
+            candidates.append(
+                {
+                    "asset_id": row["asset_id"],
+                    "asset_name": row["asset_name"],
+                    "start_frame": row["start_frame"],
+                    "end_frame": row["end_frame"],
+                    "score": score,
+                }
             )
-            end = max(row["end_frame"], *(item["end_frame"] for item in matching))
-            if end - start <= max_group_frames:
-                group["start_frame"] = start
-                group["end_frame"] = end
-                group["score"] = max(score, *(item["score"] for item in matching))
-                group["segments"] += 1 + sum(
-                    item["segments"] for item in matching[1:]
-                )
-                for other in matching[1:]:
-                    groups.remove(other)
-                continue
-        groups.append(
-            {
-                "asset_id": row["asset_id"],
-                "asset_name": row["asset_name"],
-                "start_frame": row["start_frame"],
-                "end_frame": row["end_frame"],
-                "score": score,
-                "segments": 1,
-            }
-        )
-    groups.sort(
-        key=lambda row: (
-            -row["score"],
-            row["asset_id"],
-            row["start_frame"],
-            row["end_frame"],
-        )
-    )
-    for rank, group in enumerate(groups[:limit], start=1):
+    for rank, candidate in enumerate(candidates[:limit], start=1):
         digest = hashlib.sha256(
-            f"{group['asset_id']}:{group['start_frame']}:{group['end_frame']}".encode()
+            (
+                f"{candidate['asset_id']}:{candidate['start_frame']}"
+                f":{candidate['end_frame']}"
+            ).encode()
         ).hexdigest()[:24]
-        group.update(id=f"visual-{digest}", rank=rank, kind="visual")
-        group.pop("score", None)
-        group.pop("segments", None)
-    return groups[:limit]
+        candidate.update(id=f"visual-{digest}", rank=rank, kind="visual")
+        candidate.pop("score", None)
+    return candidates[:limit]

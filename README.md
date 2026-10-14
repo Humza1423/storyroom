@@ -149,7 +149,7 @@ design tradeoffs, or follow one request through the [source map](START_HERE.md).
   backbone. The build accepts SDR H.264 MP4 up to 4K and the 4K Resolve handoff
   was verified, but 4K preparation is experimental and slow on this 8 GB Mac.
   Browser playback uses a 720p proxy; the app does not silently lower resolution.
-- **AI:** visual search sends six-second ranges from 720p proxies to Gemini only
+- **AI:** visual search sends two-second, one-second-stride ranges from 720p proxies to Gemini only
   after an explicit indexing action. It does not index audio or promise exact
   action boundaries. Google unpaid-service submissions may be used to improve
   Google products and may be processed by human reviewers; do not submit

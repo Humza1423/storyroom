@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { Film } from "lucide-react";
 import type { Moment, Selection, VisualCandidate } from "../../types";
 export function Player({
@@ -10,6 +10,15 @@ export function Player({
   video: RefObject<HTMLVideoElement | null>;
   advance: () => void;
 }) {
+  const advanced = useRef(false);
+  useEffect(() => {
+    advanced.current = false;
+  }, [preview]);
+  function finishRange() {
+    if (advanced.current) return;
+    advanced.current = true;
+    advance();
+  }
   return (
     <div className="player">
       {preview ? (
@@ -20,14 +29,17 @@ export function Player({
           preload="auto"
           playsInline
           src={`/api/assets/${preview.asset_id}/proxy`}
+          onPlay={() => {
+            advanced.current = false;
+          }}
           onTimeUpdate={() => {
             if (
               video.current &&
               video.current.currentTime >= preview.end_frame / 30
             )
-              advance();
+              finishRange();
           }}
-          onEnded={advance}
+          onEnded={finishRange}
         />
       ) : (
         <div>

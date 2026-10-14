@@ -15,7 +15,7 @@ API. Cloud-analysis permission was explicitly recorded on these three assets;
 the clips were sent to Gemini Embedding 2's unpaid tier for this requested test.
 No Pexels or Mendeley footage and no model training were used.
 
-Storyroom indexed 29 six-second windows (three-second overlap; 170 sampled
+The first pilot indexed 29 six-second windows (three-second overlap; 170 sampled
 frames) with 768-dimensional Gemini vectors. Live text-query embeddings were
 matched locally by exact cosine similarity. Top results were: “jumping jacks” —
 the combined exercise clip at 0–9 s (contains the requested movement but its
@@ -25,8 +25,13 @@ and-jerk clip at 15–27 s; “close view of a kettlebell swing” — the swing
 3–15 s. Representative frames were visually checked. A swing result was added
 to a Storybin at frames 90–450 (3–15 s) and remained exact after browser reload.
 
-Important failure: an unsupported “dog running through snow” prompt still
-returned exercise clips. Visual search currently always returns its nearest
+The pilot's original “pass” wording was incorrect. Ranking the right source file
+first did not prove that the returned time range contained only the requested
+action: the jumping-jacks result covered 0–9 seconds and crossed into burpees.
+The first implementation merged overlapping windows, which could make a match
+range much wider than the best individual evidence. The unsupported “dog
+running through snow” prompt still returned exercise clips. Visual search
+currently always returns its nearest
 matches; it has no calibrated rejection threshold or no-match behavior. Results
 are useful candidates, not verified matches, and fast/nearby actions may share a
 range. This three-video, single-creator exercise pilot proves live indexing and
@@ -36,19 +41,60 @@ $0 unpaid-tier API estimate; its conservative internal usage ledger reserved
 about $0.14, and the provider's actual billing/quota state was not independently
 verified.
 
+## Corrected temporal-search and assembly check (2026-10-14)
+
+The initial six-second windows and range union caused a real temporal defect:
+the “jumping jacks” result returned 0–9 seconds and crossed into burpees. I
+incorrectly called that a pass based on the source file being right. The visual
+index is now versioned as `visual-v2-2s-1s-1fps`; all three permitted Commons
+clips were re-indexed into 89 two-second ranges (one-second stride; 178 sampled
+frames). Search now suppresses overlapping duplicate windows instead of
+stretching a match across them. Existing six-second rows remain stored but are
+excluded by index-version filtering until deliberately reindexed.
+
+Live Gemini Embedding 2 queries returned these top-ranked playable ranges:
+“jumping jacks” → jumping/burpees source, 1–3 s; “burpees” → same source,
+28–30 s; “kettlebell swing” → swing source, 10–12 s; “double kettlebell clean
+and jerk” → clean-and-jerk source, 18–20 s. I visually checked the jumping-jack
+and burpee ranges against source frames; they show those actions and no longer
+combine them into one long candidate. This is an improvement, **not a search
+quality pass**: later returned candidates can still be ambiguous or wrong, the
+exact action boundary is approximate, and unsupported prompts still need a
+calibrated no-match behavior.
+
+Filename test: the same jumping/burpees MP4 was imported into a separate test
+project as `clip_opaque_91f7.mp4`. Its normalized proxy SHA-256 was identical to
+the original asset, and the “jumping jacks” query returned the same 1–3 s range
+first. The filename is shown in results but is not used for visual ranking.
+
+Assembly test: the open preview project contains a 12-second swing placement
+followed by the new 2-second jumping-jacks candidate. Playback advanced to the
+second placement; the first can appear to be the only one playing because the
+progress was not visible while that 12-second range played. The interface now
+shows “Clip N of M” during assembly playback, and the isolated browser test
+asserts that playback reaches clip two. The saved test board was updated from
+the obsolete 0–9 s selection to the current 1–3 s candidate.
+
+Verification after this correction: full backend suite **89 passed** (one
+existing Starlette/httpx deprecation warning); isolated browser workflow **26
+passed**; TypeScript/production build and `git diff --check` passed. The backend
+suite includes the existing A2 geometry, frame-clock, audio-sync, and cut-order
+regressions. These checks validate code paths and this small live sample, not
+general visual-search accuracy.
+
 ## Visual-search vertical slice implementation (2026-10-14)
 
 The feature branch adds direct video-range retrieval with Gemini Embedding 2,
 separate from keyword and description search. Storyroom estimates missing index
-ranges, explicitly queues a persistent job, creates overlapping six-second
-windows with a three-second stride from the 720p proxy, stores each successful
+ranges, explicitly queues a persistent job, creates overlapping two-second
+windows with a one-second stride from the 720p proxy, stores each successful
 768-dimensional vector in SQLite, embeds a natural-language query, and ranks
-matches locally with exact cosine similarity. Overlapping hits are collapsed to
-playable source ranges; the UI labels them as visual matches and can preview or
-add them to a Storybin. They use the existing asset/frame-boundary selection
-format with no caption moment ID, so trim, save/reopen, render and Resolve export
-remain the existing paths. No ANN library, database service, fine-tuning, audio
-search, or edit automation was added.
+matches locally with exact cosine similarity. Overlapping duplicate hits are
+suppressed without widening the returned ranges. The UI labels them as visual
+matches and can preview or add them to a Storybin. They use the existing
+asset/frame-boundary selection format with no caption moment ID, so trim,
+save/reopen, render and Resolve export remain the existing paths. No ANN library,
+database service, fine-tuning, audio search, or edit automation was added.
 
 Provider/model/dimension/proxy-hash/index-version metadata prevents vectors from
 different models or proxy revisions being mixed. Query embeddings are cached;
