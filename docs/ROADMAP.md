@@ -7,30 +7,51 @@ exists; finish evidence and reliability before adding more surface area.
 
 ## 1. Reliable local foundation
 
+The executable scope and acceptance gates are in
+[FOUNDATION_PLAN](FOUNDATION_PLAN.md). The subsequent real-footage exercise is in
+[FOOTAGE_TEST_SET](FOOTAGE_TEST_SET.md).
+
 Use the existing React/TypeScript interface, FastAPI validation boundary, SQLite
 storage, and one persistent Python worker. Keep FFmpeg processing outside HTTP
 requests. See [ARCHITECTURE](ARCHITECTURE.md) for the implemented flows.
 
-Next: isolate Playwright's database/media and generate its own fixtures. Then add
-tested schema migrations, split the large frontend into types/API/components/board
-logic, lock Python dependencies, automate checks, and improve disconnected-server
-diagnostics. Do not combine these into one speculative rewrite.
+Foundation implementation now includes the isolated browser harness, transactional
+migrations, frontend modules, startup/recovery checks, Python lockfile and CI workflow.
+See STATUS and FOUNDATION_PLAN for measured acceptance results. The manual
+real-footage handoff has been verified; hosted infrastructure and model training
+remain deferred.
 
 Acceptance: a fresh test run cannot change personal projects; old project data
 survives upgrades; refactoring preserves behavior; startup failures are actionable.
 
 ## 2. Prove the manual vertical slice
 
-Import → normalize → select three clips → trim/reorder → save/reopen → preview →
-render → Resolve XML. Edit boundaries are integer frames with an exclusive out
+Phases A1–A3 cover resilient batch import, independent generated-media correctness,
+and bounded processing diagnostics. A four-source licensed real-footage workflow has
+now passed inside Storyroom, including restart persistence and rendered-preview
+checks. The actual Resolve 21.1.1 application import was also visually verified;
+see current evidence and limits in [STATUS](STATUS.md).
+
+Import → normalize → select clips → trim/reorder → save/reopen → preview →
+render → export and inspect in Resolve. Edit boundaries are integer frames with an exclusive out
 point. Source assets, observed moments, and placed selections remain distinct.
 Board revisions provide recovery and prevent stale writes from overwriting changes.
 
-Acceptance: real Resolve import preserves order, references, audio, and cut points
-within one normalized frame. Record Resolve version, source properties, and results.
-A valid XML file or OTIO round-trip alone does not pass this gate. Detect missing
-media before handing over a broken export. Include portrait, silent, corrupt,
-duplicate, unsupported, and variable-frame-rate inputs and interrupted processing.
+The small licensed-footage Resolve import preserves tested order, references,
+audio/silent ranges, and 30-fps cuts. A later
+[mixed-profile check](MEDIA_COMPATIBILITY.md) covers portrait, silent, VFR-derived,
+and rotation-tagged H.264 inputs through an actual Resolve import. Expand only
+where real camera evidence warrants it before claiming broad codec compatibility;
+HEVC/HDR and portable relinking remain unproven. A valid XML file or OTIO
+round-trip alone does not pass this gate.
+
+The subsequent 4K online-footage check confirmed the FCP7 timeline imports and
+plays in Resolve 21.1.1, but also exposed a performance gap: unconditional
+full-resolution software transcoding is too slow on the 8 GB development Mac.
+Treat 1080p as the practical backbone for development, testing, and demos; 4K
+remains accepted but experimental. Defer encoder/disk optimization until better
+hardware or user demand justifies it. This does not silently lower the output
+resolution or weaken the verified 1080p and 4K handoff checks.
 
 ## 3. Validate footage intelligence, not just the adapter
 
@@ -73,8 +94,9 @@ complete manual and AI-assisted workflows on unfamiliar footage.
 
 Acceptance: clean-machine setup from README, full relevant automated checks, real
 Resolve evidence, honest demo, license/provenance review, and documented limits.
-Publish source only with authorization. A private GitHub backup is not a public
-launch. Interview and adoption tasks remain saved for later in STATUS.
+Source is public and verified checkpoints are routinely pushed under the creator's
+authorization. Public source is not proof of a validated product launch. Interview
+and adoption tasks remain saved for later in STATUS.
 
 ## 6. Custom ranking experiment after usable labels exist
 

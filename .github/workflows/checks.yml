@@ -1,0 +1,37 @@
+name: Foundation checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  synthetic-workflow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GEMINI_API_KEY: ""
+      GOOGLE_API_KEY: ""
+      STORYROOM_PRICING_CONFIRMED: "false"
+      STORYROOM_SPEND_LIMIT: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: python -m pip install uv==0.12.23
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: uv sync --locked --extra dev
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: .venv/bin/ruff check server tests scripts --select E9,F63,F7,F82
+      - run: .venv/bin/pytest -q
+      - run: npm run build
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-traces
+          path: test-results/
+          retention-days: 7

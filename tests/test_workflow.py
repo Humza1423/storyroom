@@ -230,7 +230,7 @@ def test_feedback_requires_explicit_training_permission(client, clip):
     [
         {"codec": "hevc"},
         {"transfer": "smpte2084"},
-        {"width": 3840},
+        {"width": 3841},
         {"pix_fmt": "yuv420p10le"},
     ],
 )
@@ -255,6 +255,20 @@ def test_portrait_supported():
             "format": "mov,mp4",
             "width": 1080,
             "height": 1920,
+            "transfer": "bt709",
+            "pix_fmt": "yuv420p",
+        }
+    )
+
+
+@pytest.mark.parametrize("width,height", [(3840, 2160), (2160, 3840)])
+def test_4k_sdr_supported(width, height):
+    media.validate(
+        {
+            "codec": "h264",
+            "format": "mov,mp4",
+            "width": width,
+            "height": height,
             "transfer": "bt709",
             "pix_fmt": "yuv420p",
         }

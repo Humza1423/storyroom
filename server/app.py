@@ -1,4 +1,5 @@
 import hashlib
+import errno
 import json
 import os
 import shutil
@@ -13,6 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import Field
 from . import config, db, media, ai
+from .imports import ImportFailure, preparation_jobs
 from .models import (
     Strict,
     ProjectInput,
@@ -33,10 +35,12 @@ async def lifespan(app):
 
 app = FastAPI(title="Storyroom", lifespan=lifespan)
 ORIGINS = {
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-    "http://127.0.0.1:8765",
-    "http://localhost:8765",
+    f"http://{host}:{port}"
+    for host in ("127.0.0.1", "localhost")
+    for port in (
+        int(os.getenv("STORYROOM_UI_PORT", "5173")),
+        int(os.getenv("STORYROOM_API_PORT", "8765")),
+    )
 }
 app.add_middleware(
     CORSMiddleware,
@@ -62,6 +66,19 @@ async def local_only(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
+
+
+@app.exception_handler(ImportFailure)
+async def import_failure(request, exc):
+    return JSONResponse(
+        {
+            "detail": exc.detail,
+            "code": exc.code,
+            "scope": exc.scope,
+            "uncertain": exc.uncertain,
+        },
+        status_code=exc.status,
+    )
 
 
 @app.exception_handler(ValueError)
@@ -157,7 +174,9 @@ def details(pid: str):
     p["assets"] = db.rows(
         "SELECT * FROM assets WHERE project_id=? ORDER BY rowid", (pid,)
     )
+    preparation = preparation_jobs(pid)
     for a in p["assets"]:
+        a["preparation_job"] = preparation.get(a["id"])
         a["provenance"] = json.loads(a["provenance"])
     p["moments"] = db.rows(
         "SELECT m.id,m.asset_id,m.start_frame,m.end_frame,m.description,m.source,m.uncertainty FROM moments m JOIN assets a ON a.id=m.asset_id WHERE a.project_id=?",
@@ -183,11 +202,48 @@ def update_project(pid: str, data: ProjectInput):
 
 @app.post("/api/projects/{pid}/import")
 def import_file(pid: str, file: UploadFile = File(...)):
+    try:
+        return register_import(pid, file)
+    except ImportFailure:
+        raise
+    except HTTPException as exc:
+        raise ImportFailure(
+            str(exc.detail), "project_missing", status=exc.status_code
+        ) from exc
+    except media.InspectionUnavailable as exc:
+        raise ImportFailure(str(exc), "inspection_unavailable", status=503) from exc
+    except OSError as exc:
+        if exc.errno == errno.ENOSPC:
+            raise ImportFailure(
+                "Disk is full. Free space before retrying.",
+                "disk_space",
+                status=507,
+                uncertain=True,
+            ) from exc
+        raise ImportFailure(
+            "Import could not finish. Check the local server and storage, then retry.",
+            "server_error",
+            status=500,
+            uncertain=True,
+        ) from exc
+    except Exception as exc:
+        # Do not expose database/SDK internals; a lost response can follow a commit.
+        raise ImportFailure(
+            "Import could not finish. Check the local server, then retry.",
+            "server_error",
+            status=500,
+            uncertain=True,
+        ) from exc
+
+
+def register_import(pid, file):
     project(pid)
     if Path(file.filename or "").suffix.lower() != ".mp4":
-        raise ValueError("Import an H.264 MP4 file")
+        raise ImportFailure("Import an H.264 MP4 file", "file_invalid", scope="file")
     if shutil.disk_usage(config.DATA).free < 3_000_000_000:
-        raise ValueError("At least 3 GB of free disk space is required")
+        raise ImportFailure(
+            "At least 3 GB of free disk space is required", "disk_space"
+        )
     folder = config.DATA / "incoming"
     folder.mkdir(exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=folder, suffix=".mp4", delete=False) as temp:
@@ -200,12 +256,19 @@ def import_file(pid: str, file: UploadFile = File(...)):
             while chunk := file.file.read(1024 * 1024):
                 size += len(chunk)
                 if size > config.MAX_BYTES:
-                    raise ValueError("Project input limit is 2 GB")
+                    raise ImportFailure(
+                        "Project input limit is 2 GB", "file_too_large", scope="file"
+                    )
                 digest.update(chunk)
                 temp.write(chunk)
             temp.flush()
-            info = media.probe(path)
-            media.validate(info)
+            try:
+                info = media.probe(path)
+                media.validate(info)
+            except media.InspectionUnavailable:
+                raise
+            except ValueError as exc:
+                raise ImportFailure(str(exc), "file_invalid", scope="file") from exc
             ident = db.uid()
             with db.connect() as c:
                 c.execute("BEGIN IMMEDIATE")
@@ -214,7 +277,12 @@ def import_file(pid: str, file: UploadFile = File(...)):
                     (pid, digest.hexdigest()),
                 ).fetchone()
                 if duplicate:
-                    return {"id": duplicate[0], "duplicate": True}
+                    job = preparation_jobs(pid, c, duplicate[0]).get(duplicate[0])
+                    return {
+                        "id": duplicate[0],
+                        "job_id": job["id"] if job else None,
+                        "duplicate": True,
+                    }
                 totals = c.execute(
                     "SELECT COUNT(*),COALESCE(SUM(bytes),0),COALESCE(SUM(duration),0) FROM assets WHERE project_id=?",
                     (pid,),
@@ -224,12 +292,14 @@ def import_file(pid: str, file: UploadFile = File(...)):
                     or totals[1] + size > config.MAX_BYTES
                     or totals[2] + info["duration"] > config.MAX_SECONDS
                 ):
-                    raise ValueError(
-                        "Project limit: 30 clips, 15 minutes, and 2 GB total input"
+                    raise ImportFailure(
+                        "Project limit: 30 clips, 15 minutes, and 2 GB total input",
+                        "project_capacity",
                     )
                 if shutil.disk_usage(config.DATA).free < size * 3 + 1_000_000_000:
-                    raise ValueError(
-                        "Insufficient disk space for editing copies and proxies"
+                    raise ImportFailure(
+                        "Insufficient disk space for editing copies and proxies",
+                        "disk_space",
                     )
                 dest = config.asset_dir(ident)
                 dest.mkdir(parents=True)
@@ -451,7 +521,22 @@ def manage_job(jid: str, action: Literal["cancel", "retry"]):
         return {"ok": True}
     if j["status"] not in ("failed", "cancelled"):
         raise ValueError("Only failed or cancelled work can be retried")
-    return {"job_id": db.enqueue(j["project_id"], j["kind"], json.loads(j["payload"]))}
+    payload = json.loads(j["payload"])
+    with db.connect() as c:
+        c.execute("BEGIN IMMEDIATE")
+        if j["kind"] == "normalize":
+            latest = preparation_jobs(j["project_id"], c, payload["asset_id"]).get(
+                payload["asset_id"]
+            )
+            if latest and latest["status"] in ("queued", "running", "done"):
+                return {"job_id": latest["id"]}
+        ident = db.enqueue_in_transaction(c, j["project_id"], j["kind"], payload)
+        if j["kind"] == "normalize":
+            c.execute(
+                "UPDATE assets SET status='processing',error=NULL WHERE id=? AND status!='ready'",
+                (payload["asset_id"],),
+            )
+    return {"job_id": ident}
 
 
 @app.get("/api/jobs/{jid}/download")

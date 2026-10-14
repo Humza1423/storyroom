@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
-    "test:e2e": "playwright test"
+    "test:e2e": ".venv/bin/python scripts/e2e.py"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

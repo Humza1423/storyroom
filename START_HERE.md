@@ -17,9 +17,13 @@ The repository, running app, and GitHub are different things:
 
 - This folder contains the source code and its local Git history.
 - The local app is a running program opened at `http://127.0.0.1:5173`.
-- The private GitHub repository at
+- The public GitHub repository at
   [Humza1423/storyroom](https://github.com/Humza1423/storyroom) stores pushed
   commits. It is a source backup and collaboration point, not a hosted app.
+
+The reviewed foundation/media work is on `codex/media-correctness` in
+[PR #1](https://github.com/Humza1423/storyroom/pull/1); select that branch to see
+the current README and source before merge. `main` is not updated automatically.
 
 Opening `index.html` directly does not start React, the API, or the worker.
 Use the startup command from the [README](README.md). Existing installations
@@ -36,11 +40,18 @@ stop the worker; stopping the launcher does.
 
 | File | Responsibility | Question to answer while reading |
 | --- | --- | --- |
-| [src/main.tsx](src/main.tsx) | React state, footage library, board, preview, dialogs | Which action sends an HTTP request? |
+| [src/main.tsx](src/main.tsx) | Mounting and styles | Where does React start? |
+| [src/App.tsx](src/App.tsx) | Workspace state and orchestration | Which action sends an HTTP request? |
+| [src/types.ts](src/types.ts), [src/lib/api.ts](src/lib/api.ts) | API contracts and bounded requests | What happens on an error or timeout? |
+| [src/features/](src/features/) | Library, board, and preview components | Which state comes from the parent? |
+| [import controller](src/features/library/imports/controller.ts) | Per-file outcomes, pausing, explicit retry and project ownership | Why is upload acceptance different from ready media? |
+| [server/imports.py](server/imports.py) | Import recovery fields and current preparation-job association | Which stage should be retried? |
 | [src/style.css](src/style.css) | Layout, responsive behavior, visual styling | What changes presentation rather than saved project data? |
 | [server/models.py](server/models.py) | Valid request and AI response shapes | Which malformed values are rejected automatically? |
 | [server/app.py](server/app.py) | API routes, validation, media import, board updates | Which rules must hold even if the browser sends bad data? |
 | [server/db.py](server/db.py) | SQLite transactions, job creation, cache, budget | Which changes must be committed together? |
+| [server/migrations.py](server/migrations.py) | Locked, backed-up, atomic database upgrades | Why must schema and version commit together? |
+| [scripts/e2e.py](scripts/e2e.py) | Generated browser fixtures and owned servers | What prevents a test from writing personal projects? |
 | [server/worker.py](server/worker.py) | Job execution, progress, failure, cancellation | What survives a process restart? |
 | [server/media.py](server/media.py) | Inspection, normalization, proxies, MP4 rendering | Which operation creates a new media file? |
 | [server/exporter.py](server/exporter.py) | Cuts-only timeline and media references | Does this output contain video or instructions pointing to video? |

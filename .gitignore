@@ -13,3 +13,4 @@ playwright-report/
 docs/capture-tmp/
 .DS_Store
 .ruff_cache/
+.tools/

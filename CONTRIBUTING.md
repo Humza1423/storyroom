@@ -19,25 +19,31 @@ Preserve these boundaries:
 - Paid requests use the configured provider, cache, and budget ledger.
 
 When changing stored data, provide a tested migration from an existing project.
-There is currently only initial schema creation; do not assume a migration framework
-exists. When changing model output, update schemas and prompt/cache versions together.
+Add ordered migrations in `server/migrations.py` using individual SQL statements.
+The runner locks startup, backs up existing databases before upgrades, and commits
+schema changes with version history. Never commit or use `executescript` inside a migration. When changing model output, update schemas and prompt/cache versions together.
 
 ## Verification
+
+Use Python 3.12 and `.tools/uv/bin/uv sync --locked --extra dev`, then `npm ci`. Do not
+hand-edit `uv.lock`; resolve intentional dependency changes with `.tools/uv/bin/uv lock` and
+verify from a fresh environment. FFmpeg/ffprobe are system prerequisites.
 
 Run commands in the repository root after setup:
 
 ```sh
 .venv/bin/pytest -q
 npm run build
+npm run test:e2e
+.venv/bin/ruff check server tests scripts --select E9,F63,F7,F82
 ```
 
 Backend tests use temporary databases and synthetic media. They require FFmpeg
 and make no paid cloud calls. The frontend build checks TypeScript and bundling.
 
 For UI changes, also follow the README's Playwright setup and run `npm run test:e2e`.
-The current browser suite writes test projects to the running app's database and
-expects the generated demo; isolating this suite is planned. Do not point it at
-someone's only project copy. Database and media changes need tests for the affected
+The browser harness owns its temporary data, synthetic fixtures, and server process
+groups. Do not bypass it by pointing Playwright at a personal development server. Database and media changes need tests for the affected
 failure paths, not just happy-path requests.
 
 An OTIO XML round-trip is not a DaVinci Resolve compatibility result. Provider mocks
@@ -57,3 +63,7 @@ Update `docs/STATUS.md` with the behavior changed, verification actually complet
 and known limitations. Add a short learning note when a change illustrates a new
 architectural concept. Keep status claims specific enough for another contributor
 to reproduce.
+
+`.github/workflows/checks.yml` runs these checks on Ubuntu with Python 3.12,
+Node 22, FFmpeg and Chromium. It has no provider secrets or real footage. A checked-in
+workflow is not evidence of a remote run; record the actual run separately.

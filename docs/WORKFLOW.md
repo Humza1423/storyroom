@@ -42,6 +42,16 @@ and context so future sessions know what to read. See
 5. Commit a coherent checkpoint locally. Push the branch when you want those
    commits on GitHub. Review/merge via a pull request when useful.
 
+For this project, the creator requested on 2026-10-09 that verified implementation
+checkpoints be pushed routinely with descriptive commit messages and updates. They
+later asked to merge completed milestones so the public `main` stays portfolio-ready.
+The connected remote [Humza1423/storyroom](https://github.com/Humza1423/storyroom)
+is public (verified through GitHub that day). Agents should push the feature branch,
+open/update its pull request, check CI and provide direct links. Merge a milestone
+after its acceptance checks pass. Changing repository visibility is a separate
+decision. Keep `main` as the stable runnable checkpoint and use a feature branch
+for work in progress.
+
 Git vocabulary: **save** updates a file; **commit** records a local snapshot;
 **push** sends commits to the configured remote; **pull** brings remote changes
 into the local branch. Inspect local changes before pulling. Git is not automatic

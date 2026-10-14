@@ -1325,3 +1325,53 @@ input[type="checkbox"] {
     max-width: 180px;
   }
 }
+
+.connection-status {
+  padding: 6px 20px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.connection-status button {
+  margin-left: 12px;
+}
+
+.footage-summary {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+.import-panel {
+  font-size: 12px;
+  margin-bottom: 14px;
+  overflow-wrap: anywhere;
+}
+.import-panel > .subtle {
+  line-height: 1.5;
+}
+.import-batch {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 10px;
+}
+.import-batch ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.import-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.import-row p {
+  margin: 0;
+}
+.import-row button {
+  align-self: flex-start;
+}
+.duplicate-badge {
+  font-weight: 600;
+}

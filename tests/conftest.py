@@ -1,4 +1,5 @@
 import subprocess
+from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 from server import config, db
@@ -8,7 +9,17 @@ from server.app import app
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DATA", tmp_path / "data")
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    # Import behavior under test should not depend on free space on the host.
+    # Disk-error tests explicitly override this with a low-space result.
+    monkeypatch.setattr(
+        "server.app.shutil.disk_usage", lambda _: SimpleNamespace(free=10_000_000_000)
+    )
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")
+    monkeypatch.setattr(config, "PRICING_CONFIRMED", False)
+    # Fake-provider ledger tests need a finite allowance, independent of CI's
+    # zero-budget subprocess environment. Real clients remain disabled above.
+    monkeypatch.setattr(config, "SPEND_LIMIT", 45)
     with TestClient(app, headers={"X-Storyroom": "local"}) as c:
         yield c
 
