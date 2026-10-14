@@ -620,9 +620,11 @@ export default function App() {
             </div>
             {!status?.ai_ready && (
               <div className="ai-notice">
-                Manual workspace is ready. To enable AI, add your Gemini key and
-                confirm prices in <code>.env</code>. No cloud calls are made
-                yet.
+                Manual editing is ready. AI story suggestions require a Gemini
+                key and confirmed prices in <code>.env</code>.
+                {status?.visual_ai_ready
+                  ? " Visual search is enabled and sends footage only after you explicitly start indexing."
+                  : " Visual search needs its separate Gemini setup."}
               </div>
             )}
             <DndContext

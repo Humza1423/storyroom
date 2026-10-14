@@ -25,14 +25,19 @@ discloses Google's unpaid data-use/human-review terms and warns not to upload
 sensitive, confidential, or personal footage. The UI shows a $0 free-tier price
 estimate while the safety ledger keeps a conservative list-price reservation.
 
-The browser workflow uses a fake visual candidate; backend tests use a
-deterministic fake embedding provider. This verifies application wiring, not
-Gemini relevance. No API key is configured in this checkout, no footage has been
-submitted to Google, and the 40-query human-reviewed retrieval pilot across
-three privacy- and rights-cleared collections has not run. Do not claim visual
-search accuracy or broad usability yet. Next: one live bounded request on
-suitable non-personal footage, then the reviewed retrieval pilot with misses and
-per-collection results reported.
+Automated browser and backend tests still use fake visual candidates and a
+deterministic fake provider. A live smoke run now also verifies the real Gemini
+Embedding 2 path: the local provider embedded a text query and a generated
+four-second test-pattern proxy, returned normalized 768-dimensional vectors,
+and the UI indexed that one permitted range, searched it, previewed its visual
+match, and added it to a Storybin. The isolated preview used generated abstract
+patterns, not exercise footage; this validates the connection and workflow, not
+semantic relevance. The API key is in the ignored local `.env`; AI Studio showed
+the project on its Free tier with no billing account when checked. No real or
+identifiable footage was submitted to Google. The 40-query human-reviewed
+retrieval pilot across three privacy- and rights-cleared collections has not
+run. Do not claim visual-search accuracy or broad usability yet. Next: run the
+reviewed retrieval pilot, reporting misses and per-collection results.
 
 Verification: backend suite **85 passed** (one existing Starlette/httpx
 deprecation warning); latest visual-search-specific suite **8 passed**; isolated
