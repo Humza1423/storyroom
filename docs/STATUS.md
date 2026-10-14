@@ -1,6 +1,10 @@
 # Project status and release checklist
 
-Updated: 2026-10-12. Status: local development preview; release gates remain open.
+Updated: 2026-10-13. Status: local development preview; release gates remain open.
+
+## Portfolio checkpoint merged to `main` (2026-10-13)
+
+PR #1, [Verify media correctness and measure processing performance](https://github.com/Humza1423/storyroom/pull/1), has been merged into the public repository's default branch. Its foundation, A1–A3, real-footage workflow, mixed-profile checks, and Resolve import evidence are now visible from `main`. The branch is clean and synchronized after the merge. Both PR checks passed before merge. This is a development preview, not a validated AI search release; semantic video retrieval is the next milestone.
 
 ## Online 4K footage check (2026-10-12) — Resolve import verified; 4K deferred
 
@@ -179,7 +183,7 @@ PR #1 after this checkpoint is pushed. No encoder optimization was made.
 | AI adapter | Video chunks, validated observations, embeddings, story proposals, cost reservations | Fake-provider tests cover response validation, caching, budget, and failure. No real provider or quality benchmark has been verified. |
 | Search | Keyword matching and optional description-embedding similarity | Manual keyword behavior tested. The 20-query real-footage benchmark has not been completed. |
 | Training | Permission-aware judgments, grouped split, logistic-regression experiment, report export | Script and labeling interface exist. No trained or deployed custom model has been established. |
-| Project access | Source opens in VS Code; onboarding, architecture, contribution and learning docs; public GitHub remote | Foundation and A2 commits are on `codex/media-correctness`; both Ubuntu checks passed at 3372a3a. PR #1 remains draft. |
+| Project access | Source opens in VS Code; onboarding, architecture, contribution and learning docs; public GitHub remote | Foundation and media validation are merged into `main`; PR #1 CI passed. |
 
 The generated demo is a technical fixture. It is not real sports footage, a
 trained model, or a demonstration of AI retrieval accuracy.

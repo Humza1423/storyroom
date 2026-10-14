@@ -28,11 +28,11 @@ and [THIRD_PARTY](THIRD_PARTY.md) cover model experiments and licensing boundari
 
 ## Next entry point
 
-The foundation history and A1/A2 work are on `codex/media-correctness`, pushed to
-the existing public repository under [PR #1](https://github.com/Humza1423/storyroom/pull/1).
-Read [STATUS](STATUS.md), [FOUNDATION_PLAN](FOUNDATION_PLAN.md), and
-[MEDIA_CORRECTNESS_PLAN](MEDIA_CORRECTNESS_PLAN.md) for exact local/remote checks
-and outstanding gates. Do not infer that `main` contains this work before merge.
+The foundation, A1–A3, real-footage checks, and Resolve handoff are merged into
+the public repository's `main` branch. [PR #1](https://github.com/Humza1423/storyroom/pull/1)
+contains the review and CI history. Read [STATUS](STATUS.md),
+[FOUNDATION_PLAN](FOUNDATION_PLAN.md), and [MEDIA_CORRECTNESS_PLAN](MEDIA_CORRECTNESS_PLAN.md)
+for the checks and remaining release gates.
 
 Next product milestone: evaluate search/retrieval quality on permissioned, unfamiliar footage in
 [REAL_FOOTAGE_PLAN](REAL_FOOTAGE_PLAN.md), with Phase A1's resilient batch import now verified in

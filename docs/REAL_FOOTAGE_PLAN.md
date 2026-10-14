@@ -5,9 +5,8 @@ verified on 2026-10-09, A3 diagnostics/baseline verified on 2026-10-10, and the
 licensed Storyroom-to-Resolve workflow visually verified on 2026-10-11 in Resolve
 21.1.1. The FCP7 timeline is 30 fps, 1920×1080, 780 frames, with visible footage and
 the tested silent/repeated-range cases. See STATUS for evidence and limitations.
-The foundation history
-and current work are pushed on `codex/media-correctness`, under
-[PR #1](https://github.com/Humza1423/storyroom/pull/1). Read STATUS.md for exact
+The foundation and this verified workflow are merged into `main`; see
+[PR #1](https://github.com/Humza1423/storyroom/pull/1) and STATUS.md for exact
 local/remote verification. This task is about the existing app.
 The acquisition, conversion, Storyroom workflow, and actual Resolve UI import are
 complete for this small H.264 test set; see STATUS.md and FOOTAGE_TEST_SET.md. No

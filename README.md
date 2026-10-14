@@ -48,14 +48,13 @@ The supported user setup is **macOS**, with **Python 3.12**, **Node 22+**, npm,
 and FFmpeg/ffprobe installed. Ubuntu CI provides additional automated coverage;
 Windows and Linux user installations have not been validated.
 
-The current foundation and media work is on `codex/media-correctness`, under
-review in [PR #1](https://github.com/Humza1423/storyroom/pull/1). The checkout below
-selects that branch so these instructions match the code; use `main` once merged.
+The verified foundation and media workflow are on the default `main` branch.
+The commit history and review record are available in
+[PR #1](https://github.com/Humza1423/storyroom/pull/1).
 
 ```sh
 git clone https://github.com/Humza1423/storyroom.git
 cd storyroom
-git switch codex/media-correctness
 brew install ffmpeg
 python3.12 -m venv .tools/uv
 .tools/uv/bin/pip install uv==0.12.23
