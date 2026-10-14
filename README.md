@@ -25,7 +25,8 @@ and real-provider AI quality remain release gates. See the
 ## The workflow
 
 1. **Import** a batch of clips. Each file gets its own result and preparation status.
-2. **Find moments** by playing footage and searching saved descriptions.
+2. **Find moments** with keyword search, description-based AI search, or—when
+   configured—direct visual search over explicitly indexed proxy ranges.
 3. **Build a story map** with editable sections, such as preparation, technique,
    progression, and recovery. A moment can appear in multiple sections.
 4. **Shape the assembly** by trimming frame ranges, reordering clips, and adding
@@ -36,10 +37,10 @@ and real-provider AI quality remain release gates. See the
 | Capability | Current boundary |
 | --- | --- |
 | Import and recovery | Per-file outcomes, content-hash deduplication, paused batches, and separate upload/preparation retries |
-| Search | Keyword search over stored descriptions; optional embedding search requires cloud setup and footage analysis |
+| Search | Keyword and description-based search remain available; visual search indexes prepared proxies only after an explicit action and cloud-analysis permission |
 | Story workspace | Custom sections, repeated clip placement, drag/reorder controls, frame trimming, notes, and saved revisions |
 | Preview and export | MP4 rendering and cuts-only FCP7 XML imported into Resolve 21.1.1 with tested H.264 footage, including a 4K timeline; broader formats remain unverified |
-| AI assistance | Provider adapter, validated observations, proposals, cache, and cost ledger implemented; usefulness not yet established |
+| AI assistance | Gemini Embedding 2 visual-search adapter, persistent index, and visual candidates are implemented; real-provider quality and the 40-query pilot remain unverified |
 | Learning to rank | Labeling and grouped evaluation scripts implemented; no trained model is deployed |
 
 ## Run locally
@@ -148,9 +149,13 @@ design tradeoffs, or follow one request through the [source map](START_HERE.md).
   backbone. The build accepts SDR H.264 MP4 up to 4K and the 4K Resolve handoff
   was verified, but 4K preparation is experimental and slow on this 8 GB Mac.
   Browser playback uses a 720p proxy; the app does not silently lower resolution.
-- **AI:** explicitly enabled analysis sends reduced-resolution video chunks without
-  audio; it does not transcribe speech. Suggestions never replace accepted edits
-  automatically. Credentials stay on the backend.
+- **AI:** visual search sends six-second ranges from 720p proxies to Gemini only
+  after an explicit indexing action. It does not index audio or promise exact
+  action boundaries. Google unpaid-service submissions may be used to improve
+  Google products and may be processed by human reviewers; do not submit
+  sensitive, confidential, or personal footage. The configured API tier is not
+  verified by Storyroom. Credentials stay on the backend, and manual editing
+  remains available without AI.
 
 Cloud setup, budget behavior, retry details, backup instructions, and development
 commands are in the [development guide](docs/DEVELOPMENT.md). Model identifiers and

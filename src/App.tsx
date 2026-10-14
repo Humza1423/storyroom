@@ -7,6 +7,7 @@ import { moveSelection } from "./features/board/changes";
 import { StorySection } from "./features/board/StorySection";
 import { ClipRow } from "./features/board/ClipRow";
 import { MomentCard } from "./features/library/MomentCard";
+import { VisualCandidateCard } from "./features/library/VisualCandidateCard";
 import React, {
   useEffect,
   useRef,
@@ -50,10 +51,13 @@ import {
 import type {
   Asset,
   Moment,
+  SearchResult,
   Selection,
   Section,
   Project,
   Status,
+  VisualCandidate,
+  VisualIndexEstimate,
 } from "./types";
 import { api } from "./lib/api";
 import { timecode } from "./lib/timecode";
@@ -71,11 +75,15 @@ export default function App() {
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
   const [query, setQuery] = useState(""),
-    [results, setResults] = useState<Moment[] | null>(null),
-    [semantic, setSemantic] = useState(false);
+    [results, setResults] = useState<SearchResult[] | null>(null),
+    [searchMode, setSearchMode] = useState<
+      "keyword" | "description" | "visual"
+    >("keyword");
   const [activeSection, setActiveSection] = useState(""),
     [selected, setSelected] = useState<Selection | null>(null),
-    [preview, setPreview] = useState<Moment | Selection | null>(null);
+    [preview, setPreview] = useState<
+      Moment | Selection | VisualCandidate | null
+    >(null);
   const [trimStart, setTrimStart] = useState(0),
     [trimEnd, setTrimEnd] = useState(0),
     [note, setNote] = useState("");
@@ -93,6 +101,9 @@ export default function App() {
     [rating, setRating] = useState(2),
     [group, setGroup] = useState("");
   const [analysisEstimate, setAnalysisEstimate] = useState<number | null>(null),
+    [visualEstimate, setVisualEstimate] = useState<VisualIndexEstimate | null>(
+      null,
+    ),
     [showJobs, setShowJobs] = useState(false),
     [sequenceIndex, setSequenceIndex] = useState<number | null>(null);
   const video = useRef<HTMLVideoElement>(null),
@@ -224,7 +235,18 @@ export default function App() {
   const latestProposal = project?.jobs.find(
     (j) => j.kind === "story" && j.status === "done" && j.result?.sections,
   );
-  const visibleMoments = results ?? project?.moments ?? [];
+  const readyAssets = project?.assets.filter((a) => a.status === "ready") || [];
+  const visibleResults: SearchResult[] =
+    results ?? (searchMode === "visual" ? [] : (project?.moments ?? []));
+  const visualReadyAssets = readyAssets.filter(
+    (a) => a.provenance.cloud_analysis,
+  );
+  const activeVisualJobs =
+    project?.jobs.filter(
+      (j) =>
+        j.kind === "visual_index" && ["queued", "running"].includes(j.status),
+    ) ?? [];
+  const latestVisualJob = project?.jobs.find((j) => j.kind === "visual_index");
   const duration =
     clips.reduce((n, c) => n + c.end_frame - c.start_frame, 0) / 30;
   async function saveBoard(next: Section[]) {
@@ -254,7 +276,7 @@ export default function App() {
       boardEpoch.current++;
     }
   }
-  function add(moment: Moment, sectionId = active?.id) {
+  function add(moment: Moment | VisualCandidate, sectionId = active?.id) {
     task(async () => {
       let next = structuredClone(board);
       if (!sectionId) {
@@ -272,7 +294,7 @@ export default function App() {
       section.selections.push({
         id: id(),
         asset_id: moment.asset_id,
-        moment_id: moment.id,
+        moment_id: "kind" in moment ? null : moment.id,
         start_frame: moment.start_frame,
         end_frame: moment.end_frame,
         note: "",
@@ -288,7 +310,7 @@ export default function App() {
     setNote(c.note);
     setSequenceIndex(null);
   }
-  function playMoment(m: Moment) {
+  function playMoment(m: Moment | VisualCandidate) {
     setPreview(m);
     setSelected(null);
     setSequenceIndex(null);
@@ -325,6 +347,24 @@ export default function App() {
     setShowJobs(true);
     await refresh();
   }
+  async function estimateVisualIndex() {
+    if (!visualReadyAssets.length) return;
+    const estimate = await api<VisualIndexEstimate>(
+      `/projects/${pid}/visual-index-estimate`,
+      "POST",
+      { asset_ids: visualReadyAssets.map((a) => a.id) },
+    );
+    setVisualEstimate(estimate);
+  }
+  async function startVisualIndex() {
+    if (!visualEstimate || !visualReadyAssets.length) return;
+    await api<{ job_ids: string[] }>(`/projects/${pid}/visual-index`, "POST", {
+      asset_ids: visualReadyAssets.map((a) => a.id),
+    });
+    setVisualEstimate(null);
+    setShowJobs(true);
+    await refresh();
+  }
   function moveClip(sid: string, cid: string, delta: number) {
     task(async () => {
       const next = structuredClone(board);
@@ -338,6 +378,8 @@ export default function App() {
   function onDragEnd(e: DragEndEvent) {
     if (!e.over) return;
     const moment = e.active.data.current?.moment as Moment | undefined;
+    const visualCandidate = e.active.data.current?.visualCandidate as
+      VisualCandidate | undefined;
     const target = String(e.over.id);
     const targetSection = target.startsWith("section:")
       ? target.slice(8)
@@ -345,6 +387,10 @@ export default function App() {
     if (!targetSection) return;
     if (moment) {
       add(moment, targetSection);
+      return;
+    }
+    if (visualCandidate) {
+      add(visualCandidate, targetSection);
       return;
     }
     task(async () => {
@@ -357,7 +403,6 @@ export default function App() {
       await saveBoard(next);
     });
   }
-  const readyAssets = project?.assets.filter((a) => a.status === "ready") || [];
   return (
     <div className="app-shell">
       <aside className="rail">
@@ -631,10 +676,10 @@ export default function App() {
                       e.preventDefault();
                       task(async () =>
                         setResults(
-                          await api<Moment[]>(
+                          await api<SearchResult[]>(
                             `/projects/${pid}/search`,
                             "POST",
-                            { query, semantic },
+                            { query, mode: searchMode },
                           ),
                         ),
                       );
@@ -650,19 +695,45 @@ export default function App() {
                         if (!e.target.value) setResults(null);
                       }}
                     />
-                    <button type="submit" className="icon" aria-label="Search">
+                    <button
+                      type="submit"
+                      className="icon"
+                      aria-label="Search"
+                      disabled={
+                        busy ||
+                        !query.trim() ||
+                        (searchMode === "description" && !status?.ai_ready) ||
+                        (searchMode === "visual" && !status?.visual_ai_ready)
+                      }
+                    >
                       <ChevronRight size={16} />
                     </button>
                   </form>
                   <div className="library-tools">
                     <label>
-                      <input
-                        type="checkbox"
-                        checked={semantic}
-                        disabled={!status?.ai_ready}
-                        onChange={(e) => setSemantic(e.target.checked)}
-                      />{" "}
-                      AI search
+                      Search mode
+                      <select
+                        aria-label="Search mode"
+                        value={searchMode}
+                        onChange={(e) => {
+                          setSearchMode(e.target.value as typeof searchMode);
+                          setResults(null);
+                        }}
+                      >
+                        <option value="keyword">Keyword</option>
+                        <option
+                          value="description"
+                          disabled={!status?.ai_ready}
+                        >
+                          Description AI
+                        </option>
+                        <option
+                          value="visual"
+                          disabled={!status?.visual_ai_ready}
+                        >
+                          Visual AI
+                        </option>
+                      </select>
                     </label>
                     <button
                       className="text-button"
@@ -681,6 +752,80 @@ export default function App() {
                       <Sparkles size={12} /> Analyze
                     </button>
                   </div>
+                  {searchMode === "visual" && (
+                    <div className="visual-index-box">
+                      <strong>Search what is visible in the video</strong>
+                      <p>
+                        Index only prepared clips that have cloud-analysis
+                        permission recorded.
+                        {status?.embedding_model
+                          ? ` Model: ${status.embedding_model}.`
+                          : ""}
+                      </p>
+                      <button
+                        className="secondary wide"
+                        disabled={
+                          !status?.visual_ai_ready ||
+                          (status?.embedding_tier === "unpaid" &&
+                            !status.unpaid_terms_acknowledged) ||
+                          !visualReadyAssets.length ||
+                          busy ||
+                          activeVisualJobs.length > 0
+                        }
+                        onClick={() => task(estimateVisualIndex)}
+                      >
+                        <Sparkles size={13} />
+                        {activeVisualJobs.length
+                          ? "Visual indexing in progress"
+                          : "Estimate & index permitted clips"}
+                      </button>
+                      {!visualReadyAssets.length && (
+                        <small>
+                          Choose source and cloud-analysis permission for a
+                          ready clip using its settings button below.
+                        </small>
+                      )}
+                      {!status?.visual_ai_ready && (
+                        <small>
+                          Visual search is not configured on this local
+                          Storyroom server yet.
+                        </small>
+                      )}
+                      {status?.embedding_tier === "unpaid" && (
+                        <small className="privacy-note">
+                          Google’s unpaid Gemini service may use submitted video
+                          to improve Google products, and human reviewers may
+                          process it. Do not send sensitive, confidential, or
+                          personal footage. Indexing is never automatic; only
+                          the clips with cloud-analysis permission above are sent.
+                        </small>
+                      )}
+                      {status?.embedding_tier === "unpaid" &&
+                        !status.unpaid_terms_acknowledged && (
+                          <small>
+                            The local server requires unpaid-service terms to
+                            be acknowledged before indexing can start.
+                          </small>
+                        )}
+                      {latestVisualJob && (
+                        <div className="visual-progress" role="status">
+                          <span>
+                            {latestVisualJob.status === "running" ||
+                            latestVisualJob.status === "queued"
+                              ? "Indexing"
+                              : "Last indexing job"}
+                            : {latestVisualJob.message}
+                          </span>
+                          {activeVisualJobs.length > 0 && (
+                            <progress
+                              max={1}
+                              value={latestVisualJob.progress}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {!project.assets.length && (
                     <button
                       className="import-zone"
@@ -696,24 +841,35 @@ export default function App() {
                     </button>
                   )}
                   <div className="moments">
-                    {visibleMoments.map((m) => (
-                      <MomentCard
-                        key={m.id}
-                        moment={m}
-                        asset={assetMap[m.asset_id]}
-                        onPreview={() => playMoment(m)}
-                        onAdd={() => add(m)}
-                        onLabel={() => {
-                          setLabel(m);
-                          setLabelReason("");
-                        }}
-                      />
-                    ))}
+                    {visibleResults.map((result) =>
+                      "kind" in result && result.kind === "visual" ? (
+                        <VisualCandidateCard
+                          key={result.id}
+                          candidate={result}
+                          asset={assetMap[result.asset_id]}
+                          onPreview={() => playMoment(result)}
+                          onAdd={() => add(result)}
+                        />
+                      ) : (
+                        <MomentCard
+                          key={result.id}
+                          moment={result as Moment}
+                          asset={assetMap[result.asset_id]}
+                          onPreview={() => playMoment(result as Moment)}
+                          onAdd={() => add(result as Moment)}
+                          onLabel={() => {
+                            setLabel(result as Moment);
+                            setLabelReason("");
+                          }}
+                        />
+                      ),
+                    )}
                   </div>
                   {results?.length === 0 && (
                     <div className="empty-small">
-                      No matching moments. Try different words, add a
-                      description, or analyze your footage.
+                      {searchMode === "visual"
+                        ? "No visual matches yet. Index permitted footage first, or try a different prompt."
+                        : "No matching moments. Try different words, add a description, or analyze your footage."}
                     </div>
                   )}
                   <div className="asset-list">
@@ -935,21 +1091,24 @@ export default function App() {
                       <p>
                         {"description" in preview
                           ? preview.description
-                          : preview.note || "Selected for your story"}
+                          : "kind" in preview
+                            ? "Visual match candidate · range is approximate and can be trimmed after adding."
+                            : preview.note || "Selected for your story"}
                       </p>
                       <span className="range">
                         {timecode(preview.start_frame)} —{" "}
                         {timecode(preview.end_frame)}
                       </span>
-                      {!selected && "description" in preview && (
-                        <button
-                          className="secondary wide"
-                          onClick={() => add(preview)}
-                        >
-                          <Plus size={14} /> Add to{" "}
-                          {active?.title || "a new section"}
-                        </button>
-                      )}
+                      {!selected &&
+                        ("description" in preview || "kind" in preview) && (
+                          <button
+                            className="secondary wide"
+                            onClick={() => add(preview)}
+                          >
+                            <Plus size={14} /> Add to{" "}
+                            {active?.title || "a new section"}
+                          </button>
+                        )}
                     </div>
                   )}
                   {selected && (
@@ -1269,6 +1428,64 @@ export default function App() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+      {visualEstimate !== null && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <span className="eyebrow">VISUAL VIDEO INDEX</span>
+            <h2>Index permitted footage?</h2>
+            <p>
+              Storyroom will send proxy-video samples to Google Gemini to create
+              searchable visual vectors. Audio is not indexed. Only{" "}
+              {visualReadyAssets.length} ready clip
+              {visualReadyAssets.length === 1 ? "" : "s"} with cloud-analysis
+              permission will be sent.
+            </p>
+            <div className="estimate">
+              ${visualEstimate.estimated_usd.toFixed(3)}
+              <small>
+                {visualEstimate.segment_count} segments ({visualEstimate.missing_segment_count} new) ·{" "}
+                {visualEstimate.frame_count} new sampled frames ·{" "}
+                {visualEstimate.indexed_count} already indexed
+              </small>
+            </div>
+            <p>
+              {visualEstimate.tier === "unpaid"
+                ? "Google unpaid-service tier: estimated API price is $0; quotas still apply."
+                : "Paid tier estimate; provider billing remains authoritative."}{" "}
+              {visualEstimate.quota_note}
+            </p>
+            {visualEstimate.tier === "unpaid" && (
+              <p className="privacy-note">
+                Google may use unpaid-service data to improve its products, and
+                human reviewers may process it. Do not send sensitive,
+                confidential, or personal footage. This indexing action is
+                explicit; it will not start automatically.
+              </p>
+            )}
+            <div className="modal-actions">
+              <button
+                className="secondary"
+                onClick={() => setVisualEstimate(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="primary"
+                disabled={
+                  busy ||
+                  (visualEstimate.tier === "unpaid" &&
+                    !status?.unpaid_terms_acknowledged)
+                }
+                onClick={() => task(startVisualIndex)}
+              >
+                Index{" "}
+                {visualEstimate.missing_segment_count}{" "}
+                new segments
+              </button>
+            </div>
+          </div>
         </div>
       )}
       {analysisEstimate !== null && (

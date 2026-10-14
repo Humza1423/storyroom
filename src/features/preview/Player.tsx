@@ -1,12 +1,12 @@
 import type { RefObject } from "react";
 import { Film } from "lucide-react";
-import type { Moment, Selection } from "../../types";
+import type { Moment, Selection, VisualCandidate } from "../../types";
 export function Player({
   preview,
   video,
   advance,
 }: {
-  preview: Moment | Selection | null;
+  preview: Moment | Selection | VisualCandidate | null;
   video: RefObject<HTMLVideoElement | null>;
   advance: () => void;
 }) {

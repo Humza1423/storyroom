@@ -105,16 +105,40 @@ exports containing personal filesystem paths.
 
 ## Optional cloud AI
 
-Manual editing works without cloud setup. Before enabling paid calls:
+Manual editing works without cloud setup. For the new visual-search path, you can
+start with Gemini's unpaid service, but only after checking the Google project
+actually has no active billing. Copy `.env.example` to `.env`, set your own
+`GEMINI_API_KEY`, and set `STORYROOM_GEMINI_UNPAID_TERMS_ACKNOWLEDGED=true` only
+after reading Google's current terms. Restart Storyroom. The app reports this as
+a local setting; it cannot verify Google's billing tier or quotas. Its UI may
+show a $0 provider price estimate, but the internal budget still reserves a
+conservative paid-rate amount as a guard in case the account setting is wrong.
 
-1. Create a paid Gemini API project/key and keep the key local.
-2. Copy `.env.example` to `.env` and set `GEMINI_API_KEY`.
-3. Verify model availability and prices in the provider account. Update the model
-   settings and rates, then set `STORYROOM_PRICING_CONFIRMED=true`.
-4. Restart Storyroom. Record each clip's source/license and cloud-analysis
-   permission through its settings button.
-5. Click **Analyze**, inspect the estimate, and explicitly start analysis. Use AI
-   search or request a story structure after adding a creative brief.
+Google's unpaid-service data may be used to improve its products and may be
+reviewed by people. Do not submit sensitive, confidential, or personal footage.
+Source license does not automatically grant privacy rights for identifiable
+people. Record source/license and cloud-analysis permission through each clip's
+settings button. Only index material suitable for this provider and tier.
+
+Restart Storyroom, select **Visual AI**, click **Estimate & index permitted
+clips**, review the displayed ranges/cost/tier notice, then explicitly start
+indexing. The worker sends six-second ranges from prepared 720p proxies; it does
+not send audio. Search uses the same model to embed the query and compares it
+against saved visual-range vectors. A candidate is a useful range to inspect,
+not a guaranteed action label or exact boundary. Keyword and description search
+remain separate modes.
+
+To use paid visual search instead, set `STORYROOM_GEMINI_TIER=paid`, verify the
+current model price and project billing, and set `STORYROOM_PRICING_CONFIRMED=true`.
+The configured defaults are implementation inputs, not a billing quote. Check
+the provider's [pricing](https://ai.google.dev/gemini-api/docs/pricing) before
+enabling paid use. Existing description/analysis and story-generation tools
+also require verified prices and `STORYROOM_PRICING_CONFIRMED=true`.
+
+The checked-in models `gemini-3.8-flash` and `gemini-embedding-2` are adapter
+defaults, not verified claims of availability or comparative quality. Fake-
+provider tests cover the integration contract; real requests and retrieval
+evaluation remain separate release gates. No silent model fallback is used.
 
 The checked-in configuration names `gemini-3.8-flash` and `gemini-embedding-2`.
 These are adapter defaults, not verified claims of model availability or quality.

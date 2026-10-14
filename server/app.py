@@ -24,7 +24,8 @@ from .models import (
     MomentInput,
     FeedbackInput,
 )
-from .search import search, features
+from .search import search, search_visual, features
+from .visual_index import sampled_frames, segment_windows
 
 
 @asynccontextmanager
@@ -137,8 +138,15 @@ def validate_board(pid, board):
 def status():
     return {
         "ai_ready": config.ai_ready(),
+        "visual_ai_ready": config.visual_ai_ready(),
         "key_present": bool(os.getenv("GEMINI_API_KEY")),
         "pricing_confirmed": config.PRICING_CONFIRMED,
+        "embedding_tier": config.VISUAL_TIER,
+        "embedding_model": config.EMBED_MODEL,
+        "unpaid_terms_acknowledged": config.UNPAID_TERMS_ACKNOWLEDGED,
+        "embedding_tier_note": (
+            "Configured locally; Storyroom cannot verify Google billing status."
+        ),
         "model": config.MODEL,
         "spend": db.spend(),
         "limit": config.SPEND_LIMIT,
@@ -451,7 +459,93 @@ def undo(pid: str, data: dict):
 @app.post("/api/projects/{pid}/search")
 def find_moments(pid: str, data: SearchInput):
     project(pid)
-    return search(pid, data.query, data.semantic)
+    mode = data.mode or ("description" if data.semantic else "keyword")
+    if mode == "visual":
+        if not config.visual_ai_ready():
+            raise ValueError(
+                "Configure Gemini visual-search access and confirm the selected tier's terms or pricing first."
+            )
+        return search_visual(pid, data.query)
+    return search(pid, data.query, semantic=(mode == "description"))
+
+
+@app.post("/api/projects/{pid}/visual-index-estimate")
+def estimate_visual_index(pid: str, data: AnalysisInput):
+    project(pid)
+    selected = [asset(aid) for aid in set(data.asset_ids)]
+    segment_count = frame_count = indexed_count = 0
+    for a in selected:
+        if a["project_id"] != pid or a["status"] != "ready":
+            raise ValueError("Choose prepared clips in this project")
+        windows = segment_windows(a["frames"])
+        indexed_ranges = set()
+        if a.get("visual_proxy_hash"):
+            indexed_ranges = {
+                (row["start_frame"], row["end_frame"])
+                for row in db.rows(
+                    """SELECT start_frame,end_frame FROM visual_segments
+                   WHERE asset_id=? AND provider=? AND model=? AND dimensions=?
+                     AND index_version=? AND proxy_hash=?""",
+                    (
+                        a["id"],
+                        config.EMBED_PROVIDER,
+                        config.EMBED_MODEL,
+                        config.EMBED_DIMENSIONS,
+                        config.VISUAL_INDEX_VERSION,
+                        a["visual_proxy_hash"],
+                    ),
+                )
+            }
+        indexed_count += sum(window in indexed_ranges for window in windows)
+        segment_count += len(windows)
+        frame_count += sum(
+            sampled_frames(start, end)
+            for start, end in windows
+            if (start, end) not in indexed_ranges
+        )
+    missing_segment_count = segment_count - indexed_count
+    reserved = frame_count * config.VISUAL_VIDEO_FRAME_RATE
+    expected = 0.0 if config.VISUAL_TIER == "unpaid" else reserved
+    return {
+        "estimated_usd": round(expected, 6),
+        "reserved_usd": round(reserved, 6),
+        "segment_count": segment_count,
+        "missing_segment_count": missing_segment_count,
+        "frame_count": frame_count,
+        "indexed_count": indexed_count,
+        "tier": config.VISUAL_TIER,
+        "quota_note": (
+            "Free-tier quota varies and is not guaranteed. Verify the API project has no active billing; "
+            "Storyroom cannot verify that setting."
+            if config.VISUAL_TIER == "unpaid"
+            else "Estimate uses current per-frame list price; provider billing is authoritative."
+        ),
+    }
+
+
+@app.post("/api/projects/{pid}/visual-index")
+def start_visual_index(pid: str, data: AnalysisInput):
+    project(pid)
+    if not config.visual_ai_ready():
+        if config.VISUAL_TIER == "unpaid":
+            raise ValueError(
+                "Configure a Gemini key and explicitly acknowledge the unpaid-service terms first."
+            )
+        raise ValueError("Configure a Gemini key and confirm pricing first.")
+    selected = [asset(aid) for aid in set(data.asset_ids)]
+    for a in selected:
+        if a["project_id"] != pid or a["status"] != "ready":
+            raise ValueError("Choose prepared clips in this project")
+        if not json.loads(a["provenance"]).get("cloud_analysis"):
+            raise ValueError(
+                f"Record cloud-analysis permission for {a['name']} first"
+            )
+    return {
+        "job_ids": [
+            db.enqueue(pid, "visual_index", {"asset_id": a["id"]})
+            for a in selected
+        ]
+    }
 
 
 @app.post("/api/projects/{pid}/analysis-estimate")

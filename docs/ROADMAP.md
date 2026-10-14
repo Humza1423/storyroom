@@ -53,26 +53,33 @@ remains accepted but experimental. Defer encoder/disk optimization until better
 hardware or user demand justifies it. This does not silently lower the output
 resolution or weaken the verified 1080p and 4K handoff checks.
 
-## 3. Validate footage intelligence, not just the adapter
+## 3. Direct visual search vertical slice
 
-Keep pretrained inference behind the existing AI boundary. Verify current model
-identifiers, SDK compatibility, account availability, and pricing before a real
-call. Gemini is the current adapter, not a demonstrated best model. Compare
-alternatives only on relevant failures; see [MODELS](MODELS.md).
+The provider/index/retrieval/UI code is implemented on the feature branch; see
+[STATUS](STATUS.md) for the exact test evidence. It adds a distinct Gemini
+Embedding 2 path over overlapping six-second ranges of prepared 720p proxies,
+cached text-query embeddings, SQLite persistence, exact cosine ranking, and
+playable candidates that become ordinary frame-range selections. Existing keyword
+and description search remain separate. The model is a candidate generator, not
+an exact action detector; audio is not indexed. Vector spaces are isolated by
+provider, model, dimensions, proxy hash, and sampling version.
 
-Pipeline: normalized proxy → overlapping chunks of at most 30 seconds at 2 fps →
-structured observations → validated frame ranges → description embeddings →
-local keyword/vector retrieval. Sparse sampling can miss fast motion; do not
-promise precise action boundaries or successful-attempt detection.
+The next gate is live, rights- and privacy-appropriate provider validation. Verify
+current SDK/model availability and the API project's actual tier, make one bounded
+request, compare provider billing with Storyroom's conservative reservation, and
+then run a reviewed 40-query set over the permitted collections. Do not use
+Pexels for indexing. Google unpaid-service data terms and human review mean the
+dataset itself must be suitable for cloud submission; source license alone does
+not establish that. The UI requires explicit indexing and cloud-analysis
+permission; do not submit sensitive, confidential, or personal footage. If no
+suitable human footage is cleared, test the API with non-personal footage and
+defer the human-footage quality claim.
 
-Reserve cost before dispatch, cache by content/model/prompt/settings, reconcile
-reported usage, and include retries in the budget. Keep credentials backend-only.
-The ledger covers this app's requests, not all provider spending. No silent model
-switches or unbounded agent loops. The current pipeline omits audio transcription.
-
-Acceptance: one permissioned clip works with a real provider; timestamps are
-manually checked; costs are compared with billing; timeouts, malformed output,
-rate limits, cache reuse, cancellation, and budget exhaustion behave safely.
+Preserve the no-AI path. Timeouts, malformed vectors, rate/quota limits, cache
+reuse, partial indexing, cancellation, model isolation, and budget exhaustion
+must remain safe. Use the results to decide whether Gemini's direct visual
+retrieval is useful and what alternative, including local open weights, is worth
+benchmarking; do not assume it is the best model.
 
 ## 4. Complete the story workspace
 

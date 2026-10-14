@@ -17,7 +17,33 @@ def initial_schema(conn):
         raise RuntimeError("Incomplete initial schema statement")
 
 
-MIGRATIONS = (initial_schema,)
+def visual_segments(conn):
+    conn.execute("ALTER TABLE assets ADD COLUMN visual_proxy_hash TEXT")
+    conn.execute(
+        """CREATE TABLE visual_segments(
+            id TEXT PRIMARY KEY,
+            asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+            start_frame INTEGER NOT NULL CHECK(start_frame >= 0),
+            end_frame INTEGER NOT NULL CHECK(end_frame > start_frame),
+            provider TEXT NOT NULL,
+            model TEXT NOT NULL,
+            dimensions INTEGER NOT NULL CHECK(dimensions > 0),
+            index_version TEXT NOT NULL,
+            proxy_hash TEXT NOT NULL,
+            sampled_frames INTEGER NOT NULL CHECK(sampled_frames > 0),
+            embedding TEXT NOT NULL,
+            created REAL NOT NULL,
+            UNIQUE(asset_id,start_frame,end_frame,provider,model,dimensions,
+                   index_version,proxy_hash)
+        )"""
+    )
+    conn.execute(
+        "CREATE INDEX visual_segments_asset_model ON visual_segments"
+        "(asset_id,provider,model,dimensions,index_version,proxy_hash)"
+    )
+
+
+MIGRATIONS = (initial_schema, visual_segments)
 
 
 def migrate(path, migrations=MIGRATIONS):

@@ -1,10 +1,57 @@
 # Project status and release checklist
 
-Updated: 2026-10-13. Status: local development preview; release gates remain open.
+Updated: 2026-10-14. Status: local development preview; release gates remain open.
+
+## Visual-search vertical slice implementation (2026-10-14)
+
+The feature branch adds direct video-range retrieval with Gemini Embedding 2,
+separate from keyword and description search. Storyroom estimates missing index
+ranges, explicitly queues a persistent job, creates overlapping six-second
+windows with a three-second stride from the 720p proxy, stores each successful
+768-dimensional vector in SQLite, embeds a natural-language query, and ranks
+matches locally with exact cosine similarity. Overlapping hits are collapsed to
+playable source ranges; the UI labels them as visual matches and can preview or
+add them to a Storybin. They use the existing asset/frame-boundary selection
+format with no caption moment ID, so trim, save/reopen, render and Resolve export
+remain the existing paths. No ANN library, database service, fine-tuning, audio
+search, or edit automation was added.
+
+Provider/model/dimension/proxy-hash/index-version metadata prevents vectors from
+different models or proxy revisions being mixed. Query embeddings are cached;
+index jobs resume from completed ranges and retain partial results after failure
+or cancellation. The unpaid tier is explicit and never silently falls back to
+paid. Storyroom displays its configured tier, which it cannot verify; the UI
+discloses Google's unpaid data-use/human-review terms and warns not to upload
+sensitive, confidential, or personal footage. The UI shows a $0 free-tier price
+estimate while the safety ledger keeps a conservative list-price reservation.
+
+The browser workflow uses a fake visual candidate; backend tests use a
+deterministic fake embedding provider. This verifies application wiring, not
+Gemini relevance. No API key is configured in this checkout, no footage has been
+submitted to Google, and the 40-query human-reviewed retrieval pilot across
+three privacy- and rights-cleared collections has not run. Do not claim visual
+search accuracy or broad usability yet. Next: one live bounded request on
+suitable non-personal footage, then the reviewed retrieval pilot with misses and
+per-collection results reported.
+
+Verification: backend suite **85 passed** (one existing Starlette/httpx
+deprecation warning); latest visual-search-specific suite **8 passed**; isolated
+browser workflow **26 passed**; production build, fatal-error Ruff checks, and
+`git diff --check` passed. The backend suite retains the A2 geometry, frame-clock,
+audio-sync, and cut-order regressions. The visual browser test uses a mocked
+candidate; it does not call Google.
+
+Exact-search scale probe (synthetic, fixed seed 314159; this Mac; 768 dimensions;
+30 queries): 300 vectors p50 11.7 ms / p95 14.4 ms; 3,000 vectors p50 275.4 ms /
+p95 605.8 ms using the current Python `ExactVectorIndex`. The configured project
+limit implies about 300 overlapping windows for 15 minutes of footage, so exact
+search remains acceptable for this local MVP. An isolated HNSW comparison could
+not be built because this Mac lacks the C++ standard-library headers; no ANN
+dependency was added. Revisit if the index grows beyond the current project cap.
 
 ## Portfolio checkpoint merged to `main` (2026-10-13)
 
-PR #1, [Verify media correctness and measure processing performance](https://github.com/Humza1423/storyroom/pull/1), has been merged into the public repository's default branch. Its foundation, A1–A3, real-footage workflow, mixed-profile checks, and Resolve import evidence are now visible from `main`. The branch is clean and synchronized after the merge. Both PR checks passed before merge. This is a development preview, not a validated AI search release; semantic video retrieval is the next milestone.
+PR #1, [Verify media correctness and measure processing performance](https://github.com/Humza1423/storyroom/pull/1), has been merged into the public repository's default branch. Its foundation, A1–A3, real-footage workflow, mixed-profile checks, and Resolve import evidence are now visible from `main`. The branch is clean and synchronized after the merge. Both PR checks passed before merge. This is a development preview, not a validated AI search release; the new visual-search implementation needs a live provider call and human-reviewed evaluation before quality is established.
 
 ## Online 4K footage check (2026-10-12) — Resolve import verified; 4K deferred
 
@@ -180,8 +227,8 @@ PR #1 after this checkpoint is pushed. No encoder optimization was made.
 | Manual assembly | Projects, import, proxies, descriptions, story sections, drag/reorder, frame trimming, save/reopen, undo | Automated suite covers generated fixtures; four licensed exercise videos completed manual import/search/board/restart/render and a visually checked Resolve 21.1.1 XML import. |
 | Processing | One SQLite-backed worker, progress, cancel/retry, response caching | Real worker subprocess tests cover pending/interrupted normalization/render, second-worker refusal and explicit retry. Encoding restarts; it is not stage-resumable. |
 | Output | MP4 render, FCP7 XML, OTIO, media manifest | Independent generated-media checks verify pixels, exact frame count/spacing, audio boundaries, and XML references/ranges/gaps. A 780-frame / 26-second licensed-footage timeline opened in Resolve 21.1.1 with footage visible and the repeated source range preserved. |
-| AI adapter | Video chunks, validated observations, embeddings, story proposals, cost reservations | Fake-provider tests cover response validation, caching, budget, and failure. No real provider or quality benchmark has been verified. |
-| Search | Keyword matching and optional description-embedding similarity | Manual keyword behavior tested. The 20-query real-footage benchmark has not been completed. |
+| AI adapter | Video chunks, validated observations, embeddings, story proposals, cost reservations, and a separate Gemini Embedding 2 visual adapter | Fake-provider tests cover response validation, caching, budget, partial indexing, and failure. No real provider result has been verified. |
+| Search | Keyword, description-embedding, and direct visual-embedding modes | Visual code is fake-provider tested on this feature branch; live Gemini behavior and the 40-query real-footage benchmark have not been completed. |
 | Training | Permission-aware judgments, grouped split, logistic-regression experiment, report export | Script and labeling interface exist. No trained or deployed custom model has been established. |
 | Project access | Source opens in VS Code; onboarding, architecture, contribution and learning docs; public GitHub remote | Foundation and media validation are merged into `main`; PR #1 CI passed. |
 
@@ -430,8 +477,9 @@ authorized routine feature-branch pushes for verified implementation checkpoints
 
 ### 3. Verify the cloud AI integration
 
-- [ ] Verify current model identifiers, provider availability, request compatibility, and pricing.
-- [ ] Configure a local key and permissions; run one bounded clip analysis.
+- [x] Add provider-neutral video/text embeddings, Gemini Embedding 2 adapter, model-specific SQLite visual index, resumable indexing, exact-cosine retrieval, and separate visual UI mode.
+- [ ] Verify current model identifiers, provider availability, request compatibility, and pricing with a bounded live request.
+- [ ] Configure a local key and permissions; run one bounded clip analysis/search on footage safe for the chosen tier.
 - [ ] Compare returned timestamps and descriptions with the actual footage.
 - [ ] Check provider billing against the local ledger.
 - [ ] Verify story suggestions preserve accepted edits.
@@ -439,8 +487,8 @@ authorized routine feature-branch pushes for verified implementation checkpoints
 
 ### 4. Evaluate usefulness and prepare a release
 
-- [ ] Curate at least 20 human-reviewed queries across three separate footage sets.
-- [ ] Measure relevant candidates in the first five; initial target is at least 16 of 20, with misses reported.
+- [ ] Curate 40 human-reviewed queries across three rights- and privacy-appropriate footage collections.
+- [ ] Measure relevant candidates in the first five; pilot target is at least 32 of 40, with per-collection misses reported.
 - [ ] Test unsupported queries, uncertainty, missing media, and stop/restart recovery.
 - [x] Test installation from a fresh macOS checkout and locked environment.
 - [ ] Review dependency/media licenses for the release and real-footage exercise.

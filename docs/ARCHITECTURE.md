@@ -44,9 +44,13 @@ The pipeline is bounded, not an autonomous agent loop:
 
 `proxy segment → structured observations → description embeddings → candidate retrieval → story proposal → human selection`
 
-An embedding is a numerical representation whose distance can help compare meanings. We compute embeddings once, save them, and compare a query against them. We do not ask a large model to reread every video on every search.
+An embedding is a numerical representation whose distance can help compare meanings. The description-search path embeds text descriptions; the new visual-search path embeds short ranges from the prepared proxy and the user's text query in Gemini Embedding 2's cross-modal space. These are different representations and are stored in separate tables. Never compare caption vectors with visual vectors.
 
-The current retrieval baseline searches descriptions. If the captioner misses a red jersey, text search cannot recover that visual evidence. A direct frame-text encoder such as SigLIP is a separate experiment for fixing that failure, not a reason to rewrite the board or export code.
+Visual indexing is explicit, not automatic: the UI estimates missing ranges, the user starts a persistent worker job, and each successful range is stored in SQLite so a retry can skip completed work. The worker creates overlapping six-second, three-second-stride chunks from the 720p proxy and maps their boundaries back to the existing 30-fps editing-copy clock. Search embeds the query once (cached), computes exact cosine similarity locally, merges overlapping hits from the same asset, and returns up to five playable source ranges. A visual result is not a caption or an exact action-boundary claim. Sparse provider sampling may miss fast action, and audio is not analyzed.
+
+The `EmbeddingProvider` boundary separates provider calls from indexing and retrieval; `ExactVectorIndex` is the simple v1 implementation behind a replaceable index boundary. SQLite remains the source of truth. The visual-segment key includes proxy content hash, provider, model, dimensions, sampling/index version, and source frame range: changing any of those means reindexing rather than mixing vector spaces. A selected range uses the ordinary asset/frame-range board format with a null `moment_id`, so visual hits flow through trim, save/reopen, render and Resolve export without creating fake caption moments.
+
+Unpaid Gemini configuration is a local declaration, not a billing-status check. Google may use unpaid-service content to improve products and human reviewers may process it; do not submit sensitive, confidential, or personal footage. Do not send a clip unless its source rights and privacy are suitable. The interface requires a deliberate indexing action and an asset-level cloud-analysis permission. It shows $0 provider price for configured unpaid mode while the internal budget ledger retains a conservative paid-rate reservation because Storyroom cannot verify the provider account's billing state.
 
 ## Media coordinates and the shared clock
 
@@ -118,7 +122,8 @@ If you can explain those flows and modify them safely, you are learning the syst
 
 `server/migrations.py` serializes initialization with a file lock and applies ordered
 versions inside one exclusive SQLite transaction. Version 1 adopts the existing
-schema without rewriting user data. Before a later upgrade, SQLite's backup API
+schema without rewriting user data. Version 2 adds the visual segment index and
+proxy hash while preserving existing projects. Before a later upgrade, SQLite's backup API
 saves the committed database including WAL contents beside the database. Failed
 upgrades roll back schema, data, and version together; future schema versions are
 refused. Backups are retained, not automatically deleted. Migration functions cannot
@@ -186,4 +191,4 @@ so the UI never infers success from a filename; explicit retry uses content hash
 normalization jobs, exposing only id/status/progress/message. Duplicate imports
 return that job ID. Preparation retry checks for a newer pending/completed job under
 the write transaction before queuing another, protecting against stale buttons.
-These are response/behavior changes; SQLite remains schema version 1.
+These are response/behavior changes; visual indexing uses SQLite schema version 2.

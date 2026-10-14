@@ -1,4 +1,5 @@
 import json
+import hashlib
 import shutil
 import subprocess
 import time
@@ -50,6 +51,8 @@ def probe(path):
         raise InspectionUnavailable(
             "Install FFmpeg (including ffprobe) before importing footage."
         )
+
+
     try:
         r = subprocess.run(
             [
@@ -95,6 +98,14 @@ def probe(path):
         raise ValueError(
             "Cannot read this video. Use an intact H.264 MP4 file."
         ) from None
+
+
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def validate(info):
@@ -250,6 +261,38 @@ def chunk(source, dest, start, duration, cancelled=lambda: False):
             "26",
             "-threads",
             "2",
+            str(dest),
+        ],
+        cancelled,
+    )
+
+
+def embedding_chunk(source, dest, start, duration, cancelled=lambda: False):
+    """Write a silent, short H.264 range from the prepared proxy for embedding."""
+    run(
+        [
+            "ffmpeg",
+            "-nostdin",
+            "-y",
+            "-v",
+            "error",
+            "-ss",
+            str(start),
+            "-i",
+            str(source),
+            "-t",
+            str(duration),
+            "-an",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "28",
+            "-threads",
+            "2",
+            "-movflags",
+            "+faststart",
             str(dest),
         ],
         cancelled,
