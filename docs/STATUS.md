@@ -2,6 +2,40 @@
 
 Updated: 2026-10-14. Status: local development preview; release gates remain open.
 
+## First live real-footage visual-search pilot (2026-10-14)
+
+Imported three existing, rights-checked Commons exercise clips into the isolated
+local project `Commons exercise search pilot`: [Jumping jacks and burpees](https://commons.wikimedia.org/wiki/File:Jumping_jacks_and_burpees.webm),
+[Double kettlebell clean and jerk](https://commons.wikimedia.org/wiki/File:Double_Kettlebell_Clean_and_Jerk.webm),
+and [Kettlebell swing, hip-hinge zoom](https://commons.wikimedia.org/wiki/File:Kettlebell_Swing_Hip_Hinge_Style_Zoom.webm).
+All are attributed to Taco Fleur / Cavemantraining under CC BY-SA 4.0. The
+originals and conversion details are in the ignored local provenance manifest;
+the already-converted 640×480 H.264 MP4s were imported through Storyroom's local
+API. Cloud-analysis permission was explicitly recorded on these three assets;
+the clips were sent to Gemini Embedding 2's unpaid tier for this requested test.
+No Pexels or Mendeley footage and no model training were used.
+
+Storyroom indexed 29 six-second windows (three-second overlap; 170 sampled
+frames) with 768-dimensional Gemini vectors. Live text-query embeddings were
+matched locally by exact cosine similarity. Top results were: “jumping jacks” —
+the combined exercise clip at 0–9 s (contains the requested movement but its
+approximate range also crosses into nearby action); “burpees” — the same clip at
+36–45.2 s; “two kettlebells lifted to the shoulders and overhead” — the clean-
+and-jerk clip at 15–27 s; “close view of a kettlebell swing” — the swing clip at
+3–15 s. Representative frames were visually checked. A swing result was added
+to a Storybin at frames 90–450 (3–15 s) and remained exact after browser reload.
+
+Important failure: an unsupported “dog running through snow” prompt still
+returned exercise clips. Visual search currently always returns its nearest
+matches; it has no calibrated rejection threshold or no-match behavior. Results
+are useful candidates, not verified matches, and fast/nearby actions may share a
+range. This three-video, single-creator exercise pilot proves live indexing and
+retrieval plumbing, not general accuracy. The broader multi-collection,
+human-reviewed retrieval evaluation remains outstanding. Storyroom displayed a
+$0 unpaid-tier API estimate; its conservative internal usage ledger reserved
+about $0.14, and the provider's actual billing/quota state was not independently
+verified.
+
 ## Visual-search vertical slice implementation (2026-10-14)
 
 The feature branch adds direct video-range retrieval with Gemini Embedding 2,
@@ -29,15 +63,16 @@ Automated browser and backend tests still use fake visual candidates and a
 deterministic fake provider. A live smoke run now also verifies the real Gemini
 Embedding 2 path: the local provider embedded a text query and a generated
 four-second test-pattern proxy, returned normalized 768-dimensional vectors,
-and the UI indexed that one permitted range, searched it, previewed its visual
-match, and added it to a Storybin. The isolated preview used generated abstract
-patterns, not exercise footage; this validates the connection and workflow, not
-semantic relevance. The API key is in the ignored local `.env`; AI Studio showed
-the project on its Free tier with no billing account when checked. No real or
-identifiable footage was submitted to Google. The 40-query human-reviewed
-retrieval pilot across three privacy- and rights-cleared collections has not
-run. Do not claim visual-search accuracy or broad usability yet. Next: run the
-reviewed retrieval pilot, reporting misses and per-collection results.
+and the UI indexed that one permitted generated pattern, searched it, previewed
+its visual match, and added it to a Storybin. That smoke test validates
+connection/workflow, not semantic relevance; the live real-footage pilot above
+is the first evidence for semantic retrieval. AI Studio showed the project on
+its Free tier with no billing account when checked, but the provider's current
+billing/quota state is not verified by Storyroom. The 40-query human-reviewed
+retrieval pilot across multiple independent, rights-cleared collections has not
+run. Do not claim broad accuracy or usability yet. Next: build a reviewed
+multi-collection evaluation, including unsupported prompts and an abstention
+threshold before presenting results as confident matches.
 
 Verification: backend suite **85 passed** (one existing Starlette/httpx
 deprecation warning); latest visual-search-specific suite **8 passed**; isolated
