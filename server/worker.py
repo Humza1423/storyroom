@@ -11,7 +11,7 @@ from .diagnostics import MediaDiagnostics
 from .exporter import export_timeline
 from .models import Observations, Proposal, Rerank
 from .search import search
-from .visual_index import sampled_frames, segment_windows
+from .visual_index import sampled_frames, temporal_profile
 
 
 def index_visual(job, asset):
@@ -25,7 +25,9 @@ def index_visual(job, asset):
         raise ValueError("The playback proxy is missing. Retry media preparation.")
     proxy_hash = media.sha256_file(proxy)
     provider = ai.embedding_provider()
-    windows = segment_windows(asset["frames"])
+    progress(ident, 0, f"Finding likely action boundaries in {asset['name']}")
+    profile = temporal_profile(proxy, asset["frames"], proxy_hash, lambda: cancelled(ident))
+    windows = profile.index_ranges()
     with db.connect() as conn:
         conn.execute(
             "UPDATE assets SET visual_proxy_hash=? WHERE id=?",
@@ -65,17 +67,23 @@ def index_visual(job, asset):
                 done / max(1, total),
                 f"Indexing {asset['name']} · range {start_seconds:.1f}–{end / config.FPS:.1f}s · {done + 1}/{total}",
             )
-            media.embedding_chunk(
-                proxy,
-                part,
-                start_seconds,
-                duration_seconds,
-                lambda: cancelled(ident),
+            reusable = db.one(
+                """SELECT embedding FROM visual_segments
+                   WHERE asset_id=? AND provider=? AND model=? AND dimensions=?
+                     AND proxy_hash=? AND start_frame=? AND end_frame=?
+                   ORDER BY created DESC LIMIT 1""",
+                (asset["id"], provider.provider, provider.model,
+                 config.EMBED_DIMENSIONS, proxy_hash, start, end),
             )
-            fingerprint = f"{proxy_hash}:{start}:{end}:{length_frames}"
-            vector = provider.embed_video_range(
-                part.read_bytes(), fingerprint, ident
-            )
+            if reusable:
+                vector = json.loads(reusable["embedding"])
+            else:
+                media.embedding_chunk(
+                    proxy, part, start_seconds, duration_seconds,
+                    lambda: cancelled(ident),
+                )
+                fingerprint = f"{proxy_hash}:{start}:{end}:{length_frames}"
+                vector = provider.embed_video_range(part.read_bytes(), fingerprint, ident)
             if cancelled(ident):
                 raise media.Cancelled()
             segment_id = hashlib.sha256(

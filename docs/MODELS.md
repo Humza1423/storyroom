@@ -7,7 +7,7 @@ We have not proven that Gemini is the best model for this application. It is a p
 | Candidate | Appropriate role | Current decision |
 |---|---|---|
 | Gemini Flash | Short-video observation and brief-driven structured proposals | Initial implementation; live quality unverified |
-| Gemini Embedding 2 | Direct text-to-video-range semantic retrieval | First visual-search adapter; integration contract is fake-provider tested, real API quality is unverified |
+| Gemini Embedding 2 | Direct text-to-video-range semantic retrieval | Live Commons exercise pilot finds two distinct jumping-jacks occurrences; later false positives remain |
 | SigLIP 2 | Text-to-frame retrieval without going through a caption | Strong next retrieval benchmark; static frames do not establish temporal actions |
 | DINOv3 | Visual features for similarity / duplicate-shot candidates | Defer until repetitive footage is a measured issue |
 | SAM 3.1 | Object segmentation and tracking | Defer; masks do not solve our story-assembly job |
@@ -26,7 +26,7 @@ Hold the interface and evaluation footage fixed. Compare description search agai
 
 Measure useful candidates in the first five, missed relevant moments, boundary usefulness, indexing time, search latency, peak memory, cost per source minute, and installation complexity. Use the same held-out shoots for every candidate. Do not add all seven models and attribute any improvement to “the AI stack.”
 
-The first comparison should focus on Gemini Embedding 2 direct visual search versus description search. A hybrid may be useful, but it must improve results enough to pay for its additional processing and maintenance. The visual index uses 768-dimensional vectors from short, overlapping 720p proxy ranges; descriptions use their own vectors and cannot be compared with these. Indexing uses the configured Gemini API tier, not a local Qwen/Hugging Face checkpoint. A local cross-modal model remains a later comparison if real evaluations or cloud privacy/cost constraints justify it.
+The first comparison should focus on Gemini Embedding 2 direct visual search versus description search. A hybrid or discriminative reranker may help the observed false positives, but it must improve reviewed results enough to pay for its additional processing and maintenance. The visual index uses 768-dimensional vectors from adaptive 720p proxy ranges; descriptions use their own vectors and cannot be compared with these. Indexing uses the configured Gemini API tier, not a local Qwen/Hugging Face checkpoint. A local cross-modal model remains a later comparison if real evaluations or cloud privacy/cost constraints justify it. Exact search remains in place; benchmark HNSW/FAISS only after localization quality is measured across footage sets.
 
 ## Using a model versus training it
 

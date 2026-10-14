@@ -105,6 +105,9 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   await expect(page.getByText("VISUAL MATCH · #1")).toBeVisible();
   await page.getByRole("button", { name: "Preview visual match 1" }).click();
   await expect(page.locator("video")).toBeVisible();
+  await expect(page.getByRole("slider", { name: "Position within selected clip" })).toBeVisible();
+  await expect(page.locator(".assembly-controls span")).toContainText("/ 1.0s");
+  expect(await page.locator("video").evaluate((v) => (v as HTMLVideoElement).controls)).toBe(false);
   await page.getByRole("button", { name: "Add to section", exact: true }).click();
   await expect(page.locator(".clip-row")).toHaveCount(1);
   await page.locator(".clip-main").click();
@@ -115,11 +118,9 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   const projectId = await page.evaluate(() =>
     localStorage.getItem("storyroom.project"),
   );
-  const saved = await (await request.get(`/api/projects/${projectId}`)).json();
-  expect(saved.board[0].selections).toHaveLength(1);
-  expect(saved.board[0].selections[0]).toMatchObject({
-    moment_id: null,
-    start_frame: 12,
-    end_frame: 42,
-  });
+  // The save is asynchronous; inspect persisted state only after it commits.
+  await expect.poll(async () => {
+    const saved = await (await request.get(`/api/projects/${projectId}`)).json();
+    return saved.board[0].selections[0];
+  }).toMatchObject({ moment_id: null, start_frame: 12, end_frame: 42 });
 });

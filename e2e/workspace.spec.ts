@@ -82,6 +82,9 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
   await page.getByRole("button", { name: "Play assembly" }).click();
   await expect(page.getByText("Clip 1 of 3")).toBeVisible();
   await expect(page.locator("video")).toBeVisible();
+  await expect(page.getByRole("slider", { name: "Position within selected clip" })).toBeVisible();
+  await expect(page.locator(".assembly-controls span")).toContainText("/ 2.0s");
+  expect(await page.locator("video").evaluate((v) => (v as HTMLVideoElement).controls)).toBe(false);
   await expect
     .poll(() =>
       page.locator("video").evaluate((v) => (v as HTMLVideoElement).readyState),
@@ -95,6 +98,7 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
     )
     .toBeGreaterThan(0.3);
   await expect(page.getByText("Clip 2 of 3")).toBeVisible({ timeout: 8000 });
+  await expect(page.locator(".assembly-controls span")).toContainText("/ 1.3s");
   await page
     .getByRole("button", { name: "Render preview", exact: true })
     .click();

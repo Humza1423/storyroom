@@ -57,17 +57,18 @@ resolution or weaken the verified 1080p and 4K handoff checks.
 
 The provider/index/retrieval/UI code is implemented on the feature branch; see
 [STATUS](STATUS.md) for the exact test evidence. It adds a distinct Gemini
-Embedding 2 path over overlapping two-second ranges (one-second stride) of prepared 720p proxies,
+Embedding 2 path over adaptive event/detail ranges of prepared 720p proxies,
 cached text-query embeddings, SQLite persistence, exact cosine ranking, and
 playable candidates that become ordinary frame-range selections. Existing keyword
 and description search remain separate. The model is a candidate generator, not
 an exact action detector; audio is not indexed. Vector spaces are isolated by
 provider, model, dimensions, proxy hash, and sampling version.
 
-The next gate is live, rights- and privacy-appropriate provider validation. Verify
-current SDK/model availability and the API project's actual tier, make one bounded
-request, compare provider billing with Storyroom's conservative reservation, and
-then run a reviewed 40-query set over the permitted collections. Do not use
+The live adapter and a small Commons exercise pilot now work, but incorrect
+high-ranked matches remain; see STATUS. The next gate is a reviewed 40-query
+set over three permitted collections, with boundary accuracy and false positives
+reported separately. Confirm the API project's actual tier and compare provider
+billing with Storyroom's conservative reservation. Do not use
 Pexels for indexing. Google unpaid-service data terms and human review mean the
 dataset itself must be suitable for cloud submission; source license alone does
 not establish that. The UI requires explicit indexing and cloud-analysis

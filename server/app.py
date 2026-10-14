@@ -1,5 +1,5 @@
-import hashlib
 import errno
+import hashlib
 import json
 import os
 import shutil
@@ -8,24 +8,26 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import Field
-from . import config, db, media, ai
+
+from . import ai, config, db, media
 from .imports import ImportFailure, preparation_jobs
 from .models import (
-    Strict,
-    ProjectInput,
-    BoardInput,
     AnalysisInput,
-    SearchInput,
-    MomentInput,
+    BoardInput,
     FeedbackInput,
+    MomentInput,
+    ProjectInput,
+    SearchInput,
+    Strict,
 )
-from .search import search, search_visual, features
-from .visual_index import sampled_frames, segment_windows
+from .search import features, search, search_visual
+from .visual_index import sampled_frames, temporal_profile
 
 
 @asynccontextmanager
@@ -477,9 +479,13 @@ def estimate_visual_index(pid: str, data: AnalysisInput):
     for a in selected:
         if a["project_id"] != pid or a["status"] != "ready":
             raise ValueError("Choose prepared clips in this project")
-        windows = segment_windows(a["frames"])
+        proxy = config.asset_dir(a["id"]) / "proxy.mp4"
+        if not proxy.is_file():
+            raise ValueError(f"Playback proxy is missing for {a['name']}; retry media preparation.")
+        proxy_hash = media.sha256_file(proxy)
+        windows = temporal_profile(proxy, a["frames"], proxy_hash).index_ranges()
         indexed_ranges = set()
-        if a.get("visual_proxy_hash"):
+        if a.get("visual_proxy_hash") == proxy_hash:
             indexed_ranges = {
                 (row["start_frame"], row["end_frame"])
                 for row in db.rows(
@@ -498,11 +504,18 @@ def estimate_visual_index(pid: str, data: AnalysisInput):
             }
         indexed_count += sum(window in indexed_ranges for window in windows)
         segment_count += len(windows)
-        frame_count += sum(
-            sampled_frames(start, end)
-            for start, end in windows
-            if (start, end) not in indexed_ranges
-        )
+        reusable = {
+            (row["start_frame"], row["end_frame"])
+            for row in db.rows(
+                """SELECT start_frame,end_frame FROM visual_segments
+                   WHERE asset_id=? AND provider=? AND model=? AND dimensions=?
+                     AND proxy_hash=?""",
+                (a["id"], config.EMBED_PROVIDER, config.EMBED_MODEL,
+                 config.EMBED_DIMENSIONS, proxy_hash),
+            )
+        }
+        frame_count += sum(sampled_frames(start, end) for start, end in windows
+                           if (start, end) not in indexed_ranges and (start, end) not in reusable)
     missing_segment_count = segment_count - indexed_count
     reserved = frame_count * config.VISUAL_VIDEO_FRAME_RATE
     expected = 0.0 if config.VISUAL_TIER == "unpaid" else reserved

@@ -6,8 +6,17 @@ import pytest
 from conftest import create_ready
 
 from server import ai, config, db
-from server.vector_index import ExactVectorIndex, collapse_overlapping
-from server.visual_index import segment_windows
+from server.vector_index import (
+    ExactVectorIndex,
+    collapse_overlapping,
+    rank_distinct_events,
+)
+from server.visual_index import (
+    TemporalProfile,
+    analyze_frames,
+    segment_windows,
+    temporal_profile,
+)
 from server.worker import once
 
 
@@ -190,7 +199,10 @@ def test_partial_visual_index_survives_failure_or_cancel_and_retry(
     assert once()
     done = db.one("SELECT status,result FROM jobs WHERE id=?", (retry,))
     assert done["status"] == "done"
-    expected_segments = len(segment_windows(8 * config.FPS))
+    asset = db.one("SELECT frames,visual_proxy_hash FROM assets WHERE id=?", (aid,))
+    expected_segments = len(temporal_profile(
+        config.asset_dir(aid) / "proxy.mp4", asset["frames"], asset["visual_proxy_hash"]
+    ).index_ranges())
     assert json.loads(done["result"])["indexed_segments"] == expected_segments
     assert db.one(
         "SELECT COUNT(*) AS n FROM visual_segments WHERE asset_id=?", (aid,)
@@ -315,3 +327,47 @@ def test_overlapping_visual_results_keep_best_window_without_broadening():
         (candidate["start_frame"], candidate["end_frame"])
         for candidate in candidates
     ] == [(0, 180), (180, 360)]
+
+
+def test_event_grouping_keeps_repeats_separate_and_never_unions_neighbors():
+    profile = TemporalProfile(360, (0, 75, 180, 255, 360), tuple([0.0] * 61))
+    rows = [
+        {"asset_id": "clip", "asset_name": "opaque.mp4", "start_frame": a, "end_frame": b}
+        for a, b in ((0, 60), (30, 90), (75, 135), (180, 240), (245, 305))
+    ]
+    candidates = rank_distinct_events(
+        [(0.8, rows[0]), (0.79, rows[1]), (0.75, rows[2]),
+         (0.77, rows[3]), (0.74, rows[4])], {"clip": profile}
+    )
+    ranges = [(c["start_frame"], c["end_frame"]) for c in candidates]
+    assert len(ranges) == 4
+    assert ranges[0][0] == 0 and ranges[0][1] <= 75
+    assert ranges[1][0] >= 180 and ranges[1][1] <= 255
+    assert ranges[2][0] >= 75 and ranges[2][1] <= 180
+    assert ranges[3][0] >= 255 and ranges[3][1] <= 360
+    assert len({c["id"] for c in candidates}) == 4
+
+
+def test_adaptive_segments_follow_strong_visual_changes_not_fixed_grid():
+    import numpy as np
+
+    frames = np.zeros((60, 54, 96), dtype=np.float32)
+    frames[13:36, 10:35, 15:35] = 0.8
+    frames[36:, 25:48, 48:76] = 0.8
+    profile = analyze_frames(frames, 360)
+    assert profile.boundaries[0] == 0
+    assert profile.boundaries[-1] == 360
+    assert all(right - left <= 180 for left, right in profile.events)
+    assert any(boundary % 30 != 0 for boundary in profile.boundaries[1:-1])
+
+
+def test_strong_detail_ranges_narrow_a_mixed_event():
+    profile = TemporalProfile(150, (0, 150), tuple([0.0] * 26))
+    rows = [
+        {"asset_id": "clip", "asset_name": "opaque.mp4", "start_frame": a, "end_frame": b}
+        for a, b in ((0, 150), (0, 45), (45, 90), (90, 150))
+    ]
+    result = rank_distinct_events(
+        list(zip((0.7, 0.61, 0.8, 0.79), rows)), {"clip": profile}
+    )
+    assert [(c["start_frame"], c["end_frame"]) for c in result] == [(45, 150)]

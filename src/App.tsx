@@ -315,17 +315,6 @@ export default function App() {
     setSelected(null);
     setSequenceIndex(null);
   }
-  useEffect(() => {
-    if (!video.current || !preview) return;
-    const v = video.current;
-    const load = () => {
-      v.currentTime = preview.start_frame / 30;
-      if (sequenceIndex !== null) v.play().catch(() => {});
-    };
-    v.addEventListener("loadedmetadata", load, { once: true });
-    if (v.readyState >= 1) load();
-    return () => v.removeEventListener("loadedmetadata", load);
-  }, [preview, sequenceIndex]);
   function advance() {
     if (sequenceIndex === null) {
       video.current?.pause();
@@ -335,6 +324,7 @@ export default function App() {
     if (next >= clips.length) {
       video.current?.pause();
       setSequenceIndex(null);
+      setPreview(null);
       return;
     }
     setSequenceIndex(next);
@@ -1090,7 +1080,7 @@ export default function App() {
                           : "—"}
                     </span>
                   </div>
-                  <Player preview={preview} video={video} advance={advance} />
+                  <Player preview={preview} video={video} advance={advance} assembly={sequenceIndex !== null} />
                   {preview && (
                     <div className="preview-info">
                       <strong>{assetMap[preview.asset_id]?.name}</strong>

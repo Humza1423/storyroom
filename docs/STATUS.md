@@ -2,6 +2,61 @@
 
 Updated: 2026-10-14. Status: local development preview; release gates remain open.
 
+## Adaptive visual-search and range-player check (2026-10-14)
+
+The prior two-second index improved the original six-second mistake but still
+treated arbitrary time slots as moments. Index version
+`visual-v4-adaptive-detail-v2` now uses a local 5-fps, 96×54 grayscale pass to
+propose motion/appearance change points and shot-like changes. It embeds each
+proposed event and at most three finer detail ranges inside long events. Exact
+cosine search still retrieves Gemini Embedding 2 vectors; overlapping hits are
+assigned to an event, not unioned. Strong query-matching detail ranges narrow a
+mixed event, then local change scores adjust each edge by at most 0.3 seconds.
+Repeated events remain distinct. Prior vectors for identical ranges are reused
+without cloud calls, and a complete older index remains searchable during a
+partial new index. No FAISS/ANN, database migration, or new model was added.
+
+The rights-checked CC BY-SA 4.0 Commons clip
+[`Jumping jacks and burpees`](https://commons.wikimedia.org/wiki/File:Jumping_jacks_and_burpees.webm)
+was reindexed in the existing local project. The 45.2-second prepared proxy
+yielded 12 coarse events and 35 total event/detail ranges. The v4 estimate
+showed 44 newly sampled frames and a $0 configured unpaid-tier charge; matching
+v3 ranges were reused. The original converted input still has the manifest's
+SHA-256 `5f1474a67e15d88d90125e87565448a40a320bd1f8339bf98498885bb621f4c5`.
+The local ledger now totals about $0.35 in conservative paid-list-price
+reservations across all earlier experiments; this is **not** a Google bill.
+
+Live query and visual review (timestamps on the normalized 30-fps clock):
+
+| Query | Ranked result | Observed assessment |
+| --- | --- | --- |
+| jumping jacks | #1 0.00–2.57 s; #2 10.00–13.17 s | Both show separate jumping-jacks occurrences; the first stops before bending into a burpee, and the second starts after the preceding burpee and stops before the next bend. |
+| jumping jacks | #3 23.20–25.37 s; #4 32.20–35.97 s | False positives: the subject raises arms/stands or performs burpee-like motion, not clear jumping jacks. Do not count these as passes. |
+| burpees | #1 36.40–38.77 s; #2 32.20–34.20 s | Burpee-like portions, but the returned boundaries and ranking still need independent labels. |
+| kettlebell swing | #1 13.20–15.77 s on the swing clip | Relevant source/action; it is one excerpt of a longer exercise, not an exact full-action boundary. |
+
+The browser was used to search `jumping jacks`, click result #2, and watch its
+10.00–13.17 s range with a 0–3.2 s selected-range control. This is a user-visible
+check, not merely rows or test doubles. The saved two-clip assembly also played
+through its ordered selections. Both result preview and Play Assembly now hide
+the misleading full-source native timeline and show relative selected-range
+progress. Playback remains non-destructive proxy seeking; **Render preview**
+creates the actually cut and joined MP4. The earlier opaque-filename test
+project still returns a matching 0.00–2.57 s first result for the same content.
+
+Quality gate is **open**. A change in pose or camera motion is not necessarily an
+action boundary, and the model still ranks visually similar but wrong moments.
+Unsupported prompts have no calibrated rejection/no-match behavior. A reviewed
+40-query, three-collection test with timing labels is still required before
+claiming broadly accurate search. Exact search stays until that quality gate;
+then benchmark ANN for scale, not as a localization fix.
+
+Checks: backend **92 passed** (one existing Starlette/httpx deprecation warning),
+production build passed, isolated browser workflow **26 passed**, and the live
+free-tier indexing/search and playback above completed. The existing A2 media
+correctness regressions remain in the full backend suite. Provider billing status
+was not independently verified.
+
 ## First live real-footage visual-search pilot (2026-10-14)
 
 Imported three existing, rights-checked Commons exercise clips into the isolated
@@ -558,15 +613,15 @@ authorized routine feature-branch pushes for verified implementation checkpoints
 - [x] Import four appropriately licensed real training clips (640×480 landscape SDR; see manifest).
 - [x] Assemble/search/trim/repeat clips; restart and confirm exact saved section and clip order/boundaries.
 - [x] Render and check expected order/duration and source-backed versus silent audio ranges. Portrait and VFR real-footage cases remain untested.
-- [ ] Import XML in DaVinci Resolve and check cuts within one normalized frame, audio, order, and references.
-- [ ] Record Resolve version, footage characteristics, test date, result, and any limitations.
+- [x] Import XML in DaVinci Resolve and check cuts within one normalized frame, audio, order, and references; see the earlier real-footage handoff evidence above.
+- [x] Record Resolve version, footage characteristics, test date, result, and limitations above.
 
 ### 3. Verify the cloud AI integration
 
 - [x] Add provider-neutral video/text embeddings, Gemini Embedding 2 adapter, model-specific SQLite visual index, resumable indexing, exact-cosine retrieval, and separate visual UI mode.
-- [ ] Verify current model identifiers, provider availability, request compatibility, and pricing with a bounded live request.
-- [ ] Configure a local key and permissions; run one bounded clip analysis/search on footage safe for the chosen tier.
-- [ ] Compare returned timestamps and descriptions with the actual footage.
+- [x] Verify Gemini Embedding 2 availability and request compatibility with bounded live requests; provider billing/pricing verification remains separate.
+- [x] Configure a local key and permissions; run bounded visual indexing/search on footage suitable for the configured tier.
+- [x] Compare returned visual-search timestamps with the actual footage, including the false positives recorded above. Description analysis remains separately unverified.
 - [ ] Check provider billing against the local ledger.
 - [ ] Verify story suggestions preserve accepted edits.
 - [ ] Complete the section-specific reranking user interface; backend support alone is insufficient.
