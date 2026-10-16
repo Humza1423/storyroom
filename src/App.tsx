@@ -46,6 +46,7 @@ import {
   FolderOpen,
   Settings2,
   Scissors,
+  HelpCircle,
 } from "lucide-react";
 
 import type {
@@ -105,6 +106,7 @@ export default function App() {
       null,
     ),
     [showJobs, setShowJobs] = useState(false),
+    [showGuide, setShowGuide] = useState(false),
     [sequenceIndex, setSequenceIndex] = useState<number | null>(null);
   const video = useRef<HTMLVideoElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
@@ -154,6 +156,13 @@ export default function App() {
     setProjects(ps);
     setStatus(st);
     setConnection("connected");
+    if (pid && !ps.some((p) => p.id === pid)) {
+      localStorage.removeItem("storyroom.project");
+      setPid(ps[0]?.id || "");
+      setProject(null);
+      setError("");
+      return;
+    }
     if (pid) {
       const p = await api<Project>("/projects/" + pid);
       if (activePid.current === pid) setProject(p);
@@ -182,6 +191,13 @@ export default function App() {
         setProjects(ps);
         setStatus(st);
         setConnection("connected");
+        if (pid && !ps.some((p) => p.id === pid)) {
+          localStorage.removeItem("storyroom.project");
+          setPid(ps[0]?.id || "");
+          setProject(null);
+          setError("");
+          return;
+        }
         if (pid) {
           const epoch = boardEpoch.current;
           const p = await api<Project>("/projects/" + pid);
@@ -249,6 +265,22 @@ export default function App() {
   const latestVisualJob = project?.jobs.find((j) => j.kind === "visual_index");
   const duration =
     clips.reduce((n, c) => n + c.end_frame - c.start_frame, 0) / 30;
+  const nextStep = !readyAssets.length
+    ? "Import a clip to begin."
+    : !board.length
+      ? "Search your footage, then create a Storybin to collect moments."
+      : !clips.length
+        ? "Preview a moment and add it to the selected Storybin."
+        : "Play your assembly, adjust cuts, then render or export.";
+  function jumpTo(id: string) {
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  function revealPlayer() {
+    if (window.matchMedia("(max-width: 850px)").matches)
+      requestAnimationFrame(() => jumpTo("player"));
+  }
   async function saveBoard(next: Section[]) {
     if (!project || saving.current) return;
     saving.current = true;
@@ -309,11 +341,13 @@ export default function App() {
     setTrimEnd(c.end_frame);
     setNote(c.note);
     setSequenceIndex(null);
+    revealPlayer();
   }
   function playMoment(m: Moment | VisualCandidate) {
     setPreview(m);
     setSelected(null);
     setSequenceIndex(null);
+    revealPlayer();
   }
   function advance() {
     if (sequenceIndex === null) {
@@ -441,38 +475,6 @@ export default function App() {
         </div>
       </aside>
       <main>
-        <header className="topbar">
-          <div className="breadcrumb">
-            Workspace <ChevronRight size={13} />
-            <span>{project?.name || "Get started"}</span>
-          </div>
-          <div className="header-right">
-            <span className="save-status">
-              <Check size={13} />
-              {connection !== "connected"
-                ? connection === "loading"
-                  ? "Connecting…"
-                  : "Disconnected"
-                : busy
-                  ? "Working…"
-                  : notice || "Saved locally"}
-            </span>
-            <button
-              className="secondary"
-              disabled={!clips.length || busy}
-              onClick={() => task(() => startJob("render"))}
-            >
-              <Play size={14} /> Render preview
-            </button>
-            <button
-              className="primary"
-              disabled={!clips.length || busy}
-              onClick={() => task(() => startJob("export"))}
-            >
-              Export to Resolve <ArrowUpRight size={15} />
-            </button>
-          </div>
-        </header>
         <div
           role="status"
           aria-label="Connection"
@@ -544,97 +546,133 @@ export default function App() {
           <>
             <div className="project-heading">
               <div>
-                <span className="eyebrow">TRAINING MONTAGE · 30 FPS</span>
+                <span className="eyebrow">LOCAL EDITING WORKSPACE</span>
                 <h1>{project.name}</h1>
-                <p>Make room for the moments that matter.</p>
+                <p>{nextStep}</p>
               </div>
-              <button
-                className="secondary"
-                onClick={() => setShowJobs(!showJobs)}
-              >
-                {activeJobs.length ? (
-                  <Loader2 className="spin" size={14} />
-                ) : (
-                  <Circle size={12} />
-                )}{" "}
-                Activity{" "}
-                {activeJobs.length > 0 && (
-                  <span className="badge">{activeJobs.length}</span>
-                )}
-              </button>
-            </div>
-            <div className="brief-bar">
-              <Sparkles size={18} />
-              <textarea
-                aria-label="Creative brief"
-                placeholder="What's the story? e.g. A 45-second training reel about persistence, ending on the final attempt."
-                value={brief}
-                onChange={(e) => setBrief(e.target.value)}
-              />
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={() =>
-                  task(async () => {
-                    await api(`/projects/${pid}`, "PUT", {
-                      name: project.name,
-                      brief,
-                    });
-                    setNotice("Brief saved");
-                    await refresh();
-                  })
-                }
-              >
-                Save brief
-              </button>
-              <button
-                className="secondary"
-                disabled={busy || !status?.ai_ready || !readyAssets.length}
-                title={
-                  !status?.ai_ready
-                    ? "Configure Gemini in .env to enable cloud suggestions"
-                    : ""
-                }
-                onClick={() =>
-                  task(async () => {
-                    await api(`/projects/${pid}`, "PUT", {
-                      name: project.name,
-                      brief,
-                    });
-                    await startJob("story");
-                  })
-                }
-              >
-                <Sparkles size={14} /> Suggest story
-              </button>
-            </div>
-            {!status?.ai_ready && (
-              <div className="ai-notice">
-                Manual editing is ready. AI story suggestions require a Gemini
-                key and confirmed prices in <code>.env</code>.
-                {status?.visual_ai_ready
-                  ? " Visual search is enabled and sends footage only after you explicitly start indexing."
-                  : " Visual search needs its separate Gemini setup."}
+              <div className="project-actions">
+                <span className="save-status">
+                  <Check size={13} />
+                  {connection !== "connected"
+                    ? connection === "loading"
+                      ? "Connecting…"
+                      : "Disconnected"
+                    : busy
+                      ? "Working…"
+                      : notice || "Saved locally"}
+                </span>
+                <button
+                  className="secondary"
+                  onClick={() => setShowGuide(true)}
+                >
+                  <HelpCircle size={15} /> How to use
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => setShowJobs(!showJobs)}
+                >
+                  {activeJobs.length ? (
+                    <Loader2 className="spin" size={14} />
+                  ) : (
+                    <Circle size={12} />
+                  )}{" "}
+                  Activity{" "}
+                  {activeJobs.length > 0 && (
+                    <span className="badge">{activeJobs.length}</span>
+                  )}
+                </button>
               </div>
-            )}
+            </div>
+            <nav className="workflow-nav" aria-label="Workspace steps">
+              {[
+                ["footage", "1", "Footage"],
+                ["find-moments", "2", "Find moments"],
+                ["storybins", "3", "Storybins"],
+                ["player", "4", "Player"],
+              ].map(([target, number, label]) => (
+                <button key={target} onClick={() => jumpTo(target)}>
+                  <span>{number}</span>
+                  {label}
+                </button>
+              ))}
+            </nav>
+            <details className="brief-details">
+              <summary>
+                Creative brief{" "}
+                <span>Optional · plan your story or ask for suggestions</span>
+              </summary>
+              <div className="brief-bar">
+                <textarea
+                  aria-label="Creative brief"
+                  placeholder="What's the story? e.g. A 45-second training reel about persistence, ending on the final attempt."
+                  value={brief}
+                  onChange={(e) => setBrief(e.target.value)}
+                />
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() =>
+                    task(async () => {
+                      await api(`/projects/${pid}`, "PUT", {
+                        name: project.name,
+                        brief,
+                      });
+                      setNotice("Brief saved");
+                      await refresh();
+                    })
+                  }
+                >
+                  Save brief
+                </button>
+                <button
+                  className="secondary"
+                  disabled={busy || !status?.ai_ready || !readyAssets.length}
+                  title={
+                    !status?.ai_ready
+                      ? "Configure Gemini in .env to enable cloud suggestions"
+                      : ""
+                  }
+                  onClick={() =>
+                    task(async () => {
+                      await api(`/projects/${pid}`, "PUT", {
+                        name: project.name,
+                        brief,
+                      });
+                      await startJob("story");
+                    })
+                  }
+                >
+                  <Sparkles size={14} /> Suggest story
+                </button>
+              </div>
+              {!status?.ai_ready && (
+                <div className="ai-notice">
+                  Story suggestions are unavailable on this server. Manual
+                  editing and visual search still work independently.
+                </div>
+              )}
+            </details>
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragEnd={onDragEnd}
             >
               <div className={"workspace " + (busy ? "working" : "")}>
-                <section className="library">
+                <section className="library" id="footage">
                   <div className="panel-heading">
-                    <h2>
-                      Your footage <span>{project.assets.length}</span>
-                    </h2>
+                    <div>
+                      <h2>
+                        1. Footage <span>{project.assets.length} clips</span>
+                      </h2>
+                      <p>Import clips. Originals are never changed.</p>
+                    </div>
                     <button
-                      className="icon"
+                      className="secondary import-button"
                       onClick={() => fileInput.current?.click()}
                       aria-label="Import footage"
                       disabled={importState.busy}
                     >
-                      <Plus size={18} />
+                      <Plus size={15} /> Import
                     </button>
                   </div>
                   <input
@@ -662,6 +700,38 @@ export default function App() {
                     projectId={project.id}
                     assets={project.assets}
                   />
+                  {!!project.assets.length && (
+                    <div className="asset-list">
+                      <strong>Clips & permissions</strong>
+                      {project.assets.map((a) => (
+                        <div key={a.id}>
+                          <span className={"asset-state " + a.status}>
+                            {a.status === "ready" ? (
+                              <Check size={12} />
+                            ) : (
+                              <Circle size={12} />
+                            )}
+                          </span>
+                          <span title={a.error || a.name}>{a.name}</span>
+                          <button
+                            className="icon"
+                            onClick={() => setProvenance(a)}
+                            title="Source and cloud-analysis permission"
+                            aria-label={"Permissions for " + a.name}
+                          >
+                            <Settings2 size={15} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="search-heading" id="find-moments">
+                    <h2>2. Find moments</h2>
+                    <p>
+                      Search a filename or label, or search what is visible in
+                      indexed video.
+                    </p>
+                  </div>
                   <form
                     className="search-bar"
                     onSubmit={(e) => {
@@ -680,7 +750,11 @@ export default function App() {
                     <Search size={15} />
                     <input
                       aria-label="Search footage"
-                      placeholder="Find a moment…"
+                      placeholder={
+                        searchMode === "visual"
+                          ? "e.g. jumping jacks"
+                          : "Search footage…"
+                      }
                       value={query}
                       onChange={(e) => {
                         setQuery(e.target.value);
@@ -744,6 +818,13 @@ export default function App() {
                       <Sparkles size={12} /> Analyze
                     </button>
                   </div>
+                  <p className="search-explainer">
+                    {searchMode === "visual"
+                      ? "Visual AI compares your words with the video itself. Indexing is required once per clip. Results are approximate—watch before adding."
+                      : searchMode === "description"
+                        ? "Description AI searches AI-written clip descriptions, not the video directly."
+                        : "Keyword searches filenames and saved descriptions. It does not inspect the video."}
+                  </p>
                   {searchMode === "visual" && (
                     <div className="visual-index-box">
                       <strong>Search what is visible in the video</strong>
@@ -789,14 +870,15 @@ export default function App() {
                           to improve Google products, and human reviewers may
                           process it. Do not send sensitive, confidential, or
                           personal footage. Indexing is never automatic; only
-                          the clips with cloud-analysis permission above are sent.
+                          the clips with cloud-analysis permission above are
+                          sent.
                         </small>
                       )}
                       {status?.embedding_tier === "unpaid" &&
                         !status.unpaid_terms_acknowledged && (
                           <small>
-                            The local server requires unpaid-service terms to
-                            be acknowledged before indexing can start.
+                            The local server requires unpaid-service terms to be
+                            acknowledged before indexing can start.
                           </small>
                         )}
                       {latestVisualJob && (
@@ -832,6 +914,20 @@ export default function App() {
                       </span>
                     </button>
                   )}
+                  {results && (
+                    <p className="result-count" role="status">
+                      {results.length}{" "}
+                      {results.length === 1 ? "result" : "results"} for “{query}
+                      ”
+                    </p>
+                  )}
+                  {active && (
+                    <p className="add-target">
+                      Add buttons place moments in:{" "}
+                      <strong>{active.title}</strong>. Click another Storybin to
+                      change the target.
+                    </p>
+                  )}
                   <div className="moments">
                     {visibleResults.map((result) =>
                       "kind" in result && result.kind === "visual" ? (
@@ -864,36 +960,18 @@ export default function App() {
                         : "No matching moments. Try different words, add a description, or analyze your footage."}
                     </div>
                   )}
-                  <div className="asset-list">
-                    {project.assets.map((a) => (
-                      <div key={a.id}>
-                        <span className={"asset-state " + a.status}>
-                          {a.status === "ready" ? (
-                            <Check size={12} />
-                          ) : (
-                            <Circle size={12} />
-                          )}
-                        </span>
-                        <span title={a.error || a.name}>{a.name}</span>
-                        <button
-                          className="icon"
-                          onClick={() => setProvenance(a)}
-                          title="Source and permissions"
-                          aria-label={"Permissions for " + a.name}
-                        >
-                          <Settings2 size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
                 </section>
-                <section className="board-panel">
+                <section className="board-panel" id="storybins">
                   <div className="panel-heading">
                     <div>
                       <h2>
-                        Story map <span>{board.length} sections</span>
+                        3. Storybins{" "}
+                        <span>
+                          {board.length}{" "}
+                          {board.length === 1 ? "section" : "sections"}
+                        </span>
                       </h2>
-                      <p>Build the shape. Keep the freedom.</p>
+                      <p>Choose a bin, add moments, then drag to reorder.</p>
                     </div>
                     <button
                       className="icon"
@@ -970,16 +1048,10 @@ export default function App() {
                     ))}
                     {!board.length && (
                       <div className="empty-board">
-                        <div className="empty-board-art">
-                          <span />
-                          <span />
-                          <span />
-                        </div>
-                        <h3>Every story starts somewhere.</h3>
+                        <h3>No Storybins yet</h3>
                         <p>
-                          Create a section for an idea, a feeling, or a moment.
-                          <br />
-                          Then pull in footage to make it yours.
+                          Add a section such as “Warm-up” or “Best attempt.”
+                          Then add moments from your footage.
                         </p>
                       </div>
                     )}
@@ -1061,16 +1133,19 @@ export default function App() {
                         setSequenceIndex(0);
                         setPreview(clips[0]);
                         setSelected(null);
+                        revealPlayer();
                       }}
                     >
                       <Play size={14} /> Play assembly
                     </button>
                   </footer>
                 </section>
-                <aside className="inspector">
+                <aside className="inspector" id="player">
                   <div className="panel-heading">
                     <h2>
-                      {sequenceIndex !== null ? "Assembly playback" : "Preview"}
+                      {sequenceIndex !== null
+                        ? "Assembly playback"
+                        : "4. Player"}
                     </h2>
                     <span className="subtle">
                       {sequenceIndex !== null
@@ -1080,7 +1155,32 @@ export default function App() {
                           : "—"}
                     </span>
                   </div>
-                  <Player preview={preview} video={video} advance={advance} assembly={sequenceIndex !== null} />
+                  <Player
+                    preview={preview}
+                    video={video}
+                    advance={advance}
+                    assembly={sequenceIndex !== null}
+                  />
+                  <p className="player-help">
+                    Play Assembly shows only the selected ranges, one after
+                    another. Render preview creates a cut MP4.
+                  </p>
+                  <div className="handoff-actions">
+                    <button
+                      className="secondary"
+                      disabled={!clips.length || busy}
+                      onClick={() => task(() => startJob("render"))}
+                    >
+                      <Play size={14} /> Render preview
+                    </button>
+                    <button
+                      className="primary"
+                      disabled={!clips.length || busy}
+                      onClick={() => task(() => startJob("export"))}
+                    >
+                      Export to Resolve <ArrowUpRight size={15} />
+                    </button>
+                  </div>
                   {preview && (
                     <div className="preview-info">
                       <strong>{assetMap[preview.asset_id]?.name}</strong>
@@ -1226,6 +1326,59 @@ export default function App() {
           </>
         )}
       </main>
+      {showGuide && (
+        <div className="modal-backdrop" onClick={() => setShowGuide(false)}>
+          <div
+            className="modal guide-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guide-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="icon guide-close"
+              aria-label="Close guide"
+              onClick={() => setShowGuide(false)}
+            >
+              <X size={18} />
+            </button>
+            <span className="eyebrow">QUICK START</span>
+            <h2 id="guide-title">How to use Storyroom</h2>
+            <ol>
+              <li>
+                <strong>Import footage.</strong> Select MP4 clips. Storyroom
+                makes editing and playback copies without changing your
+                originals.
+              </li>
+              <li>
+                <strong>Find a moment.</strong> Keyword looks at names and saved
+                labels. Visual AI looks at video after you give cloud permission
+                and explicitly index it. Click any result to watch its suggested
+                range.
+              </li>
+              <li>
+                <strong>Build Storybins.</strong> Add a section, click it to
+                choose where new moments go, then use “Add to section.” Click a
+                clip in a bin to trim its in/out frames. Changes save
+                automatically.
+              </li>
+              <li>
+                <strong>Check and export.</strong> Play Assembly plays your
+                chosen ranges in order. Render preview makes a cut MP4. Export
+                to Resolve creates an editable XML timeline.
+              </li>
+            </ol>
+            <p>
+              <strong>Activity</strong> shows background work such as importing,
+              indexing, rendering, and export. Visual AI results are candidates:
+              watch and trim them; boundaries are not guaranteed exact.
+            </p>
+            <button className="primary" onClick={() => setShowGuide(false)}>
+              Start editing
+            </button>
+          </div>
+        </div>
+      )}
       {newProject && (
         <div className="modal-backdrop">
           <form
@@ -1441,7 +1594,8 @@ export default function App() {
             <div className="estimate">
               ${visualEstimate.estimated_usd.toFixed(3)}
               <small>
-                {visualEstimate.segment_count} segments ({visualEstimate.missing_segment_count} new) ·{" "}
+                {visualEstimate.segment_count} segments (
+                {visualEstimate.missing_segment_count} new) ·{" "}
                 {visualEstimate.frame_count} new sampled frames ·{" "}
                 {visualEstimate.indexed_count} already indexed
               </small>
@@ -1476,9 +1630,7 @@ export default function App() {
                 }
                 onClick={() => task(startVisualIndex)}
               >
-                Index{" "}
-                {visualEstimate.missing_segment_count}{" "}
-                new segments
+                Index {visualEstimate.missing_segment_count} new segments
               </button>
             </div>
           </div>

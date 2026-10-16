@@ -54,7 +54,8 @@ export function VisualCandidateCard({
         Preview candidate range
       </button>
       <p className="filename" title={asset?.name}>
-        {asset?.name} · {timecode(candidate.start_frame)}
+        {asset?.name} · {timecode(candidate.start_frame)}–
+        {timecode(candidate.end_frame)}
       </p>
       <div className="card-actions">
         <button className="text-button" onClick={onAdd}>

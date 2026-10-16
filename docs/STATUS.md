@@ -1,6 +1,32 @@
 # Project status and release checklist
 
-Updated: 2026-10-14. Status: local development preview; release gates remain open.
+Updated: 2026-10-16. Status: local development preview; release gates remain open.
+
+## Guided workspace UI (2026-10-16)
+
+The existing workspace now makes its four parts explicit: Footage, Find moments,
+Storybins, and Player. The project header shows the next useful action and has
+an in-app **How to use** guide. Optional story-brief controls are collapsed;
+search modes explain what they actually search. Imported clips and permission
+settings appear before search. The search panel names the currently selected
+Storybin, and narrow-screen previews jump to the player. Render/export actions
+sit with the player rather than ahead of the workflow. No backend or project
+format change was needed. See [USER_GUIDE](USER_GUIDE.md).
+
+If the browser remembers a project ID from a temporary or different data
+directory, the app now selects an available project from the active local
+workspace instead of staying on a missing-project view. A browser regression
+covers that recovery path.
+
+The production build, backend suite (**92/92**), focused workspace suite
+(**6/6**), and final isolated browser suite (**28/28**) passed. One import
+recovery check initially hit its former five-second wait under full-suite
+load; it passed alone and passed the full rerun with a 20-second UI wait. No
+upload behavior was changed.
+
+This is a usability improvement, not a claim that visual search is accurate.
+The first jumping-jack result still ends at about 2.57 s, later than the
+creator's roughly 2 s action boundary, and later ranked false positives remain.
 
 ## Adaptive visual-search and range-player check (2026-10-14)
 
@@ -30,7 +56,7 @@ Live query and visual review (timestamps on the normalized 30-fps clock):
 
 | Query | Ranked result | Observed assessment |
 | --- | --- | --- |
-| jumping jacks | #1 0.00–2.57 s; #2 10.00–13.17 s | Both show separate jumping-jacks occurrences; the first stops before bending into a burpee, and the second starts after the preceding burpee and stops before the next bend. |
+| jumping jacks | #1 0.00–2.57 s; #2 10.00–13.17 s | Both show separate jumping-jacks occurrences, but #1 may extend past the creator's ~2 s action boundary. The exact start/end labels remain unverified. |
 | jumping jacks | #3 23.20–25.37 s; #4 32.20–35.97 s | False positives: the subject raises arms/stands or performs burpee-like motion, not clear jumping jacks. Do not count these as passes. |
 | burpees | #1 36.40–38.77 s; #2 32.20–34.20 s | Burpee-like portions, but the returned boundaries and ranking still need independent labels. |
 | kettlebell swing | #1 13.20–15.77 s on the swing clip | Relevant source/action; it is one excerpt of a longer exercise, not an exact full-action boundary. |

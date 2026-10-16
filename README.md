@@ -18,7 +18,8 @@ workflow in DaVinci Resolve 21.1.1. Broader camera formats, unfamiliar footage,
 and real-provider AI quality remain release gates. See the
 [verification record](docs/STATUS.md) for current evidence and limitations.
 
-[Run locally](#run-locally) · [Understand the code](START_HERE.md) ·
+[Run locally](#run-locally) · [User guide](docs/USER_GUIDE.md) ·
+[Understand the code](START_HERE.md) ·
 [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) ·
 [Contribute](CONTRIBUTING.md)
 
