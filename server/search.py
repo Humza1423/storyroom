@@ -78,7 +78,11 @@ def search_visual(project_id, query, limit=5):
     )
     rows = [row for row in rows if json.loads(row["provenance"]).get("cloud_analysis")]
     if not rows:
-        raise ValueError("Index prepared clips for visual search first.")
+        raise ValueError(
+            "No visual index is available for this project's permitted clips. "
+            "In Footage, check each clip's cloud-analysis permission, then "
+            "choose Visual AI → Estimate & index permitted clips and wait for Activity to finish."
+        )
     profiles = {}
     for row in rows:
         row.pop("provenance", None)

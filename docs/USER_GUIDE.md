@@ -67,6 +67,9 @@ Storyroom's media folder and relink/import again.
 - No Visual AI results: check that clips are ready, have cloud-analysis
   permission, and completed visual indexing. Also try a different query; the
   current model can miss fast actions or return similar-looking false positives.
+- The 4K Pexels demo project is marked demo/workflow only. Its clips are not
+  approved for AI indexing, so use rights-cleared footage in another project
+  when testing Visual AI.
 - An inaccurate range: click it, add it to a bin, then trim the placed selection.
   Record the bad result rather than assuming a similarity score means it is right.
 - A missing project: projects belong to the local server's `STORYROOM_DATA`

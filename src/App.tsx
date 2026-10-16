@@ -257,6 +257,11 @@ export default function App() {
   const visualReadyAssets = readyAssets.filter(
     (a) => a.provenance.cloud_analysis,
   );
+  const demoOnlyFootage =
+    readyAssets.length > 0 &&
+    readyAssets.every((a) =>
+      a.provenance.license?.toLowerCase().includes("demo/workflow only"),
+    );
   const activeVisualJobs =
     project?.jobs.filter(
       (j) =>
@@ -736,6 +741,11 @@ export default function App() {
                     className="search-bar"
                     onSubmit={(e) => {
                       e.preventDefault();
+                      if (
+                        searchMode === "visual" &&
+                        (!status?.visual_ai_ready || !visualReadyAssets.length)
+                      )
+                        return;
                       task(async () =>
                         setResults(
                           await api<SearchResult[]>(
@@ -769,7 +779,9 @@ export default function App() {
                         busy ||
                         !query.trim() ||
                         (searchMode === "description" && !status?.ai_ready) ||
-                        (searchMode === "visual" && !status?.visual_ai_ready)
+                        (searchMode === "visual" &&
+                          (!status?.visual_ai_ready ||
+                            !visualReadyAssets.length))
                       }
                     >
                       <ChevronRight size={16} />
@@ -825,6 +837,13 @@ export default function App() {
                         ? "Description AI searches AI-written clip descriptions, not the video directly."
                         : "Keyword searches filenames and saved descriptions. It does not inspect the video."}
                   </p>
+                  {searchMode === "visual" && !visualReadyAssets.length && (
+                    <p className="search-explainer" role="status">
+                      {demoOnlyFootage
+                        ? "This project's clips are marked demo-only, so Visual AI cannot index them. Open or import footage you have permission to send for cloud analysis."
+                        : "No clips are approved for Visual AI yet. Open a clip's permissions in Footage, record its source, and allow cloud analysis before indexing."}
+                    </p>
+                  )}
                   {searchMode === "visual" && (
                     <div className="visual-index-box">
                       <strong>Search what is visible in the video</strong>
@@ -855,7 +874,7 @@ export default function App() {
                       {!visualReadyAssets.length && (
                         <small>
                           Choose source and cloud-analysis permission for a
-                          ready clip using its settings button below.
+                          ready clip using its settings button in Footage above.
                         </small>
                       )}
                       {!status?.visual_ai_ready && (
