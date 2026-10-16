@@ -2,6 +2,45 @@
 
 Updated: 2026-10-16. Status: local development preview; release gates remain open.
 
+## Visual-search leakage diagnosis and precision gate (2026-10-16)
+
+The creator reported that a search for “jumping” showed boxing and kettlebell
+clips. The engineering leak was concrete: exact cosine ranking always returned
+the top five events, even when all matches were weak or another source clip
+scored nearly as well. Temporal grouping and range refinement did not verify
+the requested action; they only chose the returned frame ranges.
+
+Search now applies a conservative post-ranking rejection gate. Weak queries can
+return no results, near-tied source clips cause abstention, weaker clips are
+suppressed, and events far below the strongest event in a clip are hidden. The
+UI explains how to make a rejected query more specific. This is a pilot filter
+on raw cosine scores, **not** a calibrated confidence model. Exact cosine search
+and adaptive temporal segmentation remain in place. Details, query table,
+source links, and local reproduction steps: [AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md).
+
+Four real Commons clips were indexed in Storyroom: jumping jacks/burpees,
+double kettlebell clean-and-jerk, kettlebell swing, and a separate 1080p boxing
+drill by Evworo. The existing clips stayed with their own query results for
+“jumping jacks,” “kettlebell swing,” and the longer clean-and-jerk description;
+“boxing” found the boxing clip. Unsupported “cat sleeping” and “punching a heavy
+bag” searches returned no result (the boxing clip contains no heavy bag).
+However, the vague query “jumping” still returned several wrong times inside the
+otherwise plausible jump/burpee video, and the short “double kettlebell clean
+and jerk” prompt was rejected as ambiguous. A visual embedding is therefore
+still not a verified action label. The next meaningful AI quality step is to
+test a separate temporal video verifier/reranker on reviewed candidates; no
+such model was available to verify live under this project's current free-tier
+quota. Do not silently make paid calls.
+
+The live test used four clips from two related exercise contributors. It is
+stronger than the previous three-clip pilot, but not a general benchmark. Do not
+call search complete or market-ready. Current verification: backend **94
+passed** (one Starlette/httpx deprecation warning), production build passed,
+isolated browser workflow **29 passed**, and the four-clip live indexing/search
+run completed. The full backend suite includes the A2 frame-clock, geometry,
+audio-sync, and cut-order regressions. The provider's account billing/quota
+state remains unverified; the local ledger retains conservative reservations.
+
 ## Guided workspace UI (2026-10-16)
 
 The existing workspace now makes its four parts explicit: Footage, Find moments,

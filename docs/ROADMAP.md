@@ -64,11 +64,18 @@ and description search remain separate. The model is a candidate generator, not
 an exact action detector; audio is not indexed. Vector spaces are isolated by
 provider, model, dimensions, proxy hash, and sampling version.
 
-The live adapter and a small Commons exercise pilot now work, but incorrect
-high-ranked matches remain; see STATUS. The next gate is a reviewed 40-query
-set over three permitted collections, with boundary accuracy and false positives
-reported separately. Confirm the API project's actual tier and compare provider
-billing with Storyroom's conservative reservation. Do not use
+The live adapter now has a conservative score-based abstention gate. A four-clip
+Commons pilot confirms that it suppresses several cross-file false positives and
+rejects unsupported prompts, but it still returns wrong event times for the
+vague query “jumping” and rejects the short clean-and-jerk label as ambiguous.
+The cutoffs are not calibrated confidence. See the query-by-query evidence in
+[AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md) and STATUS. The next AI quality
+ticket is to compare a temporal video verifier/reranker on a reviewed set before
+it can change visible rankings; the current free embedding-only path cannot
+reliably distinguish similar exercises or verify action boundaries. Preserve
+the embedding retriever and frame-range selection format. Confirm the API
+project's actual tier and compare provider billing with Storyroom's conservative
+reservation. Do not use
 Pexels for indexing. Google unpaid-service data terms and human review mean the
 dataset itself must be suitable for cloud submission; source license alone does
 not establish that. The UI requires explicit indexing and cloud-analysis

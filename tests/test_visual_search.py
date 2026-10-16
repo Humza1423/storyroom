@@ -9,6 +9,7 @@ from server import ai, config, db
 from server.vector_index import (
     ExactVectorIndex,
     collapse_overlapping,
+    filter_visual_candidates,
     rank_distinct_events,
 )
 from server.visual_index import (
@@ -103,6 +104,7 @@ def test_visual_index_search_storybin_and_existing_export(client, clip, monkeypa
     assert result.status_code == 200, result.text
     candidate = result.json()[0]
     assert candidate["kind"] == "visual"
+    assert "score" not in candidate  # cosine rank is not a user confidence
     assert candidate["asset_id"] == aid
     assert candidate["start_frame"] == 0
     assert candidate["end_frame"] <= 30
@@ -346,6 +348,60 @@ def test_event_grouping_keeps_repeats_separate_and_never_unions_neighbors():
     assert ranges[2][0] >= 75 and ranges[2][1] <= 180
     assert ranges[3][0] >= 255 and ranges[3][1] <= 360
     assert len({c["id"] for c in candidates}) == 4
+
+
+def test_visual_search_abstains_on_weak_or_ambiguous_cross_asset_matches():
+    candidates = [
+        {"id": "jump", "asset_id": "exercise", "score": 0.6669,
+         "start_frame": 0, "rank": 1},
+        {"id": "swing", "asset_id": "swing", "score": 0.6204,
+         "start_frame": 30, "rank": 2},
+        {"id": "clean", "asset_id": "clean", "score": 0.6162,
+         "start_frame": 90, "rank": 3},
+    ]
+    result = filter_visual_candidates(candidates)
+    assert [item["asset_id"] for item in result] == ["exercise"]
+    assert "score" not in result[0]
+    assert candidates[0]["score"] == 0.6669  # filtering does not mutate rankings
+
+    # Related exercise prompts can be genuinely ambiguous in this embedding
+    # space. Returning one at random is worse than asking for a better prompt.
+    ambiguous = [
+        {"id": "clean", "asset_id": "clean", "score": 0.684},
+        {"id": "swing", "asset_id": "swing", "score": 0.6781},
+    ]
+    assert filter_visual_candidates(ambiguous) == []
+
+    # A more descriptive clean-and-jerk query separates the correct clip enough
+    # to keep it while dropping the visually similar swing clip.
+    specific = [
+        {"id": "clean", "asset_id": "clean", "score": 0.7017,
+         "start_frame": 300, "rank": 1},
+        {"id": "swing", "asset_id": "swing", "score": 0.6881,
+         "start_frame": 120, "rank": 2},
+    ]
+    assert [item["asset_id"] for item in filter_visual_candidates(specific)] == ["clean"]
+
+    unsupported = [
+        {"id": "exercise", "asset_id": "exercise", "score": 0.6132},
+        {"id": "swing", "asset_id": "swing", "score": 0.6033},
+    ]
+    assert filter_visual_candidates(unsupported) == []
+
+
+def test_visual_search_keeps_repeated_events_only_when_supported_by_top_score():
+    candidates = [
+        {"id": "repeat-a", "asset_id": "one-video", "score": 0.715,
+         "start_frame": 0, "rank": 1},
+        {"id": "repeat-b", "asset_id": "one-video", "score": 0.708,
+         "start_frame": 900, "rank": 2},
+        {"id": "weak-event", "asset_id": "one-video", "score": 0.653,
+         "start_frame": 1800, "rank": 3},
+        {"id": "similar-action", "asset_id": "other-video", "score": 0.680,
+         "start_frame": 0, "rank": 4},
+    ]
+    result = filter_visual_candidates(candidates)
+    assert [item["id"] for item in result] == ["repeat-a", "repeat-b"]
 
 
 def test_adaptive_segments_follow_strong_visual_changes_not_fixed_grid():

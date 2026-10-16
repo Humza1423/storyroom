@@ -975,7 +975,7 @@ export default function App() {
                   {results?.length === 0 && (
                     <div className="empty-small">
                       {searchMode === "visual"
-                        ? "No visual matches yet. Index permitted footage first, or try a different prompt."
+                        ? "No clear visual match. Describe the action, equipment, or camera view more specifically, or index more footage."
                         : "No matching moments. Try different words, add a description, or analyze your footage."}
                     </div>
                   )}

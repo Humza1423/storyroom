@@ -5,6 +5,14 @@ from __future__ import annotations
 import hashlib
 
 
+# These are conservative pilot gates, not probabilities. They are intentionally
+# centralized so the threshold policy can be replaced by a labeled calibrator.
+VISUAL_MIN_SCORE = 0.62
+VISUAL_MIN_ASSET_MARGIN = 0.01
+VISUAL_EVENT_SCORE_MARGIN = 0.01
+VISUAL_ASSET_SCORE_MARGIN = 0.005
+
+
 class ExactVectorIndex:
     """The v1 adapter; intentionally avoids a runtime ANN dependency."""
 
@@ -120,9 +128,60 @@ def rank_distinct_events(scored, profiles, limit=5):
     candidates = []
     for rank, (_, asset_id, event, start, end, name) in enumerate(ranked[:limit], 1):
         digest = hashlib.sha256(f"{asset_id}:{event}:{start}:{end}".encode()).hexdigest()[:24]
-        candidates.append({
+        candidate = {
             "id": f"visual-{digest}", "rank": rank, "kind": "visual",
             "asset_id": asset_id, "asset_name": name,
             "start_frame": start, "end_frame": end,
-        })
+            "score": round(ranked[rank - 1][0], 6),
+        }
+        candidates.append(candidate)
     return candidates
+
+
+def filter_visual_candidates(candidates, limit=5):
+    """Abstain on weak/ambiguous searches and suppress weak cross-clip hits.
+
+    Embedding cosine is a ranking signal, not a confidence probability. This
+    measured pilot policy favors precision: the best asset must clear an
+    absolute floor and beat the runner-up; returned assets and distinct events
+    must then remain close to their respective best score.
+    """
+    if not candidates:
+        return []
+
+    asset_scores = {}
+    for candidate in candidates:
+        asset_id = candidate["asset_id"]
+        asset_scores[asset_id] = max(
+            asset_scores.get(asset_id, float("-inf")), candidate["score"]
+        )
+    ordered_assets = sorted(asset_scores.items(), key=lambda item: (-item[1], item[0]))
+    best_score = ordered_assets[0][1]
+    if best_score < VISUAL_MIN_SCORE:
+        return []
+    if len(ordered_assets) > 1 and best_score - ordered_assets[1][1] < VISUAL_MIN_ASSET_MARGIN:
+        return []
+
+    accepted_assets = {
+        asset_id
+        for asset_id, score in ordered_assets
+        if best_score - score <= VISUAL_ASSET_SCORE_MARGIN
+    }
+    best_event_score = {
+        asset_id: score for asset_id, score in ordered_assets
+    }
+    accepted = [
+        dict(candidate)
+        for candidate in candidates
+        if candidate["asset_id"] in accepted_assets
+        and best_event_score[candidate["asset_id"]] - candidate["score"]
+        <= VISUAL_EVENT_SCORE_MARGIN
+    ]
+    accepted.sort(
+        key=lambda item: (-item["score"], item["asset_id"], item["start_frame"])
+    )
+    accepted = accepted[:limit]
+    for rank, candidate in enumerate(accepted, 1):
+        candidate["rank"] = rank
+        candidate.pop("score", None)
+    return accepted

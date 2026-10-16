@@ -3,7 +3,11 @@ import re
 
 from . import ai, config, db
 from .media import sha256_file
-from .vector_index import ExactVectorIndex, rank_distinct_events
+from .vector_index import (
+    ExactVectorIndex,
+    filter_visual_candidates,
+    rank_distinct_events,
+)
 from .visual_index import segment_windows, temporal_profile
 
 
@@ -115,7 +119,10 @@ def search_visual(project_id, query, limit=5):
     for row in rows:
         row["embedding"] = json.loads(row["embedding"])
     scored = ExactVectorIndex().search(query_vector, rows, limit=len(rows))
-    candidates = rank_distinct_events(scored, profiles, limit=limit)
+    # Keep raw cosine scores inside the ranking pipeline. The API deliberately
+    # does not expose them as confidence values.
+    ranked = rank_distinct_events(scored, profiles, limit=len(rows))
+    candidates = filter_visual_candidates(ranked, limit=limit)
     for candidate in candidates:
         candidate["media_url"] = f"/api/assets/{candidate['asset_id']}/proxy"
     return candidates
