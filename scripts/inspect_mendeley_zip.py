@@ -84,9 +84,19 @@ def main():
         action="store_true",
         help="Extract 7 exercises for 3 distinct subjects/angles (21 clips)",
     )
+    parser.add_argument(
+        "--fitness-benchmark",
+        action="store_true",
+        help=(
+            "Extract five exercise classes for ten subjects with varied form/view "
+            "labels (50 clips); split later by subject to avoid leakage"
+        ),
+    )
     parser.add_argument("--output", type=Path, default=Path("data/evaluation/mendeley"))
     args = parser.parse_args()
     selected = list(args.extract)
+    if args.evaluation_sample and args.fitness_benchmark:
+        raise SystemExit("Choose only one of --evaluation-sample or --fitness-benchmark.")
     if args.evaluation_sample:
         for subject, quality, angle in (
             ("001", "good", "side"),
@@ -99,6 +109,15 @@ def main():
                 selected.append(
                     f"Dataset Exercise-wise/{exercise}/{quality}/{angle}/"
                     f"subject_{subject}_{exercise}_{quality}_{angle}.mp4"
+                )
+    if args.fitness_benchmark:
+        for exercise in ("abs", "back", "bicep_curl", "push_up", "squat"):
+            for subject in range(1, 11):
+                quality = "good" if subject % 2 else "bad"
+                angle = ("side", "front", "diagonal")[(subject - 1) % 3]
+                selected.append(
+                    f"Dataset Exercise-wise/{exercise}/{quality}/{angle}/"
+                    f"subject_{subject:03d}_{exercise}_{quality}_{angle}.mp4"
                 )
     with zipfile.ZipFile(RemoteZip()) as archive:
         members = archive.infolist()

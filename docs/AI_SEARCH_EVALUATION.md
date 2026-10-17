@@ -1,8 +1,37 @@
 # Visual-search quality check
 
-Updated: 2026-10-16. This is a small live engineering pilot, not an accuracy
-claim. It uses four licensed, short exercise videos in the local project
+Updated: 2026-10-17. This page records a small live engineering pilot, not an accuracy
+claim. The earlier pilot used four licensed, short exercise videos in the local project
 `Visual search QA · Commons actions`. Pexels footage was not indexed.
+
+## 50-video accuracy investigation (2026-10-17)
+
+A separate test harness and 50-file local set are now prepared. The set uses five
+Mendeley exercise categories (abs, back, bicep curl, push-up, squat), ten
+participants per category, opaque media names, SDR H.264 inputs, and a
+participant-held-out split (participants 001–005 for development; 006–010 for
+test). Provenance and original answer labels live only in ignored local files
+under `data/evaluation/visual-search/mendeley/`; they are not committed. The
+benchmark runner requires its own SQLite database and refuses the normal
+Storyroom database.
+
+No search-quality score is available yet. The 100-query set still needs human
+review and timing labels, and no Gemini indexing or query request was made. The
+Mendeley page identifies the videos as recordings of 26 gym participants but
+does not document consent for uploading identifiable footage to Google. Google's
+[unpaid API terms](https://ai.google.dev/gemini-api/terms) say not to submit
+personal information and explain that human reviewers may process requests.
+The source's CC BY license does not settle that separate privacy question. The
+50 clips therefore remain local. Obtain permission for this processing purpose
+or choose suitable footage without identifiable people before any live cloud
+comparison. No paid request was made.
+
+The red-team harness already detects the observed false-match patterns using
+deterministic fake vectors. That proves the regression tests can catch these
+failures; it does **not** measure or improve Gemini accuracy. The cutoff remains
+unchanged until a development set can be used to tune it and a separate held-out
+set can test the change. See [current project status](STATUS.md) for the
+verification counts and blocker.
 
 ## What was tested
 

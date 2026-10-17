@@ -1,6 +1,41 @@
 # Project status and release checklist
 
-Updated: 2026-10-16. Status: local development preview; release gates remain open.
+Updated: 2026-10-17. Status: local development preview; release gates remain open.
+
+## 50-video visual-search investigation (2026-10-17)
+
+The accuracy investigation now has an isolated red-team suite and a local,
+opaque-name media set: 50 normalized exercise videos across abs, back, bicep
+curls, push-ups, and squats. Five participants are development data and five
+different participants are held out for testing. The source labels and hashes
+are in the ignored local provenance file; the media and labels are not committed.
+The dataset is [CC BY 4.0 Mendeley version 3](https://data.mendeley.com/datasets/kgbb3yn47p/3).
+
+This is prepared footage, **not a completed search benchmark**: the 100 reviewed
+queries and timing labels have not been completed, no live model comparison was
+run, and no score or threshold change is justified yet. The dataset page says
+the videos show 26 gym participants but does not document their consent for
+upload to Google. Google's current [unpaid-service terms](https://ai.google.dev/gemini-api/terms)
+say not to submit personal information and allow human review. We therefore did
+not upload these clips or make Gemini requests. CC BY is a reuse license, not
+evidence of participant consent for that cloud-processing purpose. A safe live
+comparison needs documented participant authorization or suitable footage that
+does not depict identifiable people; paid processing would require a separately
+approved scope and is not used here.
+
+The isolated fake-vector red-team tests do confirm known failures: a “bag” query
+can rank kettlebell footage and a similar exercise can rank as the wrong action.
+These tests are checks that the harness detects the failures, not evidence that
+search passes. The existing Commons “bag” record also shows the true boxing
+candidate below the uncalibrated 0.62 rejection floor; lowering the floor alone
+would expose the wrong kettlebell result. The filter has not been tuned.
+
+Verification for the harness work: backend **105 passed**, production build
+passed, isolated browser suite **29 passed**, focused red-team/evaluator tests
+**11 passed**, and Ruff passed. These verify Storyroom and the test tooling, not
+semantic quality on the 50 clips. The 50-file local conversion set is about
+271 MB. Commons rate-limited a separate bulk-download attempt; that request was
+stopped rather than retried around the limit.
 
 ## Visual-search leakage diagnosis and precision gate (2026-10-16)
 

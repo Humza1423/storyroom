@@ -102,10 +102,25 @@ are legitimate. Measure whether organizing helps decisions rather than adding wo
 
 ## 5. Evaluate and prepare an open-source release
 
-Prepare 20 human-reviewed retrieval queries across at least three footage sets.
-Initial engineering target: a relevant candidate in the first five for at least
-16 queries. Report misses, analysis cost/time, and unsupported queries. Compare
-complete manual and AI-assisted workflows on unfamiliar footage.
+The current accuracy investigation supersedes the earlier 20-query / three-set
+pilot target. Prepare 50 opaque-name videos across five fitness actions and 100
+human-reviewed searches (50 positives, 25 paraphrases, 25 hard negatives), with
+participant-level development and held-out test splits. Report top-five recall,
+top-one precision, negative-query false positives, and boundary error separately.
+The working pilot targets are 90% for the first three retrieval measures (with
+negative-query false positives at most 5%) and median boundary error at most one
+second; publish per-action misses instead of averaging them away. These are
+engineering targets, not evidence of product demand or Adobe parity.
+
+Fifty local Mendeley inputs have been prepared, but the answer key is not yet
+human-reviewed and no model-quality evaluation has run. Do not send these
+participant videos to Gemini's unpaid service without documented consent for
+that processing purpose: the dataset page's reuse license is not a privacy
+release, and Google's unpaid terms prohibit submitting personal information.
+Proceed with live model comparison only after that constraint is resolved, or
+with appropriate footage that does not depict identifiable people. Paid model
+calls remain outside the approved scope. Do not alter the result cutoff based
+only on the current red-team examples.
 
 Acceptance: clean-machine setup from README, full relevant automated checks, real
 Resolve evidence, honest demo, license/provenance review, and documented limits.
