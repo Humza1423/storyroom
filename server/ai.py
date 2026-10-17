@@ -1,8 +1,9 @@
-"""Cloud boundary. No request is made without key, confirmed pricing, and a reservation."""
+"""Cloud adapters, tier-specific readiness checks, caching, and request reservations."""
 
 import hashlib
 import math
 import os
+from typing import Protocol
 from . import config, db
 
 
@@ -21,6 +22,26 @@ def client():
         raise ValueError(
             "Set GEMINI_API_KEY and confirm model prices in .env, then restart. Manual tools work without AI."
         )
+    from google import genai
+    from google.genai import types
+
+    return genai.Client(
+        api_key=os.environ["GEMINI_API_KEY"],
+        http_options=types.HttpOptions(
+            timeout=120_000, retry_options=types.HttpRetryOptions(attempts=1)
+        ),
+    )
+
+
+def embedding_client():
+    if not config.visual_ai_ready():
+        if not os.getenv("GEMINI_API_KEY"):
+            raise ValueError("Set GEMINI_API_KEY before using visual search.")
+        if config.VISUAL_TIER == "unpaid":
+            raise ValueError(
+                "Acknowledge the Gemini unpaid-service data terms before visual search."
+            )
+        raise ValueError("Confirm Gemini pricing before using paid visual search.")
     from google import genai
     from google.genai import types
 
@@ -139,3 +160,118 @@ def embed(text, job_id=None):
         raise
     finally:
         api.close()
+
+
+class EmbeddingProvider(Protocol):
+    """Capability boundary for cross-modal clip-to-text retrieval."""
+
+    provider: str
+    model: str
+
+    def embed_video_range(self, content: bytes, cache_fingerprint: str, job_id: str):
+        ...
+
+    def embed_text_query(self, query: str, job_id: str | None = None):
+        ...
+
+
+def _normalized_vector(values):
+    if values is None or len(values) != config.EMBED_DIMENSIONS:
+        raise ValueError(
+            f"Embedding provider returned an invalid vector; expected {config.EMBED_DIMENSIONS} values."
+        )
+    values = [float(value) for value in values]
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("Embedding provider returned non-finite values.")
+    norm = math.sqrt(sum(value * value for value in values))
+    if not norm:
+        raise ValueError("Embedding provider returned a zero vector.")
+    return [value / norm for value in values]
+
+
+class GeminiEmbeddingProvider:
+    provider = "gemini"
+    model = config.EMBED_MODEL
+
+    def _embed(self, contents, cache_key, job_id, reserve_amount):
+        key = "visual-embedding:" + hashlib.sha256(cache_key.encode()).hexdigest()
+        cached = db.cache_get(key)
+        if cached is not None:
+            return cached
+        api = embedding_client()
+        reservation = None
+        try:
+            reservation = db.reserve(job_id, self.model, reserve_amount)
+            from google.genai import types
+
+            result = api.models.embed_content(
+                model=self.model,
+                contents=contents,
+                config=types.EmbedContentConfig(
+                    output_dimensionality=config.EMBED_DIMENSIONS
+                ),
+            )
+            embeddings = getattr(result, "embeddings", None) or []
+            values = _normalized_vector(
+                embeddings[0].values if embeddings else None
+            )
+            # EmbedContent does not return token usage. Keep the published
+            # per-frame/list-price reservation for both tiers: Storyroom cannot
+            # verify the provider project's billing status, even when the local
+            # setting says "unpaid". The UI can still show the free-tier price.
+            db.execute(
+                "UPDATE usage SET status='estimated' WHERE id=?",
+                (reservation,),
+            )
+            db.cache_set(key, values)
+            return values
+        except Exception:
+            if reservation:
+                db.execute(
+                    "UPDATE usage SET status='unconfirmed' WHERE id=? AND actual IS NULL",
+                    (reservation,),
+                )
+            raise
+        finally:
+            api.close()
+
+    def embed_video_range(self, content: bytes, cache_fingerprint: str, job_id: str):
+        from google.genai import types
+
+        cache_key = (
+            f"{self.provider}:{self.model}:{config.EMBED_DIMENSIONS}:"
+            f"{config.VISUAL_INDEX_VERSION}:{cache_fingerprint}"
+        )
+        # The API samples clips of this duration at 1 fps. Keep the charge
+        # reservation at the published per-frame list price, even in free mode.
+        duration_frames = int(cache_fingerprint.rsplit(":", 1)[-1])
+        frame_count = max(1, math.ceil(duration_frames / config.FPS))
+        return self._embed(
+            types.Part.from_bytes(data=content, mime_type="video/mp4"),
+            cache_key,
+            job_id,
+            frame_count * config.VISUAL_VIDEO_FRAME_RATE,
+        )
+
+    def embed_text_query(self, query: str, job_id: str | None = None):
+        if not query.strip():
+            raise ValueError("Enter a search phrase first.")
+        from google.genai import types
+
+        prepared = f"task: search result | query: {query.strip()}"
+        cache_key = (
+            f"{self.provider}:{self.model}:{config.EMBED_DIMENSIONS}:query:{prepared}"
+        )
+        estimated_tokens = max(1, math.ceil(len(prepared) / 4))
+        return self._embed(
+            prepared,
+            cache_key,
+            job_id,
+            estimated_tokens * config.EMBED_RATE / 1_000_000,
+        )
+
+
+def embedding_provider() -> EmbeddingProvider:
+    if config.EMBED_PROVIDER == "gemini":
+        return GeminiEmbeddingProvider()
+    raise ValueError(f"Unsupported embedding provider: {config.EMBED_PROVIDER}")

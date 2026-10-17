@@ -44,9 +44,17 @@ The pipeline is bounded, not an autonomous agent loop:
 
 `proxy segment → structured observations → description embeddings → candidate retrieval → story proposal → human selection`
 
-An embedding is a numerical representation whose distance can help compare meanings. We compute embeddings once, save them, and compare a query against them. We do not ask a large model to reread every video on every search.
+An embedding is a numerical representation whose distance can help compare meanings. The description-search path embeds text descriptions; the new visual-search path embeds short ranges from the prepared proxy and the user's text query in Gemini Embedding 2's cross-modal space. These are different representations and are stored in separate tables. Never compare caption vectors with visual vectors.
 
-The current retrieval baseline searches descriptions. If the captioner misses a red jersey, text search cannot recover that visual evidence. A direct frame-text encoder such as SigLIP is a separate experiment for fixing that failure, not a reason to rewrite the board or export code.
+Visual indexing is explicit, not automatic: the UI estimates missing ranges, the user starts a persistent worker job, and each successful range is stored in SQLite so a retry can skip completed work. A cheap local FFmpeg pass samples grayscale proxy frames at 5 fps and 96×54 pixels. Appearance changes, unusually large whole-frame changes, and motion lulls propose temporal events; these signals do **not** identify actions. Longer events get up to three smaller change-point-driven ranges. Gemini Embedding 2 represents the event and detail ranges at its own sparse video sampling rate. Unchanged prior ranges are reused without another API request. All boundaries map to the existing 30-fps editing-copy clock.
+
+Search embeds the query once (cached), computes exact cosine similarity over compatible vectors in SQLite, assigns overlapping hits to one proposed event rather than unioning their ranges, and uses strong detail-range evidence plus nearby local change scores to refine the best event boundaries. Separate occurrences retain separate event IDs. A conservative pilot rejection gate now follows event ranking: it can return no matches for weak or ambiguous prompts, suppress weaker source clips, and suppress low-ranked events within a retained clip. The thresholds are raw cosine-ranking cutoffs, not probabilities, and are provisional because they have only been checked on a small exercise set. A surviving rank is still not proof that the action occurred. Continuous motion can obscure an onset, static poses can look semantically similar, sparse model sampling can miss fast actions, and audio is not analyzed. The historical 2-second index can serve searches while an asset is being reindexed; a partially built new index does not hide a complete older one.
+
+The visual-search stages have separate responsibilities: local visual/motion analysis proposes temporal regions; the video-text embedding retrieves likely regions; event grouping and frame-level refinement shape candidate boundaries; the rejection gate suppresses weak retrievals. None of those last stages independently checks the requested action label. The next quality step is a temporal video verifier/reranker on only the best coarse candidates, evaluated against reviewed labels before it can control visible results. Keep exact search until ranking quality is understood; ANN would improve lookup speed only.
+
+The `EmbeddingProvider` boundary separates provider calls from indexing and retrieval; `ExactVectorIndex` is the simple v1 implementation behind a replaceable index boundary. SQLite remains the source of truth. The visual-segment key includes proxy content hash, provider, model, dimensions, sampling/index version, and source frame range: changing any of those means reindexing rather than mixing vector spaces. A selected range uses the ordinary asset/frame-range board format with a null `moment_id`, so visual hits flow through trim, save/reopen, render and Resolve export without creating fake caption moments.
+
+Unpaid Gemini configuration is a local declaration, not a billing-status check. Google may use unpaid-service content to improve products and human reviewers may process it; do not submit sensitive, confidential, or personal footage. Do not send a clip unless its source rights and privacy are suitable. The interface requires a deliberate indexing action and an asset-level cloud-analysis permission. It shows $0 provider price for configured unpaid mode while the internal budget ledger retains a conservative paid-rate reservation because Storyroom cannot verify the provider account's billing state.
 
 ## Media coordinates and the shared clock
 
@@ -82,7 +90,7 @@ See [media clocks](learning/02-media-clocks.md) and
 - A hash of input, model, prompt version, and segment content makes repeated analysis reusable.
 - Budget reservations happen transactionally before requests; uncertain failures keep their reservation.
 - User edits and AI proposals are separate, so regenerating a proposal cannot erase an accepted story.
-- The browser's playback is approximate; rendered output and editor import are the precise acceptance checks.
+- Browser playback seeks within the unmodified proxy and uses a selected-range progress bar; it does not create a new file. Rendered MP4 output and editor import are the precise media acceptance checks.
 
 ## Learn efficiently while using coding agents
 
@@ -118,7 +126,8 @@ If you can explain those flows and modify them safely, you are learning the syst
 
 `server/migrations.py` serializes initialization with a file lock and applies ordered
 versions inside one exclusive SQLite transaction. Version 1 adopts the existing
-schema without rewriting user data. Before a later upgrade, SQLite's backup API
+schema without rewriting user data. Version 2 adds the visual segment index and
+proxy hash while preserving existing projects. Before a later upgrade, SQLite's backup API
 saves the committed database including WAL contents beside the database. Failed
 upgrades roll back schema, data, and version together; future schema versions are
 refused. Backups are retained, not automatically deleted. Migration functions cannot
@@ -186,4 +195,4 @@ so the UI never infers success from a filename; explicit retry uses content hash
 normalization jobs, exposing only id/status/progress/message. Duplicate imports
 return that job ID. Preparation retry checks for a newer pending/completed job under
 the write transaction before queuing another, protecting against stale buttons.
-These are response/behavior changes; SQLite remains schema version 1.
+These are response/behavior changes; visual indexing uses SQLite schema version 2.

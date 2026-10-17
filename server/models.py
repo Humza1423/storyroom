@@ -1,3 +1,4 @@
+from typing import Literal
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -44,6 +45,7 @@ class AnalysisInput(Strict):
 class SearchInput(Strict):
     query: str = Field(default="", max_length=1000)
     semantic: bool = False
+    mode: Literal["keyword", "description", "visual"] | None = None
 
 
 class FeedbackInput(Strict):

@@ -80,7 +80,17 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
   expect(placements[1].asset_id).toBe(placements[2].asset_id);
   expect(placements[0].asset_id).not.toBe(placements[1].asset_id);
   await page.getByRole("button", { name: "Play assembly" }).click();
+  await expect(page.getByText("Clip 1 of 3")).toBeVisible();
   await expect(page.locator("video")).toBeVisible();
+  await expect(
+    page.getByRole("slider", { name: "Position within selected clip" }),
+  ).toBeVisible();
+  await expect(page.locator(".assembly-controls span")).toContainText("/ 2.0s");
+  expect(
+    await page
+      .locator("video")
+      .evaluate((v) => (v as HTMLVideoElement).controls),
+  ).toBe(false);
   await expect
     .poll(() =>
       page.locator("video").evaluate((v) => (v as HTMLVideoElement).readyState),
@@ -93,6 +103,8 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
         .evaluate((v) => (v as HTMLVideoElement).currentTime),
     )
     .toBeGreaterThan(0.3);
+  await expect(page.getByText("Clip 2 of 3")).toBeVisible({ timeout: 8000 });
+  await expect(page.locator(".assembly-controls span")).toContainText("/ 1.3s");
   await page
     .getByRole("button", { name: "Render preview", exact: true })
     .click();
@@ -148,6 +160,62 @@ test("responsive workspace has no horizontal overflow", async ({
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBeTruthy();
+});
+
+test("quick guide explains the complete editing path", async ({
+  page,
+  request,
+}) => {
+  const response = await request.post("/api/projects", {
+    headers: { "X-Storyroom": "local" },
+    data: { name: "Guide project", brief: "" },
+  });
+  expect(response.ok()).toBeTruthy();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Guide project" }).click();
+  await expect(
+    page.getByRole("navigation", { name: "Workspace steps" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "How to use" }).click();
+  const guide = page.getByRole("dialog", { name: "How to use Storyroom" });
+  await expect(guide).toBeVisible();
+  await expect(guide).toContainText("Keyword looks at names and saved labels");
+  await expect(guide).toContainText("Render preview makes a cut MP4");
+  await page.getByRole("button", { name: "Start editing" }).click();
+  await expect(guide).toBeHidden();
+  await page.getByRole("button", { name: /Find moments/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "2. Find moments" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+});
+
+test("missing remembered project falls back to the current local workspace", async ({
+  page,
+  request,
+}) => {
+  const response = await request.post("/api/projects", {
+    headers: { "X-Storyroom": "local" },
+    data: { name: "Available project", brief: "" },
+  });
+  expect(response.ok()).toBeTruthy();
+  const available = (await response.json()).id;
+  await page.goto("/");
+  await page.evaluate(() =>
+    localStorage.setItem("storyroom.project", "missing-project"),
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Available project" }),
+  ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("storyroom.project")))
+    .toBe(available);
 });
 
 test("late project response cannot replace the active project or brief", async ({
@@ -217,6 +285,7 @@ test("offline and reconnect preserve the project and unsaved brief", async ({
     .getByRole("button", { name: "Reconnect project", exact: true })
     .click();
   await expect(page.locator(".brief-bar textarea")).toHaveValue("Saved");
+  await page.locator(".brief-details summary").click();
   await page.locator(".brief-bar textarea").fill("My unsaved draft");
   await page.route("**/api/**", (route) => route.abort("connectionrefused"));
   await expect(page.getByRole("status", { name: "Connection" })).toContainText(

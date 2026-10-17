@@ -1,10 +1,298 @@
 # Project status and release checklist
 
-Updated: 2026-10-13. Status: local development preview; release gates remain open.
+Updated: 2026-10-17. Status: local development preview; release gates remain open.
+
+## 50-video visual-search investigation (2026-10-17)
+
+The accuracy investigation now has an isolated red-team suite and a local,
+opaque-name media set: 50 normalized exercise videos across abs, back, bicep
+curls, push-ups, and squats. Five participants are development data and five
+different participants are held out for testing. The source labels and hashes
+are in the ignored local provenance file; the media and labels are not committed.
+The dataset is [CC BY 4.0 Mendeley version 3](https://data.mendeley.com/datasets/kgbb3yn47p/3).
+
+This is prepared footage, **not a completed search benchmark**: the 100 reviewed
+queries and timing labels have not been completed, no live model comparison was
+run, and no score or threshold change is justified yet. The dataset page says
+the videos show 26 gym participants but does not document their consent for
+upload to Google. Google's current [unpaid-service terms](https://ai.google.dev/gemini-api/terms)
+say not to submit personal information and allow human review. We therefore did
+not upload these clips or make Gemini requests. CC BY is a reuse license, not
+evidence of participant consent for that cloud-processing purpose. A safe live
+comparison needs documented participant authorization or suitable footage that
+does not depict identifiable people; paid processing would require a separately
+approved scope and is not used here.
+
+The isolated fake-vector red-team tests do confirm known failures: a “bag” query
+can rank kettlebell footage and a similar exercise can rank as the wrong action.
+These tests are checks that the harness detects the failures, not evidence that
+search passes. The existing Commons “bag” record also shows the true boxing
+candidate below the uncalibrated 0.62 rejection floor; lowering the floor alone
+would expose the wrong kettlebell result. The filter has not been tuned.
+
+Verification for the harness work: backend **105 passed**, production build
+passed, isolated browser suite **29 passed**, focused red-team/evaluator tests
+**11 passed**, and Ruff passed. These verify Storyroom and the test tooling, not
+semantic quality on the 50 clips. The 50-file local conversion set is about
+271 MB. Commons rate-limited a separate bulk-download attempt; that request was
+stopped rather than retried around the limit.
+
+## Visual-search leakage diagnosis and precision gate (2026-10-16)
+
+The creator reported that a search for “jumping” showed boxing and kettlebell
+clips. The engineering leak was concrete: exact cosine ranking always returned
+the top five events, even when all matches were weak or another source clip
+scored nearly as well. Temporal grouping and range refinement did not verify
+the requested action; they only chose the returned frame ranges.
+
+Search now applies a conservative post-ranking rejection gate. Weak queries can
+return no results, near-tied source clips cause abstention, weaker clips are
+suppressed, and events far below the strongest event in a clip are hidden. The
+UI explains how to make a rejected query more specific. This is a pilot filter
+on raw cosine scores, **not** a calibrated confidence model. Exact cosine search
+and adaptive temporal segmentation remain in place. Details, query table,
+source links, and local reproduction steps: [AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md).
+
+Four real Commons clips were indexed in Storyroom: jumping jacks/burpees,
+double kettlebell clean-and-jerk, kettlebell swing, and a separate 1080p boxing
+drill by Evworo. The existing clips stayed with their own query results for
+“jumping jacks,” “kettlebell swing,” and the longer clean-and-jerk description;
+“boxing” found the boxing clip. Unsupported “cat sleeping” and “punching a heavy
+bag” searches returned no result (the boxing clip contains no heavy bag).
+However, the vague query “jumping” still returned several wrong times inside the
+otherwise plausible jump/burpee video, and the short “double kettlebell clean
+and jerk” prompt was rejected as ambiguous. A visual embedding is therefore
+still not a verified action label. The next meaningful AI quality step is to
+test a separate temporal video verifier/reranker on reviewed candidates; no
+such model was available to verify live under this project's current free-tier
+quota. Do not silently make paid calls.
+
+The live test used four clips from two related exercise contributors. It is
+stronger than the previous three-clip pilot, but not a general benchmark. Do not
+call search complete or market-ready. Current verification: backend **94
+passed** (one Starlette/httpx deprecation warning), production build passed,
+isolated browser workflow **29 passed**, and the four-clip live indexing/search
+run completed. The full backend suite includes the A2 frame-clock, geometry,
+audio-sync, and cut-order regressions. The provider's account billing/quota
+state remains unverified; the local ledger retains conservative reservations.
+
+## Guided workspace UI (2026-10-16)
+
+The existing workspace now makes its four parts explicit: Footage, Find moments,
+Storybins, and Player. The project header shows the next useful action and has
+an in-app **How to use** guide. Optional story-brief controls are collapsed;
+search modes explain what they actually search. Imported clips and permission
+settings appear before search. The search panel names the currently selected
+Storybin, and narrow-screen previews jump to the player. Render/export actions
+sit with the player rather than ahead of the workflow. No backend or project
+format change was needed. See [USER_GUIDE](USER_GUIDE.md).
+
+If the browser remembers a project ID from a temporary or different data
+directory, the app now selects an available project from the active local
+workspace instead of staying on a missing-project view. A browser regression
+covers that recovery path.
+
+The production build, backend suite (**92/92**), focused workspace suite
+(**6/6**), and final isolated browser suite (**28/28**) passed. One import
+recovery check initially hit its former five-second wait under full-suite
+load; it passed alone and passed the full rerun with a 20-second UI wait. No
+upload behavior was changed.
+
+This is a usability improvement, not a claim that visual search is accurate.
+The first jumping-jack result still ends at about 2.57 s, later than the
+creator's roughly 2 s action boundary, and later ranked false positives remain.
+
+## Adaptive visual-search and range-player check (2026-10-14)
+
+The prior two-second index improved the original six-second mistake but still
+treated arbitrary time slots as moments. Index version
+`visual-v4-adaptive-detail-v2` now uses a local 5-fps, 96×54 grayscale pass to
+propose motion/appearance change points and shot-like changes. It embeds each
+proposed event and at most three finer detail ranges inside long events. Exact
+cosine search still retrieves Gemini Embedding 2 vectors; overlapping hits are
+assigned to an event, not unioned. Strong query-matching detail ranges narrow a
+mixed event, then local change scores adjust each edge by at most 0.3 seconds.
+Repeated events remain distinct. Prior vectors for identical ranges are reused
+without cloud calls, and a complete older index remains searchable during a
+partial new index. No FAISS/ANN, database migration, or new model was added.
+
+The rights-checked CC BY-SA 4.0 Commons clip
+[`Jumping jacks and burpees`](https://commons.wikimedia.org/wiki/File:Jumping_jacks_and_burpees.webm)
+was reindexed in the existing local project. The 45.2-second prepared proxy
+yielded 12 coarse events and 35 total event/detail ranges. The v4 estimate
+showed 44 newly sampled frames and a $0 configured unpaid-tier charge; matching
+v3 ranges were reused. The original converted input still has the manifest's
+SHA-256 `5f1474a67e15d88d90125e87565448a40a320bd1f8339bf98498885bb621f4c5`.
+The local ledger now totals about $0.35 in conservative paid-list-price
+reservations across all earlier experiments; this is **not** a Google bill.
+
+Live query and visual review (timestamps on the normalized 30-fps clock):
+
+| Query | Ranked result | Observed assessment |
+| --- | --- | --- |
+| jumping jacks | #1 0.00–2.57 s; #2 10.00–13.17 s | Both show separate jumping-jacks occurrences, but #1 may extend past the creator's ~2 s action boundary. The exact start/end labels remain unverified. |
+| jumping jacks | #3 23.20–25.37 s; #4 32.20–35.97 s | False positives: the subject raises arms/stands or performs burpee-like motion, not clear jumping jacks. Do not count these as passes. |
+| burpees | #1 36.40–38.77 s; #2 32.20–34.20 s | Burpee-like portions, but the returned boundaries and ranking still need independent labels. |
+| kettlebell swing | #1 13.20–15.77 s on the swing clip | Relevant source/action; it is one excerpt of a longer exercise, not an exact full-action boundary. |
+
+The browser was used to search `jumping jacks`, click result #2, and watch its
+10.00–13.17 s range with a 0–3.2 s selected-range control. This is a user-visible
+check, not merely rows or test doubles. The saved two-clip assembly also played
+through its ordered selections. Both result preview and Play Assembly now hide
+the misleading full-source native timeline and show relative selected-range
+progress. Playback remains non-destructive proxy seeking; **Render preview**
+creates the actually cut and joined MP4. The earlier opaque-filename test
+project still returns a matching 0.00–2.57 s first result for the same content.
+
+Quality gate is **open**. A change in pose or camera motion is not necessarily an
+action boundary, and the model still ranks visually similar but wrong moments.
+Unsupported prompts have no calibrated rejection/no-match behavior. A reviewed
+40-query, three-collection test with timing labels is still required before
+claiming broadly accurate search. Exact search stays until that quality gate;
+then benchmark ANN for scale, not as a localization fix.
+
+Checks: backend **92 passed** (one existing Starlette/httpx deprecation warning),
+production build passed, isolated browser workflow **26 passed**, and the live
+free-tier indexing/search and playback above completed. The existing A2 media
+correctness regressions remain in the full backend suite. Provider billing status
+was not independently verified.
+
+## First live real-footage visual-search pilot (2026-10-14)
+
+Imported three existing, rights-checked Commons exercise clips into the isolated
+local project `Commons exercise search pilot`: [Jumping jacks and burpees](https://commons.wikimedia.org/wiki/File:Jumping_jacks_and_burpees.webm),
+[Double kettlebell clean and jerk](https://commons.wikimedia.org/wiki/File:Double_Kettlebell_Clean_and_Jerk.webm),
+and [Kettlebell swing, hip-hinge zoom](https://commons.wikimedia.org/wiki/File:Kettlebell_Swing_Hip_Hinge_Style_Zoom.webm).
+All are attributed to Taco Fleur / Cavemantraining under CC BY-SA 4.0. The
+originals and conversion details are in the ignored local provenance manifest;
+the already-converted 640×480 H.264 MP4s were imported through Storyroom's local
+API. Cloud-analysis permission was explicitly recorded on these three assets;
+the clips were sent to Gemini Embedding 2's unpaid tier for this requested test.
+No Pexels or Mendeley footage and no model training were used.
+
+The first pilot indexed 29 six-second windows (three-second overlap; 170 sampled
+frames) with 768-dimensional Gemini vectors. Live text-query embeddings were
+matched locally by exact cosine similarity. Top results were: “jumping jacks” —
+the combined exercise clip at 0–9 s (contains the requested movement but its
+approximate range also crosses into nearby action); “burpees” — the same clip at
+36–45.2 s; “two kettlebells lifted to the shoulders and overhead” — the clean-
+and-jerk clip at 15–27 s; “close view of a kettlebell swing” — the swing clip at
+3–15 s. Representative frames were visually checked. A swing result was added
+to a Storybin at frames 90–450 (3–15 s) and remained exact after browser reload.
+
+The pilot's original “pass” wording was incorrect. Ranking the right source file
+first did not prove that the returned time range contained only the requested
+action: the jumping-jacks result covered 0–9 seconds and crossed into burpees.
+The first implementation merged overlapping windows, which could make a match
+range much wider than the best individual evidence. The unsupported “dog
+running through snow” prompt still returned exercise clips. Visual search
+currently always returns its nearest
+matches; it has no calibrated rejection threshold or no-match behavior. Results
+are useful candidates, not verified matches, and fast/nearby actions may share a
+range. This three-video, single-creator exercise pilot proves live indexing and
+retrieval plumbing, not general accuracy. The broader multi-collection,
+human-reviewed retrieval evaluation remains outstanding. Storyroom displayed a
+$0 unpaid-tier API estimate; its conservative internal usage ledger reserved
+about $0.14, and the provider's actual billing/quota state was not independently
+verified.
+
+## Corrected temporal-search and assembly check (2026-10-14)
+
+The initial six-second windows and range union caused a real temporal defect:
+the “jumping jacks” result returned 0–9 seconds and crossed into burpees. I
+incorrectly called that a pass based on the source file being right. The visual
+index is now versioned as `visual-v2-2s-1s-1fps`; all three permitted Commons
+clips were re-indexed into 89 two-second ranges (one-second stride; 178 sampled
+frames). Search now suppresses overlapping duplicate windows instead of
+stretching a match across them. Existing six-second rows remain stored but are
+excluded by index-version filtering until deliberately reindexed.
+
+Live Gemini Embedding 2 queries returned these top-ranked playable ranges:
+“jumping jacks” → jumping/burpees source, 1–3 s; “burpees” → same source,
+28–30 s; “kettlebell swing” → swing source, 10–12 s; “double kettlebell clean
+and jerk” → clean-and-jerk source, 18–20 s. I visually checked the jumping-jack
+and burpee ranges against source frames; they show those actions and no longer
+combine them into one long candidate. This is an improvement, **not a search
+quality pass**: later returned candidates can still be ambiguous or wrong, the
+exact action boundary is approximate, and unsupported prompts still need a
+calibrated no-match behavior.
+
+Filename test: the same jumping/burpees MP4 was imported into a separate test
+project as `clip_opaque_91f7.mp4`. Its normalized proxy SHA-256 was identical to
+the original asset, and the “jumping jacks” query returned the same 1–3 s range
+first. The filename is shown in results but is not used for visual ranking.
+
+Assembly test: the open preview project contains a 12-second swing placement
+followed by the new 2-second jumping-jacks candidate. Playback advanced to the
+second placement; the first can appear to be the only one playing because the
+progress was not visible while that 12-second range played. The interface now
+shows “Clip N of M” during assembly playback, and the isolated browser test
+asserts that playback reaches clip two. The saved test board was updated from
+the obsolete 0–9 s selection to the current 1–3 s candidate.
+
+Verification after this correction: full backend suite **89 passed** (one
+existing Starlette/httpx deprecation warning); isolated browser workflow **26
+passed**; TypeScript/production build and `git diff --check` passed. The backend
+suite includes the existing A2 geometry, frame-clock, audio-sync, and cut-order
+regressions. These checks validate code paths and this small live sample, not
+general visual-search accuracy.
+
+## Visual-search vertical slice implementation (2026-10-14)
+
+The feature branch adds direct video-range retrieval with Gemini Embedding 2,
+separate from keyword and description search. Storyroom estimates missing index
+ranges, explicitly queues a persistent job, creates overlapping two-second
+windows with a one-second stride from the 720p proxy, stores each successful
+768-dimensional vector in SQLite, embeds a natural-language query, and ranks
+matches locally with exact cosine similarity. Overlapping duplicate hits are
+suppressed without widening the returned ranges. The UI labels them as visual
+matches and can preview or add them to a Storybin. They use the existing
+asset/frame-boundary selection format with no caption moment ID, so trim,
+save/reopen, render and Resolve export remain the existing paths. No ANN library,
+database service, fine-tuning, audio search, or edit automation was added.
+
+Provider/model/dimension/proxy-hash/index-version metadata prevents vectors from
+different models or proxy revisions being mixed. Query embeddings are cached;
+index jobs resume from completed ranges and retain partial results after failure
+or cancellation. The unpaid tier is explicit and never silently falls back to
+paid. Storyroom displays its configured tier, which it cannot verify; the UI
+discloses Google's unpaid data-use/human-review terms and warns not to upload
+sensitive, confidential, or personal footage. The UI shows a $0 free-tier price
+estimate while the safety ledger keeps a conservative list-price reservation.
+
+Automated browser and backend tests still use fake visual candidates and a
+deterministic fake provider. A live smoke run now also verifies the real Gemini
+Embedding 2 path: the local provider embedded a text query and a generated
+four-second test-pattern proxy, returned normalized 768-dimensional vectors,
+and the UI indexed that one permitted generated pattern, searched it, previewed
+its visual match, and added it to a Storybin. That smoke test validates
+connection/workflow, not semantic relevance; the live real-footage pilot above
+is the first evidence for semantic retrieval. AI Studio showed the project on
+its Free tier with no billing account when checked, but the provider's current
+billing/quota state is not verified by Storyroom. The 40-query human-reviewed
+retrieval pilot across multiple independent, rights-cleared collections has not
+run. Do not claim broad accuracy or usability yet. Next: build a reviewed
+multi-collection evaluation, including unsupported prompts and an abstention
+threshold before presenting results as confident matches.
+
+Verification: backend suite **85 passed** (one existing Starlette/httpx
+deprecation warning); latest visual-search-specific suite **8 passed**; isolated
+browser workflow **26 passed**; production build, fatal-error Ruff checks, and
+`git diff --check` passed. The backend suite retains the A2 geometry, frame-clock,
+audio-sync, and cut-order regressions. The visual browser test uses a mocked
+candidate; it does not call Google.
+
+Exact-search scale probe (synthetic, fixed seed 314159; this Mac; 768 dimensions;
+30 queries): 300 vectors p50 11.7 ms / p95 14.4 ms; 3,000 vectors p50 275.4 ms /
+p95 605.8 ms using the current Python `ExactVectorIndex`. The configured project
+limit implies about 300 overlapping windows for 15 minutes of footage, so exact
+search remains acceptable for this local MVP. An isolated HNSW comparison could
+not be built because this Mac lacks the C++ standard-library headers; no ANN
+dependency was added. Revisit if the index grows beyond the current project cap.
 
 ## Portfolio checkpoint merged to `main` (2026-10-13)
 
-PR #1, [Verify media correctness and measure processing performance](https://github.com/Humza1423/storyroom/pull/1), has been merged into the public repository's default branch. Its foundation, A1–A3, real-footage workflow, mixed-profile checks, and Resolve import evidence are now visible from `main`. The branch is clean and synchronized after the merge. Both PR checks passed before merge. This is a development preview, not a validated AI search release; semantic video retrieval is the next milestone.
+PR #1, [Verify media correctness and measure processing performance](https://github.com/Humza1423/storyroom/pull/1), has been merged into the public repository's default branch. Its foundation, A1–A3, real-footage workflow, mixed-profile checks, and Resolve import evidence are now visible from `main`. The branch is clean and synchronized after the merge. Both PR checks passed before merge. This is a development preview, not a validated AI search release; the new visual-search implementation needs a live provider call and human-reviewed evaluation before quality is established.
 
 ## Online 4K footage check (2026-10-12) — Resolve import verified; 4K deferred
 
@@ -180,8 +468,8 @@ PR #1 after this checkpoint is pushed. No encoder optimization was made.
 | Manual assembly | Projects, import, proxies, descriptions, story sections, drag/reorder, frame trimming, save/reopen, undo | Automated suite covers generated fixtures; four licensed exercise videos completed manual import/search/board/restart/render and a visually checked Resolve 21.1.1 XML import. |
 | Processing | One SQLite-backed worker, progress, cancel/retry, response caching | Real worker subprocess tests cover pending/interrupted normalization/render, second-worker refusal and explicit retry. Encoding restarts; it is not stage-resumable. |
 | Output | MP4 render, FCP7 XML, OTIO, media manifest | Independent generated-media checks verify pixels, exact frame count/spacing, audio boundaries, and XML references/ranges/gaps. A 780-frame / 26-second licensed-footage timeline opened in Resolve 21.1.1 with footage visible and the repeated source range preserved. |
-| AI adapter | Video chunks, validated observations, embeddings, story proposals, cost reservations | Fake-provider tests cover response validation, caching, budget, and failure. No real provider or quality benchmark has been verified. |
-| Search | Keyword matching and optional description-embedding similarity | Manual keyword behavior tested. The 20-query real-footage benchmark has not been completed. |
+| AI adapter | Video chunks, validated observations, embeddings, story proposals, cost reservations, and a separate Gemini Embedding 2 visual adapter | Fake-provider tests cover response validation, caching, budget, partial indexing, and failure. Live unpaid-tier indexing and query requests worked on the rights-checked Commons pilot above; provider billing status remains independently unverified. |
+| Search | Keyword, description-embedding, and direct visual-embedding modes with local adaptive event proposals | The live Commons pilot returned playable action candidates, but also inaccurate boundaries and false positives. The labeled 40-query, three-collection quality benchmark is still open; exact vector search remains in use. |
 | Training | Permission-aware judgments, grouped split, logistic-regression experiment, report export | Script and labeling interface exist. No trained or deployed custom model has been established. |
 | Project access | Source opens in VS Code; onboarding, architecture, contribution and learning docs; public GitHub remote | Foundation and media validation are merged into `main`; PR #1 CI passed. |
 
@@ -425,22 +713,23 @@ authorized routine feature-branch pushes for verified implementation checkpoints
 - [x] Import four appropriately licensed real training clips (640×480 landscape SDR; see manifest).
 - [x] Assemble/search/trim/repeat clips; restart and confirm exact saved section and clip order/boundaries.
 - [x] Render and check expected order/duration and source-backed versus silent audio ranges. Portrait and VFR real-footage cases remain untested.
-- [ ] Import XML in DaVinci Resolve and check cuts within one normalized frame, audio, order, and references.
-- [ ] Record Resolve version, footage characteristics, test date, result, and any limitations.
+- [x] Import XML in DaVinci Resolve and check cuts within one normalized frame, audio, order, and references; see the earlier real-footage handoff evidence above.
+- [x] Record Resolve version, footage characteristics, test date, result, and limitations above.
 
 ### 3. Verify the cloud AI integration
 
-- [ ] Verify current model identifiers, provider availability, request compatibility, and pricing.
-- [ ] Configure a local key and permissions; run one bounded clip analysis.
-- [ ] Compare returned timestamps and descriptions with the actual footage.
+- [x] Add provider-neutral video/text embeddings, Gemini Embedding 2 adapter, model-specific SQLite visual index, resumable indexing, exact-cosine retrieval, and separate visual UI mode.
+- [x] Verify Gemini Embedding 2 availability and request compatibility with bounded live requests; provider billing/pricing verification remains separate.
+- [x] Configure a local key and permissions; run bounded visual indexing/search on footage suitable for the configured tier.
+- [x] Compare returned visual-search timestamps with the actual footage, including the false positives recorded above. Description analysis remains separately unverified.
 - [ ] Check provider billing against the local ledger.
 - [ ] Verify story suggestions preserve accepted edits.
 - [ ] Complete the section-specific reranking user interface; backend support alone is insufficient.
 
 ### 4. Evaluate usefulness and prepare a release
 
-- [ ] Curate at least 20 human-reviewed queries across three separate footage sets.
-- [ ] Measure relevant candidates in the first five; initial target is at least 16 of 20, with misses reported.
+- [ ] Curate 40 human-reviewed queries across three rights- and privacy-appropriate footage collections.
+- [ ] Measure relevant candidates in the first five; pilot target is at least 32 of 40, with per-collection misses reported.
 - [ ] Test unsupported queries, uncertainty, missing media, and stop/restart recovery.
 - [x] Test installation from a fresh macOS checkout and locked environment.
 - [ ] Review dependency/media licenses for the release and real-footage exercise.

@@ -27,7 +27,8 @@ export function ProcessingPanel({
           <span className={"job-dot " + j.status} />
           <div>
             <strong>
-              {j.kind} <small>{j.status}</small>
+              {j.kind === "visual_index" ? "Visual search index" : j.kind}{" "}
+              <small>{j.status}</small>
             </strong>
             <p>{j.message}</p>
             {j.kind === "export" && j.status === "done" && (
