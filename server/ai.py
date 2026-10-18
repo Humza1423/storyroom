@@ -1,10 +1,14 @@
 """Cloud adapters, tier-specific readiness checks, caching, and request reservations."""
 
 import hashlib
+import json
 import math
 import os
 from typing import Protocol
+
 from . import config, db
+from .media import verification_clip
+from .models import VisualVerdict
 
 
 def estimate(seconds=0, text_chars=0, output_tokens=4096):
@@ -256,7 +260,6 @@ class GeminiEmbeddingProvider:
     def embed_text_query(self, query: str, job_id: str | None = None):
         if not query.strip():
             raise ValueError("Enter a search phrase first.")
-        from google.genai import types
 
         prepared = f"task: search result | query: {query.strip()}"
         cache_key = (
@@ -275,3 +278,113 @@ def embedding_provider() -> EmbeddingProvider:
     if config.EMBED_PROVIDER == "gemini":
         return GeminiEmbeddingProvider()
     raise ValueError(f"Unsupported embedding provider: {config.EMBED_PROVIDER}")
+
+
+VISUAL_VERIFIER_VERSION = "visual-verifier-v1-3fps"
+
+
+def visual_verifier_cache_key(query, proxy_hash, start_frame, end_frame):
+    normalized_query = " ".join(query.lower().split())
+    cache_input = json.dumps(
+        [VISUAL_VERIFIER_VERSION, config.VISUAL_VERIFIER_MODEL, normalized_query, proxy_hash,
+         start_frame, end_frame], separators=(",", ":"),
+    )
+    return "visual-verdict:" + hashlib.sha256(cache_input.encode()).hexdigest()
+
+
+def verify_visual_match(query, proxy, proxy_hash, start_frame, end_frame):
+    """Ask a video model whether this exact range visibly satisfies the query.
+
+    An embedding score only nominates this range. No model-generated confidence
+    is interpreted as a calibrated probability.
+    """
+    key = visual_verifier_cache_key(query, proxy_hash, start_frame, end_frame)
+    cached = db.cache_get(key)
+    if cached is not None:
+        return VisualVerdict.model_validate(cached)
+
+    video = verification_clip(proxy, start_frame, end_frame)
+    from google.genai import types
+
+    prompt = (
+        "Judge whether the requested visible action or object is actually in this "
+        "short unlabeled video. Use only visual evidence in the video, not likely "
+        "associations with the setting or equipment. Similar exercises do not count. "
+        "For an action, require visible body movement that identifies that action; "
+        "a person merely holding equipment or standing in a related pose does not "
+        "count. If the video is too short or unclear, choose uncertain. "
+        "Choose match only if you can name concrete visible evidence. "
+        "Keep visible_evidence brief; leave it empty for no_match or uncertain. "
+        f"Requested footage: {query.strip()}"
+    )
+    duration = (end_frame - start_frame) / config.FPS
+    # Conservative list-price reservation, including sampled frames and output.
+    input_tokens = math.ceil(duration * 3 * 350 + len(prompt) + 2000)
+    reserved_cost = (
+        input_tokens * config.VISUAL_VERIFIER_INPUT_RATE
+        + 768 * config.VISUAL_VERIFIER_OUTPUT_RATE
+    ) / 1_000_000
+    reservation = db.reserve(None, config.VISUAL_VERIFIER_MODEL, reserved_cost)
+    api = None
+    try:
+        api = embedding_client()
+        response = api.models.generate_content(
+            model=config.VISUAL_VERIFIER_MODEL,
+            contents=[
+                types.Part(
+                    inline_data=types.Blob(data=video, mime_type="video/mp4"),
+                    video_metadata=types.VideoMetadata(fps=3),
+                ),
+                prompt,
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema={
+                    "type": "OBJECT",
+                    "properties": {
+                        "decision": {
+                            "type": "STRING",
+                            "enum": ["match", "no_match", "uncertain"],
+                        },
+                        "visible_evidence": {"type": "STRING"},
+                    },
+                    "required": ["decision", "visible_evidence"],
+                },
+                max_output_tokens=768,
+                temperature=0,
+            ),
+        )
+        usage = response.usage_metadata
+        if usage:
+            amount = (
+                (usage.prompt_token_count or 0) * config.VISUAL_VERIFIER_INPUT_RATE
+                + ((usage.candidates_token_count or 0) + (usage.thoughts_token_count or 0))
+                * config.VISUAL_VERIFIER_OUTPUT_RATE
+            ) / 1e6
+            db.execute(
+                "UPDATE usage SET actual=?,status='settled' WHERE id=?",
+                (amount, reservation),
+            )
+        else:
+            db.execute("UPDATE usage SET status='unconfirmed' WHERE id=?", (reservation,))
+        verdict = VisualVerdict.model_validate_json(response.text or "")
+        db.cache_set(key, verdict.model_dump())
+        return verdict
+    except Exception as exc:
+        # A rejected request (bad schema, quota) cannot have generated tokens;
+        # a timeout may have, so retain its reservation instead.
+        code = getattr(exc, "code", getattr(exc, "status_code", None))
+        if code in (400, 401, 403, 404, 429):
+            db.execute(
+                "UPDATE usage SET actual=0,status='rejected' WHERE id=?",
+                (reservation,),
+            )
+        else:
+            db.execute(
+                "UPDATE usage SET status='unconfirmed' WHERE id=? AND actual IS NULL",
+                (reservation,),
+            )
+        raise
+    finally:
+        if api is not None:
+            api.close()

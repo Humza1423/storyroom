@@ -1,5 +1,5 @@
-import json
 import hashlib
+import json
 import shutil
 import subprocess
 import time
@@ -106,6 +106,33 @@ def sha256_file(path):
         for block in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def verification_clip(proxy, start_frame, end_frame):
+    """Make a small, silent video of one candidate range for visual verification."""
+    if start_frame < 0 or end_frame <= start_frame:
+        raise ValueError("Invalid visual candidate range")
+    start = start_frame / config.FPS
+    duration = (end_frame - start_frame) / config.FPS
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg", "-nostdin", "-v", "error", "-ss", f"{start:.6f}",
+                "-i", str(proxy), "-t", f"{duration:.6f}", "-an",
+                "-vf", "fps=3,scale=640:-2", "-c:v", "libx264",
+                "-threads", "2", "-preset", "ultrafast", "-crf", "28",
+                "-pix_fmt", "yuv420p", "-movflags", "frag_keyframe+empty_moov",
+                "-f", "mp4", "pipe:1",
+            ],
+            capture_output=True,
+            timeout=45,
+            check=True,
+        )
+    except (subprocess.SubprocessError, subprocess.TimeoutExpired) as exc:
+        raise ValueError("Could not prepare a visual candidate for verification") from exc
+    if not result.stdout:
+        raise ValueError("Visual candidate has no frames to verify")
+    return result.stdout
 
 
 def validate(info):

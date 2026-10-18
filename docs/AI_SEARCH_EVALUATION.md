@@ -4,6 +4,24 @@ Updated: 2026-10-17. This page records a small live engineering pilot, not an ac
 claim. The earlier pilot used four licensed, short exercise videos in the local project
 `Visual search QA · Commons actions`. Pexels footage was not indexed.
 
+## Current search decision and blocker
+
+The live search path now shortlists distinct moments with Gemini Embedding 2,
+then checks up to ten short silent proxy ranges with a Gemini video verifier.
+Only a `match` accompanied by visible evidence can appear as a result. The
+previous fixed 0.62 cosine gate is retained in the evaluation runner as the
+embedding-only baseline. The runner records raw ranks, verifier decisions,
+accepted results, and separate baseline/verified metrics when reviewed query
+labels and API quota are available.
+
+The known one-asset failure was reproduced on a real indexed bicep-curl clip:
+both `bicep curls` and `push-ups` returned ranges from that same clip under the
+old ranking path. Deterministic tests now reject the wrong action, uncertain
+verdicts, and missing evidence. A live verifier comparison cannot yet run:
+Google reports zero GenerateContent requests per minute for this API project
+on both Flash models tried. A real search now produces a clear quota error and
+does not show unverified results. No live accuracy claim is justified by that.
+
 ## 50-video accuracy investigation (2026-10-17)
 
 A separate test harness and 50-file local set are now prepared. The set uses five
@@ -15,23 +33,16 @@ under `data/evaluation/visual-search/mendeley/`; they are not committed. The
 benchmark runner requires its own SQLite database and refuses the normal
 Storyroom database.
 
-No search-quality score is available yet. The 100-query set still needs human
-review and timing labels, and no Gemini indexing or query request was made. The
-Mendeley page identifies the videos as recordings of 26 gym participants but
-does not document consent for uploading identifiable footage to Google. Google's
-[unpaid API terms](https://ai.google.dev/gemini-api/terms) say not to submit
-personal information and explain that human reviewers may process requests.
-The source's CC BY license does not settle that separate privacy question. The
-50 clips therefore remain local. Obtain permission for this processing purpose
-or choose suitable footage without identifiable people before any live cloud
-comparison. No paid request was made.
+No 50-video search-quality score is available yet. The 100-query set still
+needs human review and timing labels. One selected curl clip has been indexed
+with Gemini Embedding 2 under the creator's explicit authorization; the full
+50-clip set has not been indexed. No successful verifier request or paid model
+comparison was made.
 
-The red-team harness already detects the observed false-match patterns using
-deterministic fake vectors. That proves the regression tests can catch these
-failures; it does **not** measure or improve Gemini accuracy. The cutoff remains
-unchanged until a development set can be used to tune it and a separate held-out
-set can test the change. See [current project status](STATUS.md) for the
-verification counts and blocker.
+The red-team harness detects the false-match patterns using deterministic fake
+vectors and checks that the new verifier boundary excludes them. This does
+**not** measure Gemini accuracy. See [current project status](STATUS.md) for
+the actual checks and quota blocker.
 
 ## What was tested
 
@@ -52,7 +63,7 @@ No model was trained. No caption, filename, or source-title text participates
 in visual ranking. Four clips from two Commons contributors are still a small,
 related sample; they do not test arbitrary camera footage or broad domains.
 
-## Engineering leak and correction
+## Historical embedding-only gate
 
 Before this change the endpoint always returned the top five ranked events. It
 did not check whether a result was a plausible match or whether other clips
@@ -61,7 +72,7 @@ forced to look like a successful search. The search then grouped and locally
 refined times, but those operations only shaped boundaries; neither verifies
 that the event depicts the requested action.
 
-Visual search now has a separate conservative rejection step after event
+The previous visual search had a separate conservative rejection step after event
 ranking: a best cosine score must clear a pilot floor, the best source clip must
 separate from its runner-up, weaker source clips are suppressed, and weaker
 events inside a retained clip are removed. The current pilot constants are in
@@ -70,15 +81,9 @@ probabilities**, and have not been calibrated on a representative labeled set.
 When the gate rejects results, the UI asks the creator to describe the visible
 action more specifically. Exact cosine search remains in use.
 
-This is a precision-oriented patch, not the final search architecture. The
-remaining semantic weakness is that the same visual embedding scores very
-similar movements and scenes closely. The next real improvement is a second
-stage that checks the top candidate ranges for the requested action using a
-temporal video model, before the existing local boundary refinement. The free
-Embedding 2 endpoint does not provide that independent verification, and the
-configured Gemini video-generation endpoint has no available quota in this
-environment. Do not silently add paid calls. Compare an available verifier
-against human labels before choosing its provider or changing the index.
+This gate remains useful for comparing the embedding-only baseline. It is no
+longer the live result decision. The video verifier is now connected, but its
+quality comparison remains blocked by the project's zero generation quota.
 
 ## Live query results
 

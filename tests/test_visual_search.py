@@ -6,6 +6,7 @@ import pytest
 from conftest import create_ready
 
 from server import ai, config, db
+from server.models import VisualVerdict
 from server.vector_index import (
     ExactVectorIndex,
     collapse_overlapping,
@@ -63,6 +64,10 @@ def enable_visual_ai(monkeypatch):
     monkeypatch.setattr(config, "VISUAL_TIER", "unpaid")
     monkeypatch.setattr(config, "UNPAID_TERMS_ACKNOWLEDGED", True)
     monkeypatch.setattr(config, "visual_ai_ready", lambda: True)
+    monkeypatch.setattr(
+        ai, "verify_visual_match",
+        lambda *_: VisualVerdict(decision="match", visible_evidence="Visible movement"),
+    )
 
 
 def test_visual_index_search_storybin_and_existing_export(client, clip, monkeypatch):
@@ -299,6 +304,48 @@ def test_gemini_embedding2_query_format_and_cache(client, monkeypatch):
     assert usage["reserved"] > 0
 
 
+def test_visual_verifier_uses_clip_and_caches_structured_verdict(client, monkeypatch, clip):
+    monkeypatch.setattr(config, "visual_ai_ready", lambda: True)
+    from server.media import verification_clip
+
+    video = verification_clip(clip, 0, 24)
+    assert video.startswith(b"\x00\x00")
+
+    class FakeVideoClient:
+        def __init__(self):
+            self.calls = []
+            self.models = self
+
+        def generate_content(self, **kwargs):
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                text='{"decision":"match","visible_evidence":"arms curl the weight"}',
+                usage_metadata=SimpleNamespace(
+                    prompt_token_count=200,
+                    candidates_token_count=15,
+                    thoughts_token_count=0,
+                ),
+            )
+
+        def close(self):
+            pass
+
+    fake = FakeVideoClient()
+    monkeypatch.setattr(ai, "embedding_client", lambda: fake)
+    first = ai.verify_visual_match("Bicep CURLS", clip, "proxy-hash", 0, 24)
+    second = ai.verify_visual_match("bicep curls", clip, "proxy-hash", 0, 24)
+    assert first == second
+    assert first.decision == "match"
+    assert len(fake.calls) == 1
+    assert fake.calls[0]["model"] == config.VISUAL_VERIFIER_MODEL
+    assert fake.calls[0]["config"].response_schema["properties"]["decision"]["enum"] == [
+        "match", "no_match", "uncertain"
+    ]
+    assert db.rows("SELECT status,actual FROM usage") == [
+        {"status": "settled", "actual": pytest.approx((200 * config.VISUAL_VERIFIER_INPUT_RATE + 15 * config.VISUAL_VERIFIER_OUTPUT_RATE) / 1e6)}
+    ]
+
+
 def test_short_visual_windows_cover_clip_with_one_second_stride():
     assert config.VISUAL_WINDOW_FRAMES == 60
     assert config.VISUAL_STRIDE_FRAMES == 30
@@ -426,4 +473,9 @@ def test_strong_detail_ranges_narrow_a_mixed_event():
     result = rank_distinct_events(
         list(zip((0.7, 0.61, 0.8, 0.79), rows)), {"clip": profile}
     )
+    coarse = rank_distinct_events(
+        list(zip((0.7, 0.61, 0.8, 0.79), rows)),
+        {"clip": profile}, refine_ranges=False,
+    )
+    assert [(c["start_frame"], c["end_frame"]) for c in coarse] == [(0, 150)]
     assert [(c["start_frame"], c["end_frame"]) for c in result] == [(45, 150)]

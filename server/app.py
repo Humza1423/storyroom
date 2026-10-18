@@ -145,6 +145,7 @@ def status():
         "pricing_confirmed": config.PRICING_CONFIRMED,
         "embedding_tier": config.VISUAL_TIER,
         "embedding_model": config.EMBED_MODEL,
+        "visual_verifier_model": config.VISUAL_VERIFIER_MODEL,
         "unpaid_terms_acknowledged": config.UNPAID_TERMS_ACKNOWLEDGED,
         "embedding_tier_note": (
             "Configured locally; Storyroom cannot verify Google billing status."

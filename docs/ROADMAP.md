@@ -64,18 +64,16 @@ and description search remain separate. The model is a candidate generator, not
 an exact action detector; audio is not indexed. Vector spaces are isolated by
 provider, model, dimensions, proxy hash, and sampling version.
 
-The live adapter now has a conservative score-based abstention gate. A four-clip
-Commons pilot confirms that it suppresses several cross-file false positives and
-rejects unsupported prompts, but it still returns wrong event times for the
-vague query “jumping” and rejects the short clean-and-jerk label as ambiguous.
-The cutoffs are not calibrated confidence. See the query-by-query evidence in
-[AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md) and STATUS. The next AI quality
-ticket is to compare a temporal video verifier/reranker on a reviewed set before
-it can change visible rankings; the current free embedding-only path cannot
-reliably distinguish similar exercises or verify action boundaries. Preserve
-the embedding retriever and frame-range selection format. Confirm the API
-project's actual tier and compare provider billing with Storyroom's conservative
-reservation. Do not use
+The live adapter now uses Gemini Embedding 2 to shortlist distinct events and a
+separate video verifier to check visible action before returning a candidate. The
+earlier score-based gate remains as a benchmark baseline. The verifier path has
+passed deterministic and browser tests, but the configured Google API project
+reports **zero GenerateContent quota** for both Flash models tested. Its live
+accuracy is therefore unmeasured. The next gate is access to a project with
+verifier quota, followed by the reviewed 50-video comparison in
+[AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md) and STATUS. Preserve
+the embedding retriever and frame-range selection format. Compare provider
+billing with Storyroom's conservative reservation. Do not use
 Pexels for indexing. Google unpaid-service data terms and human review mean the
 dataset itself must be suitable for cloud submission; source license alone does
 not establish that. The UI requires explicit indexing and cloud-analysis

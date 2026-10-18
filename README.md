@@ -41,7 +41,7 @@ and real-provider AI quality remain release gates. See the
 | Search | Keyword and description-based search remain available; visual search indexes prepared proxies only after an explicit action and cloud-analysis permission |
 | Story workspace | Custom sections, repeated clip placement, drag/reorder controls, frame trimming, notes, and saved revisions |
 | Preview and export | MP4 rendering and cuts-only FCP7 XML imported into Resolve 21.1.1 with tested H.264 footage, including a 4K timeline; broader formats remain unverified |
-| AI assistance | Gemini Embedding 2 visual search has a small real-footage pilot; adaptive timing improved two exercise hits, but false positives remain and the 40-query evaluation is not done |
+| AI assistance | Visual search now checks shortlisted ranges with a video verifier before showing a match. The current Google project has zero verifier quota, so live accuracy and the 100-query evaluation remain open. Manual search and editing work. |
 | Learning to rank | Labeling and grouped evaluation scripts implemented; no trained model is deployed |
 
 ## Run locally
@@ -153,7 +153,9 @@ design tradeoffs, or follow one request through the [source map](START_HERE.md).
 - **AI:** visual search sends adaptively proposed event/detail ranges from 720p proxies to Gemini only
   after an explicit indexing action. It does not index audio or promise exact
   action boundaries. A cheap local temporal pass proposes boundaries before
-  embedding; matched events are refined locally. Google unpaid-service submissions may be used to improve
+  embedding; shortlisted results are checked with a separate video model. If that
+  model has no quota, visual search shows an error rather than unverified matches.
+  Google unpaid-service submissions may be used to improve
   Google products and may be processed by human reviewers; do not submit
   sensitive, confidential, or personal footage. The configured API tier is not
   verified by Storyroom. Credentials stay on the backend, and manual editing

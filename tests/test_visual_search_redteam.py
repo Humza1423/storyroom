@@ -16,6 +16,7 @@ import pytest
 
 from server import ai, config, db
 from server import search as visual_search
+from server.models import VisualVerdict
 from server.visual_index import TemporalProfile
 
 
@@ -71,6 +72,16 @@ def redteam(monkeypatch, tmp_path):
 
     provider = FakeTextProvider({})
     monkeypatch.setattr(ai, "embedding_provider", lambda: provider)
+    verdicts = {}
+
+    def fake_verify(query, proxy, _hash, start, end):
+        decision = verdicts.get((query, proxy.parent.name, start, end), "match")
+        return VisualVerdict(
+            decision=decision,
+            visible_evidence="Observed requested action" if decision == "match" else "",
+        )
+
+    monkeypatch.setattr(ai, "verify_visual_match", fake_verify)
     capture = Capture(raw=[], events=[])
 
     exact_index = visual_search.ExactVectorIndex
@@ -85,9 +96,10 @@ def redteam(monkeypatch, tmp_path):
 
     rank_events = visual_search.rank_distinct_events
 
-    def capture_events(scored, profiles, limit=5):
-        events = rank_events(scored, profiles, limit)
-        capture.events[:] = [dict(item) for item in events]
+    def capture_events(scored, profiles, limit=5, refine_ranges=True):
+        events = rank_events(scored, profiles, limit, refine_ranges=refine_ranges)
+        if refine_ranges:
+            capture.events[:] = [dict(item) for item in events]
         return events
 
     monkeypatch.setattr(visual_search, "ExactVectorIndex", CapturingExactIndex)
@@ -111,6 +123,7 @@ def redteam(monkeypatch, tmp_path):
         "capture": capture,
         "proxy_hash": proxy_hash,
         "profiles": profiles,
+        "verdicts": verdicts,
     }
     return state
 
@@ -219,24 +232,23 @@ def emit_case(name, report, expected_asset_ids, *, known_finding=False):
 
 
 def test_redteam_bag_query_exposes_kettlebell_false_positive(redteam):
-    """The harness must visibly flag the current top-result-wins failure."""
+    """A high cosine score cannot rescue a video that visibly lacks a bag."""
     project_id = create_project("bag-hard-negative")
     bag_query = unit_vector(1.0, 0.0)
     kettle_id = add_asset(
         redteam, project_id, "opaque-kettle-a17c.mp4", [unit_vector(0.82, 0.572)]
     )
-    add_asset(
+    boxing_id = add_asset(
         redteam, project_id, "opaque-boxing-b42d.mp4", [unit_vector(0.67, 0.742)]
     )
     redteam["provider"].vectors["bag"] = bag_query
+    redteam["verdicts"][("bag", kettle_id, 0, 60)] = "no_match"
+    redteam["verdicts"][("bag", boxing_id, 0, 60)] = "no_match"
 
     report = run_query(redteam, project_id, "bag")
 
     assert report["raw"][0]["asset_id"] == kettle_id
-    assert report["returned"][0]["asset_id"] == kettle_id
-    # This is a red-team finding, not a product-quality pass. The test asserts
-    # that the harness detects and labels the unexpected result as a failure.
-    assert not emit_case("bag-vs-kettlebell", report, set(), known_finding=True)
+    assert emit_case("bag-vs-kettlebell", report, set())
 
 
 def test_redteam_wrong_action_is_not_rescued_by_event_refinement(redteam):
@@ -247,20 +259,21 @@ def test_redteam_wrong_action_is_not_rescued_by_event_refinement(redteam):
         "opaque-burpees-88af.mp4",
         [unit_vector(0.81, 0.586)],
     )
-    add_asset(
+    jacks_id = add_asset(
         redteam,
         project_id,
         "opaque-jacks-2c91.mp4",
         [unit_vector(0.64, 0.768)],
     )
     redteam["provider"].vectors["jumping jacks"] = unit_vector(1.0, 0.0)
+    redteam["verdicts"][("jumping jacks", wrong_action_id, 0, 60)] = "no_match"
+    redteam["verdicts"][("jumping jacks", jacks_id, 0, 60)] = "match"
 
     report = run_query(redteam, project_id, "jumping jacks")
 
     assert report["raw"][0]["asset_id"] == wrong_action_id
     assert report["events"][0]["asset_id"] == wrong_action_id
-    assert report["returned"][0]["asset_id"] == wrong_action_id
-    assert not emit_case("wrong-action", report, set(), known_finding=True)
+    assert emit_case("wrong-action", report, {jacks_id})
 
 
 def test_redteam_repeated_occurrences_are_distinct_results(redteam):
@@ -296,6 +309,8 @@ def test_redteam_unsupported_query_abstains(redteam):
         [unit_vector(0.0, 1.0)],
     )
     redteam["provider"].vectors["a cat sleeping"] = unit_vector(-1.0, 0.0)
+    for asset_id in redteam["profiles"]:
+        redteam["verdicts"][("a cat sleeping", asset_id, 0, 60)] = "no_match"
 
     report = run_query(redteam, project_id, "a cat sleeping")
 
@@ -312,13 +327,14 @@ def test_redteam_opaque_rename_does_not_change_visual_ranking(redteam):
         "jumping_jacks_filename.mp4",
         [unit_vector(0.9, 0.436)],
     )
-    add_asset(
+    other_id = add_asset(
         redteam,
         project_id,
         "other-training.mp4",
         [unit_vector(0.65, 0.76)],
     )
     redteam["provider"].vectors["jumping jacks"] = unit_vector(1.0, 0.0)
+    redteam["verdicts"][("jumping jacks", other_id, 0, 60)] = "no_match"
 
     named = run_query(redteam, project_id, "jumping jacks")
     db.execute(
@@ -333,4 +349,32 @@ def test_redteam_opaque_rename_does_not_change_visual_ranking(redteam):
     assert [item["start_frame"] for item in named["returned"]] == [
         item["start_frame"] for item in opaque["returned"]
     ]
+
+
+def test_one_asset_negative_query_returns_no_match(redteam):
+    project_id = create_project("one-asset-hard-negative")
+    curl_id = add_asset(
+        redteam, project_id, "opaque-91f7.mp4", [unit_vector(1.0, 0.0)]
+    )
+    redteam["provider"].vectors["push-ups"] = unit_vector(1.0, 0.0)
+    redteam["verdicts"][("push-ups", curl_id, 0, 60)] = "no_match"
+
+    report = run_query(redteam, project_id, "push-ups")
+    assert report["raw"][0]["score"] == 1.0
+    assert emit_case("one-asset-push-up-negative", report, set())
+
+
+def test_uncertain_result_is_hidden_and_verifier_failure_is_explicit(redteam, monkeypatch):
+    project_id = create_project("uncertain")
+    asset_id = add_asset(redteam, project_id, "opaque.mp4", [unit_vector(1.0, 0.0)])
+    redteam["provider"].vectors["push-ups"] = unit_vector(1.0, 0.0)
+    redteam["verdicts"][("push-ups", asset_id, 0, 60)] = "uncertain"
+    assert run_query(redteam, project_id, "push-ups")["returned"] == []
+
+    def unavailable(*_args):
+        raise TimeoutError("provider timed out")
+
+    monkeypatch.setattr(ai, "verify_visual_match", unavailable)
+    with pytest.raises(ValueError, match="verification is unavailable"):
+        visual_search.search_visual(project_id, "push-ups")
 

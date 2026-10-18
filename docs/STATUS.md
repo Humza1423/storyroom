@@ -2,6 +2,39 @@
 
 Updated: 2026-10-17. Status: local development preview; release gates remain open.
 
+## Visual action verification checkpoint (2026-10-17)
+
+Visual search now uses Gemini Embedding 2 to nominate distinct candidate ranges
+and a separate Gemini Flash video verifier to check each short proxy excerpt
+against the original query. Only `match` with concrete visible evidence is
+returned. `no_match`, `uncertain`, malformed output, or provider failure cannot
+turn into a positive hit. The old fixed cosine gate remains only as an
+embedding-only evaluation baseline. Exact vector search, local timing
+refinement, manual editing, and export remain available. Verifier responses
+are cached and recorded against the local usage ledger.
+
+The prior one-asset live Embedding 2 check demonstrated the problem: one opaque
+Mendeley bicep-curl clip was returned for both `bicep curls` and `push-ups`.
+That clip took 26 segment requests, 71 sampled frames, and about 41 seconds to
+index. The new verifier request reached Google after an initial schema repair,
+but the API project returned HTTP 429 with a **zero GenerateContent request
+quota** for both Gemini 3.8 Flash and 3.5 Flash-Lite. Therefore no live
+verdict or accuracy comparison succeeded. A real Storyroom search for the
+negative prompt now returns an explicit quota error and no unverified results;
+the final rejected request added $0 to the local ledger. This is safe behavior,
+not evidence that the verifier recognizes exercises correctly. The creator
+authorized the selected source footage for this AI test; the 50-video corpus
+has not been indexed or fully reviewed.
+
+Verification: focused visual/evaluation suite **30 passed**, full backend
+**108 passed**, production build passed, isolated browser suite **29 passed**,
+Ruff and `git diff --check` passed. The first browser attempt could not launch
+because Playwright Chromium was missing; installing its matching binary and
+rerunning produced the passing result. No 100-query human-reviewed benchmark,
+held-out calibration, timing-accuracy comparison, or live positive verifier
+result exists yet. The next gate is a Gemini project with working verifier
+quota, then the labeled development/test comparison under the agreed $5 cap.
+
 ## 50-video visual-search investigation (2026-10-17)
 
 The accuracy investigation now has an isolated red-team suite and a local,
@@ -12,23 +45,15 @@ are in the ignored local provenance file; the media and labels are not committed
 The dataset is [CC BY 4.0 Mendeley version 3](https://data.mendeley.com/datasets/kgbb3yn47p/3).
 
 This is prepared footage, **not a completed search benchmark**: the 100 reviewed
-queries and timing labels have not been completed, no live model comparison was
-run, and no score or threshold change is justified yet. The dataset page says
-the videos show 26 gym participants but does not document their consent for
-upload to Google. Google's current [unpaid-service terms](https://ai.google.dev/gemini-api/terms)
-say not to submit personal information and allow human review. We therefore did
-not upload these clips or make Gemini requests. CC BY is a reuse license, not
-evidence of participant consent for that cloud-processing purpose. A safe live
-comparison needs documented participant authorization or suitable footage that
-does not depict identifiable people; paid processing would require a separately
-approved scope and is not used here.
+queries and timing labels have not been completed. One later authorized curl
+clip was indexed, as recorded above; the remaining 49 clips were not. The
+creator authorized selected open-source footage for this test.
 
-The isolated fake-vector red-team tests do confirm known failures: a “bag” query
-can rank kettlebell footage and a similar exercise can rank as the wrong action.
-These tests are checks that the harness detects the failures, not evidence that
-search passes. The existing Commons “bag” record also shows the true boxing
-candidate below the uncalibrated 0.62 rejection floor; lowering the floor alone
-would expose the wrong kettlebell result. The filter has not been tuned.
+The isolated fake-vector red-team tests reproduced a “bag” query ranking
+kettlebell footage and a similar exercise outranking the requested action.
+The new fake-verdict checks demonstrate that wrong and uncertain results are
+excluded, but do not measure real-model accuracy. The old fixed filter has not
+been calibrated; it is now an evaluation baseline rather than the live gate.
 
 Verification for the harness work: backend **105 passed**, production build
 passed, isolated browser suite **29 passed**, focused red-team/evaluator tests

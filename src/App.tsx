@@ -975,7 +975,7 @@ export default function App() {
                   {results?.length === 0 && (
                     <div className="empty-small">
                       {searchMode === "visual"
-                        ? "No clear visual match. Describe the action, equipment, or camera view more specifically, or index more footage."
+                        ? "No confident visual matches. Try a different description or index more footage. Storyroom hides clips it cannot verify."
                         : "No matching moments. Try different words, add a description, or analyze your footage."}
                     </div>
                   )}

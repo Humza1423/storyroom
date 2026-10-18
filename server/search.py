@@ -5,7 +5,6 @@ from . import ai, config, db
 from .media import sha256_file
 from .vector_index import (
     ExactVectorIndex,
-    filter_visual_candidates,
     rank_distinct_events,
 )
 from .visual_index import segment_windows, temporal_profile
@@ -58,7 +57,7 @@ def search(project_id, query, semantic=False, limit=50):
     ]
 
 
-def search_visual(project_id, query, limit=5):
+def search_visual(project_id, query, limit=5, trace=None):
     if not query.strip():
         return []
     provider = ai.embedding_provider()
@@ -121,8 +120,76 @@ def search_visual(project_id, query, limit=5):
     scored = ExactVectorIndex().search(query_vector, rows, limit=len(rows))
     # Keep raw cosine scores inside the ranking pipeline. The API deliberately
     # does not expose them as confidence values.
+    coarse = rank_distinct_events(scored, profiles, limit=len(rows), refine_ranges=False)
     ranked = rank_distinct_events(scored, profiles, limit=len(rows))
-    candidates = filter_visual_candidates(ranked, limit=limit)
-    for candidate in candidates:
-        candidate["media_url"] = f"/api/assets/{candidate['asset_id']}/proxy"
-    return candidates
+    paired = list(zip(coarse, ranked, strict=True))
+    # First check distinct sources, then fill the bounded shortlist with more
+    # occurrences. This lets a true match survive a visually similar source
+    # that happens to dominate the cosine ranking.
+    shortlist = []
+    per_asset = {}
+    for candidate_pair in paired:
+        asset_id = candidate_pair[0]["asset_id"]
+        if per_asset.get(asset_id, 0) < 2:
+            shortlist.append(candidate_pair)
+            per_asset[asset_id] = per_asset.get(asset_id, 0) + 1
+        if len(shortlist) == 10:
+            break
+    if len(shortlist) < 10:
+        shortlist.extend(candidate_pair for candidate_pair in paired
+                         if candidate_pair not in shortlist)
+    shortlist = shortlist[:10]
+
+    accepted = []
+    for coarse_candidate, candidate in shortlist:
+        asset_id = candidate["asset_id"]
+        proxy = config.asset_dir(asset_id) / "proxy.mp4"
+        proxy_hash = next(row["visual_proxy_hash"] for row in rows
+                          if row["asset_id"] == asset_id)
+        try:
+            verdict = ai.verify_visual_match(
+                query, proxy, proxy_hash,
+                coarse_candidate["start_frame"], coarse_candidate["end_frame"],
+            )
+            matched = verdict.decision == "match" and bool(verdict.visible_evidence.strip())
+            if matched and (
+                coarse_candidate["start_frame"], coarse_candidate["end_frame"]
+            ) != (candidate["start_frame"], candidate["end_frame"]):
+                # Refinement can select only part of a mixed event. Check the
+                # exact range we will return, not just its broader context.
+                verdict = ai.verify_visual_match(
+                    query, proxy, proxy_hash,
+                    candidate["start_frame"], candidate["end_frame"],
+                )
+        except Exception as exc:
+            code = getattr(exc, "code", getattr(exc, "status_code", None))
+            if code == 429:
+                raise ValueError(
+                    "Gemini video verification has no available quota for this API "
+                    "project right now. No unverified matches were shown. Check "
+                    "your AI Studio model quota or use manual search."
+                ) from exc
+            raise ValueError(
+                "Visual verification is unavailable. No unverified results were shown; "
+                "retry later or use manual search."
+            ) from exc
+        matched = verdict.decision == "match" and bool(verdict.visible_evidence.strip())
+        if trace is not None:
+            trace.append({
+                "asset_id": asset_id,
+                "start_frame": candidate["start_frame"],
+                "end_frame": candidate["end_frame"],
+                "embedding_score": candidate["score"],
+                "verdict": verdict.decision,
+                "evidence": verdict.visible_evidence,
+                "accepted": matched,
+            })
+        if matched:
+            result = dict(candidate)
+            result.pop("score", None)
+            result["rank"] = len(accepted) + 1
+            result["media_url"] = f"/api/assets/{asset_id}/proxy"
+            accepted.append(result)
+        if len(accepted) >= limit:
+            break
+    return accepted

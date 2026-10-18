@@ -1,9 +1,9 @@
 """Run human-judged visual retrieval evaluation against an isolated Storyroom DB.
 
 The dataset JSON contains query labels, not filenames used by the model. The
-runner refuses the normal project data directory. Missing Gemini text vectors
-are cache-only by default; --allow-free-gemini is explicit and works only when
-the app is configured for the unpaid tier and its terms acknowledgement.
+runner refuses the normal project data directory. Missing query vectors and
+video verdicts are cache-only by default; --allow-free-gemini explicitly
+permits unpaid-tier calls for both on the isolated data directory.
 """
 
 from __future__ import annotations
@@ -228,7 +228,7 @@ def parse_args():
     parser.add_argument(
         "--allow-free-gemini",
         action="store_true",
-        help="Allow missing cached query vectors to be embedded on Gemini's unpaid tier",
+        help="Allow missing query vectors and video verdicts on Gemini's unpaid tier",
     )
     return parser.parse_args()
 
@@ -254,7 +254,7 @@ def main():
     from server import ai, config, db
     from server import search as search_module
     from server.app import app
-    from server.vector_index import ExactVectorIndex
+    from server.vector_index import ExactVectorIndex, filter_visual_candidates
 
     if not config.UNPAID_TERMS_ACKNOWLEDGED:
         raise SystemExit("Set STORYROOM_GEMINI_UNPAID_TERMS_ACKNOWLEDGED=true to use cloud indexing/search.")
@@ -263,6 +263,7 @@ def main():
 
     traces = {}
     original_embedding_provider = ai.embedding_provider
+    original_verify = ai.verify_visual_match
 
     class CacheGuardProvider:
         def __init__(self, provider):
@@ -287,8 +288,24 @@ def main():
             return self.provider.embed_text_query(query, job_id)
 
     ai.embedding_provider = lambda: CacheGuardProvider(original_embedding_provider())
+
+    def guarded_verify(query, proxy, proxy_hash, start, end):
+        key = ai.visual_verifier_cache_key(query, proxy_hash, start, end)
+        if db.cache_get(key) is None and not args.allow_free_gemini:
+            raise RuntimeError(
+                f"Visual verdict is not cached for {query!r} at {start}:{end}; "
+                "refusing a network call."
+            )
+        verdict = original_verify(query, proxy, proxy_hash, start, end)
+        traces.setdefault("current", {}).setdefault("verifier", []).append({
+            "asset_id": proxy.parent.name, "start_frame": start,
+            "end_frame": end, "decision": verdict.decision,
+            "evidence": verdict.visible_evidence,
+        })
+        return verdict
+
+    ai.verify_visual_match = guarded_verify
     original_rank = search_module.rank_distinct_events
-    original_filter = search_module.filter_visual_candidates
 
     class CapturingIndex(ExactVectorIndex):
         def search(self, query_vector, rows, limit=20):
@@ -300,20 +317,18 @@ def main():
             ]
             return scored
 
-    def capture_rank(scored, profiles, limit=5):
-        result = original_rank(scored, profiles, limit)
-        traces.setdefault("current", {})["ranked_events"] = [dict(row) for row in result[:20]]
+    def capture_rank(scored, profiles, limit=5, refine_ranges=True):
+        result = original_rank(scored, profiles, limit, refine_ranges=refine_ranges)
+        if refine_ranges:
+            traces.setdefault("current", {})["ranked_events"] = [dict(row) for row in result[:20]]
+            traces["current"]["embedding_only_baseline"] = filter_visual_candidates(result)
         return result
-
-    def capture_filter(candidates, limit=5):
-        traces.setdefault("current", {})["before_rejection"] = [dict(row) for row in candidates[:20]]
-        return original_filter(candidates, limit)
 
     search_module.ExactVectorIndex = CapturingIndex
     search_module.rank_distinct_events = capture_rank
-    search_module.filter_visual_candidates = capture_filter
 
     outputs = {}
+    baseline_outputs = {}
     with TestClient(app, headers={"X-Storyroom": "local"}) as client:
         for row in dataset["queries"]:
             traces["current"] = {}
@@ -326,9 +341,12 @@ def main():
             returned = response.json()
             outputs[row["id"]] = returned
             row["trace"] = traces.get("current", {})
+            baseline_outputs[row["id"]] = row["trace"].get("embedding_only_baseline", [])
 
     report = evaluate_rows(dataset["queries"], outputs)
+    report["embedding_only_baseline"] = evaluate_rows(dataset["queries"], baseline_outputs)
     report["model"] = config.EMBED_MODEL
+    report["verifier_model"] = config.VISUAL_VERIFIER_MODEL
     report["retrieval"] = "exact cosine over locally stored visual vectors"
     report["gemini_calls_allowed"] = bool(args.allow_free_gemini)
     report["note"] = "Scores are ranking signals, not confidence probabilities."

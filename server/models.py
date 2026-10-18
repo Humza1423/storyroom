@@ -1,5 +1,6 @@
 from typing import Literal
-from pydantic import BaseModel, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Strict(BaseModel):
@@ -81,3 +82,8 @@ class Proposal(Strict):
 class Rerank(Strict):
     candidate_ids: list[str] = Field(max_length=5)
     explanation: str = Field(max_length=1000)
+
+
+class VisualVerdict(Strict):
+    decision: Literal["match", "no_match", "uncertain"]
+    visible_evidence: str = Field(default="", max_length=400)
