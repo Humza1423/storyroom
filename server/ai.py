@@ -2,13 +2,70 @@
 
 import hashlib
 import json
+import logging
 import math
 import os
+import re
 from typing import Protocol
 
 from . import config, db
 from .media import verification_clip
 from .models import VisualVerdict
+
+log = logging.getLogger("storyroom.ai")
+
+
+class VisualProviderError(RuntimeError):
+    """A provider failure with a deliberately limited, safe-to-display summary."""
+
+    def __init__(self, message, status_code=None, provider_status=None):
+        super().__init__(message)
+        self.safe_message = message
+        self.code = status_code
+        self.status_code = status_code
+        self.provider_status = provider_status
+
+
+def _safe_provider_error(exc):
+    """Extract useful provider diagnostics without logging request data/secrets."""
+    status_code = getattr(exc, "code", None)
+    if not isinstance(status_code, int):
+        status_code = getattr(exc, "status_code", None)
+    if not isinstance(status_code, int):
+        status_code = None
+
+    provider_status = getattr(exc, "status", None)
+    if not isinstance(provider_status, str):
+        provider_status = None
+    else:
+        provider_status = re.sub(r"[^A-Za-z0-9_.-]", "", provider_status)[:64]
+
+    # google-genai exposes the response's message separately. Avoid serializing
+    # `details`, the response object, or the complete exception representation.
+    message = getattr(exc, "message", None)
+    if not isinstance(message, str) or not message.strip():
+        message = str(exc)
+    message = " ".join(message.split())
+    message = re.sub(r"AIza[0-9A-Za-z_-]{20,}", "[REDACTED_KEY]", message)
+    message = re.sub(
+        r"(?i)(api[_ -]?key|authorization|bearer)(\s*[:=]\s*|\s+)[^\s,;]+",
+        r"\1\2[REDACTED]",
+        message,
+    )
+    message = re.sub(r"/(?:Users|private|tmp)/[^\s,'\"]+", "[REDACTED_PATH]", message)
+    message = message[:400]
+    if not message:
+        message = "Provider returned no error message."
+
+    parts = ["Gemini video verifier request failed"]
+    if status_code is not None:
+        parts[-1] += f" (HTTP {status_code}"
+        if provider_status:
+            parts[-1] += f", {provider_status}"
+        parts[-1] += ")"
+    elif provider_status:
+        parts[-1] += f" ({provider_status})"
+    return f"{parts[0]}: {message}", status_code, provider_status
 
 
 def estimate(seconds=0, text_chars=0, output_tokens=4096):
@@ -373,7 +430,14 @@ def verify_visual_match(query, proxy, proxy_hash, start_frame, end_frame):
     except Exception as exc:
         # A rejected request (bad schema, quota) cannot have generated tokens;
         # a timeout may have, so retain its reservation instead.
-        code = getattr(exc, "code", getattr(exc, "status_code", None))
+        safe_message, code, provider_status = _safe_provider_error(exc)
+        log.warning(
+            "Visual verifier provider failure model=%s http_status=%s provider_status=%s message=%s",
+            config.VISUAL_VERIFIER_MODEL,
+            code if code is not None else "unknown",
+            provider_status or "unknown",
+            safe_message,
+        )
         if code in (400, 401, 403, 404, 429):
             db.execute(
                 "UPDATE usage SET actual=0,status='rejected' WHERE id=?",
@@ -384,7 +448,7 @@ def verify_visual_match(query, proxy, proxy_hash, start_frame, end_frame):
                 "UPDATE usage SET status='unconfirmed' WHERE id=? AND actual IS NULL",
                 (reservation,),
             )
-        raise
+        raise VisualProviderError(safe_message, code, provider_status) from exc
     finally:
         if api is not None:
             api.close()

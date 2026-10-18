@@ -346,6 +346,52 @@ def test_visual_verifier_uses_clip_and_caches_structured_verdict(client, monkeyp
     ]
 
 
+def test_visual_verifier_exposes_sanitized_provider_failure(client, monkeypatch, clip, caplog):
+    monkeypatch.setattr(config, "visual_ai_ready", lambda: True)
+
+    class FakeProviderFailure(RuntimeError):
+        code = 429
+        status = "RESOURCE_EXHAUSTED"
+        message = (
+            "Quota exceeded for verifier; API key=AIza123456789012345678901234 "
+            "while reading /Users/hamzah/private/proxy.mp4"
+        )
+        def __init__(self):
+            self.details = {"query": "secret query must not be logged"}
+
+    class FailingVideoClient:
+        def __init__(self):
+            self.models = self
+
+        def generate_content(self, **_kwargs):
+            raise FakeProviderFailure()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ai, "embedding_client", FailingVideoClient)
+    with (
+        caplog.at_level("WARNING", logger="storyroom.ai"),
+        pytest.raises(ai.VisualProviderError) as caught,
+    ):
+        ai.verify_visual_match(
+            "secret query must not be logged", clip, "proxy-hash", 0, 24
+        )
+
+    message = str(caught.value)
+    assert "HTTP 429, RESOURCE_EXHAUSTED" in message
+    assert "Quota exceeded for verifier" in message
+    assert "API key=[REDACTED]" in message
+    assert "[REDACTED_PATH]" in message
+    assert caught.value.code == 429
+    assert "secret query must not be logged" not in caplog.text
+    assert "AIza123456789012345678901234" not in caplog.text
+    assert "/Users/hamzah" not in caplog.text
+    assert db.rows("SELECT status,actual FROM usage") == [
+        {"status": "rejected", "actual": 0}
+    ]
+
+
 def test_short_visual_windows_cover_clip_with_one_second_stride():
     assert config.VISUAL_WINDOW_FRAMES == 60
     assert config.VISUAL_STRIDE_FRAMES == 30

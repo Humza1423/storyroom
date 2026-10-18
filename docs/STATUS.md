@@ -2,6 +2,23 @@
 
 Updated: 2026-10-17. Status: local development preview; release gates remain open.
 
+## Safe Gemini verifier diagnostics (2026-10-17)
+
+The video-verifier boundary now preserves Gemini's HTTP status, provider status,
+and short provider error message instead of replacing them with a generic
+failure. The message is sanitized and capped before it is logged or returned to
+the UI; API keys, common credential patterns, and local file paths are redacted.
+Search remains fail-closed: an API error still returns no unverified clips.
+This does not yet preserve earlier verified candidates when a later candidate
+fails; that is a separate behavior change and remains a known issue.
+
+Verification: visual-search focused tests **26 passed**, Ruff passed, and the
+production frontend build passed. Full backend suite: **109 passed, 1 failed**;
+the unrelated `test_failed_child_is_named_and_exits_nonzero` launcher test timed
+out while shutting down its subprocess. No live provider retry has yet been
+performed with the new diagnostics, so the next UI search is needed to capture
+the actual current Gemini error instead of inferring its cause.
+
 ## Cross-category visual-search check (2026-10-17)
 
 An isolated Storyroom project was tested with four separately sourced Commons

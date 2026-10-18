@@ -163,6 +163,12 @@ def search_visual(project_id, query, limit=5, trace=None):
                 )
         except Exception as exc:
             code = getattr(exc, "code", getattr(exc, "status_code", None))
+            safe_detail = getattr(exc, "safe_message", None)
+            if safe_detail:
+                raise ValueError(
+                    f"{safe_detail}. No unverified results were shown; "
+                    "retry later or use manual search."
+                ) from exc
             if code == 429:
                 raise ValueError(
                     "Gemini video verification has no available quota for this API "

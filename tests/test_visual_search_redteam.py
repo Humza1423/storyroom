@@ -378,3 +378,24 @@ def test_uncertain_result_is_hidden_and_verifier_failure_is_explicit(redteam, mo
     with pytest.raises(ValueError, match="verification is unavailable"):
         visual_search.search_visual(project_id, "push-ups")
 
+
+def test_safe_provider_diagnostic_reaches_search_error_without_changing_fail_closed_policy(
+    redteam, monkeypatch
+):
+    project_id = create_project("provider-diagnostic")
+    add_asset(redteam, project_id, "opaque.mp4", [unit_vector(1.0, 0.0)])
+    redteam["provider"].vectors["bag"] = unit_vector(1.0, 0.0)
+
+    def provider_failure(*_args):
+        raise ai.VisualProviderError(
+            "Gemini video verifier request failed (HTTP 429, RESOURCE_EXHAUSTED): "
+            "Quota exceeded. [REDACTED_KEY]",
+            429,
+            "RESOURCE_EXHAUSTED",
+        )
+
+    monkeypatch.setattr(ai, "verify_visual_match", provider_failure)
+    with pytest.raises(ValueError, match="HTTP 429, RESOURCE_EXHAUSTED") as caught:
+        visual_search.search_visual(project_id, "bag")
+    assert "No unverified results were shown" in str(caught.value)
+
