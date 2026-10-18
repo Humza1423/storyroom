@@ -118,19 +118,23 @@ test("visual candidates can be previewed, selected and independently trimmed", a
     const details = await request.get(`/api/projects/${project}`);
     const asset = (await details.json()).assets[0];
     await route.fulfill({
-      json: { results: [
-        {
-          id: "visual-test-candidate",
-          asset_id: asset.id,
-          asset_name: asset.name,
-          start_frame: 6,
-          end_frame: 36,
-          rank: 1,
-          kind: "visual",
-          media_url: `/api/assets/${asset.id}/proxy`,
-        },
-      ], checked_candidates: 1, incomplete: true,
-      warning: "Only one ranked moment was verified to limit cloud requests." },
+      json: {
+        results: [
+          {
+            id: "visual-test-candidate",
+            asset_id: asset.id,
+            asset_name: asset.name,
+            start_frame: 6,
+            end_frame: 36,
+            rank: 1,
+            kind: "visual",
+            media_url: `/api/assets/${asset.id}/proxy`,
+          },
+        ],
+        checked_candidates: 1,
+        incomplete: true,
+        warning: "Only one ranked moment was verified to limit cloud requests.",
+      },
     });
   });
 
@@ -147,7 +151,14 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   await page.getByLabel("Search footage").fill("person doing a jumping jack");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("VISUAL MATCH · #1")).toBeVisible();
-  await expect(page.getByRole("alert")).toContainText("Only one ranked moment was verified");
+  await expect(page.getByRole("alert")).toContainText(
+    "Only one ranked moment was verified",
+  );
+  await page.getByLabel("Search footage").fill("a different action");
+  await expect(page.getByText("VISUAL MATCH · #1")).not.toBeVisible();
+  await page.getByLabel("Search footage").fill("person doing a jumping jack");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("VISUAL MATCH · #1")).toBeVisible();
   await page.getByRole("button", { name: "Preview visual match 1" }).click();
   await expect(page.locator("video")).toBeVisible();
   await expect(

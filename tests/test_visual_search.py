@@ -68,6 +68,13 @@ def enable_visual_ai(monkeypatch):
         ai, "verify_visual_match",
         lambda *_: VisualVerdict(decision="match", visible_evidence="Visible movement"),
     )
+    monkeypatch.setattr(
+        ai, "verify_visual_matches",
+        lambda _query, candidates: (
+            {item[0]: VisualVerdict(decision="match", visible_evidence="Visible movement") for item in candidates},
+            None,
+        ),
+    )
 
 
 def test_visual_index_search_storybin_and_existing_export(client, clip, monkeypatch):
@@ -344,6 +351,73 @@ def test_visual_verifier_uses_clip_and_caches_structured_verdict(client, monkeyp
     assert db.rows("SELECT status,actual FROM usage") == [
         {"status": "settled", "actual": pytest.approx((200 * config.VISUAL_VERIFIER_INPUT_RATE + 15 * config.VISUAL_VERIFIER_OUTPUT_RATE) / 1e6)}
     ]
+
+
+def test_batch_verifier_checks_two_ranges_in_one_request_and_caches(client, monkeypatch, clip):
+    monkeypatch.setattr(config, "visual_ai_ready", lambda: True)
+    monkeypatch.setattr(ai, "verification_clip", lambda *_: b"fake-video")
+
+    class FakeBatchClient:
+        def __init__(self):
+            self.calls = []
+            self.models = self
+
+        def generate_content(self, **kwargs):
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                text='{"verdicts":[{"candidate_id":"c1","decision":"match","visible_evidence":"visible push-up"},{"candidate_id":"c2","decision":"no_match","visible_evidence":""}]}',
+                usage_metadata=SimpleNamespace(
+                    prompt_token_count=400, candidates_token_count=40,
+                    thoughts_token_count=0,
+                ),
+            )
+
+        def close(self):
+            pass
+
+    fake = FakeBatchClient()
+    monkeypatch.setattr(ai, "embedding_client", lambda: fake)
+    candidates = [
+        ("c1", clip, "hash", 0, 24),
+        ("c2", clip, "hash", 24, 48),
+    ]
+    first, error = ai.verify_visual_matches("push-ups", candidates)
+    second, repeated_error = ai.verify_visual_matches("push-ups", candidates)
+    assert error is None and repeated_error is None
+    assert first == second
+    assert first["c1"].decision == "match"
+    assert first["c2"].decision == "no_match"
+    assert len(fake.calls) == 1
+    assert len(fake.calls[0]["contents"]) == 5
+    assert db.rows("SELECT status FROM usage") == [{"status": "settled"}]
+
+
+def test_batch_verifier_rejects_misassigned_ids_without_caching(client, monkeypatch, clip):
+    monkeypatch.setattr(config, "visual_ai_ready", lambda: True)
+    monkeypatch.setattr(ai, "verification_clip", lambda *_: b"fake-video")
+
+    class WrongIdsClient:
+        models = None
+
+        def __init__(self):
+            self.models = self
+
+        def generate_content(self, **_kwargs):
+            return SimpleNamespace(
+                text='{"verdicts":[{"candidate_id":"c1","decision":"match","visible_evidence":"a person moving"},{"candidate_id":"c1","decision":"match","visible_evidence":"another person moving"}]}',
+                usage_metadata=None,
+            )
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ai, "embedding_client", WrongIdsClient)
+    candidates = [("c1", clip, "hash", 0, 24), ("c2", clip, "hash", 24, 48)]
+    verdicts, error = ai.verify_visual_matches("push-ups", candidates)
+    assert verdicts == {}
+    assert isinstance(error, ai.VisualProviderError)
+    assert "invalid candidate verdicts" in str(error)
+    assert db.cache_get(ai.visual_verifier_cache_key("push-ups", "hash", 0, 24)) is None
 
 
 def test_visual_verifier_exposes_sanitized_provider_failure(client, monkeypatch, clip, caplog):

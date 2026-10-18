@@ -1,6 +1,31 @@
 # Project status and release checklist
 
-Updated: 2026-10-17. Status: local development preview; release gates remain open.
+Updated: 2026-10-18. Status: local development preview; release gates remain open.
+
+## Single-request batch verifier checkpoint (2026-10-18)
+
+The first fan-out fix still hit the free project's requests-per-minute limit
+after one confirmed cached puppy result. Visual search now sends up to five
+uncached, individually labeled proxy ranges in **one** Gemini Flash request,
+not five. It rejects missing/duplicate/unknown candidate IDs and malformed
+responses rather than guessing which clip a verdict belongs to. Previously
+cached verdicts survive a failed batch; a fresh failed batch contributes no
+new matches. The browser clears stale results when the query changes, displays
+search progress, and allows two minutes for the synchronous request.
+
+A controlled run on the four-source real-footage project again kept the cached
+puppy 0–114-frame result, but the new single batch request received HTTP 429
+for requests per minute. Thus the code path is verified with fakes and the
+failure behavior is verified live; **fresh multi-video Gemini verdicts and
+search accuracy remain unverified**. The free project's exact available RPM
+and reset state are unknown. Do not call this search production-ready. The next
+gate is one successful live batch, human review of every returned range and
+hard negative, then a labeled cross-footage accuracy run. If live latency
+exceeds the two-minute browser bound, move verification to a persistent job.
+
+Verification: full backend **114 passed**, production build passed, focused
+isolated visual-browser workflow **2 passed**, full isolated browser workflow
+**29 passed**, Ruff and diff checks passed.
 
 ## Bounded visual verification checkpoint (2026-10-17)
 
@@ -33,8 +58,8 @@ and short provider error message instead of replacing them with a generic
 failure. The message is sanitized and capped before it is logged or returned to
 the UI; API keys, common credential patterns, and local file paths are redacted.
 Search remains fail-closed: an API error still returns no unverified clips.
-This does not yet preserve earlier verified candidates when a later candidate
-fails; that is a separate behavior change and remains a known issue.
+At this historical checkpoint, later errors still discarded earlier verified
+candidates; the newer batch-verifier checkpoint above supersedes that limitation.
 
 Verification: visual-search focused tests **26 passed**, Ruff passed, and the
 production frontend build passed. Full backend suite: **109 passed, 1 failed**;

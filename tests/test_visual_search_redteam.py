@@ -82,6 +82,18 @@ def redteam(monkeypatch, tmp_path):
         )
 
     monkeypatch.setattr(ai, "verify_visual_match", fake_verify)
+    def fake_verify_many(query, candidates):
+        verified = {}
+        for candidate_id, proxy, proxy_hash, start, end in candidates:
+            try:
+                verified[candidate_id] = ai.verify_visual_match(
+                    query, proxy, proxy_hash, start, end
+                )
+            except Exception as exc:  # noqa: BLE001 - fake provider boundary
+                return verified, exc
+        return verified, None
+
+    monkeypatch.setattr(ai, "verify_visual_matches", fake_verify_many)
     capture = Capture(raw=[], events=[])
 
     exact_index = visual_search.ExactVectorIndex

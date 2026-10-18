@@ -67,9 +67,10 @@ provider, model, dimensions, proxy hash, and sampling version.
 The live adapter now uses Gemini Embedding 2 to shortlist distinct events and a
 separate video verifier to check visible action before returning a candidate. The
 earlier score-based gate remains as a benchmark baseline. Verifier fan-out is now
-bounded to five candidate requests per search; a late quota error preserves earlier
-confirmed results with an incomplete warning. An alternate unpaid project passed
-one direct verifier call, but full search hit a requests-per-minute limit; live
+bounded to one uncached request containing up to five labeled candidate clips;
+cached confirmed results survive a batch failure with an incomplete warning.
+An alternate unpaid project passed one direct verifier call, but full search
+still hit a requests-per-minute limit with a single batch request; live
 search accuracy remains unmeasured. The next gate is a controlled end-to-end
 search on a project with enough verifier quota, followed by the reviewed comparison in
 [AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md) and STATUS. Preserve

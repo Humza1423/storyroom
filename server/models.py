@@ -87,3 +87,11 @@ class Rerank(Strict):
 class VisualVerdict(Strict):
     decision: Literal["match", "no_match", "uncertain"]
     visible_evidence: str = Field(default="", max_length=400)
+
+
+class VisualBatchItem(VisualVerdict):
+    candidate_id: str = Field(min_length=1, max_length=10)
+
+
+class VisualBatchVerdicts(Strict):
+    verdicts: list[VisualBatchItem] = Field(min_length=1, max_length=5)

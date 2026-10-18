@@ -79,6 +79,7 @@ export default function App() {
   const [query, setQuery] = useState(""),
     [results, setResults] = useState<SearchResult[] | null>(null),
     [searchWarning, setSearchWarning] = useState(""),
+    [visualSearchBusy, setVisualSearchBusy] = useState(false),
     [searchMode, setSearchMode] = useState<
       "keyword" | "description" | "visual"
     >("keyword");
@@ -122,6 +123,7 @@ export default function App() {
   const activePid = useRef(pid);
   activePid.current = pid;
   const boardEpoch = useRef(0);
+  const searchEpoch = useRef(0);
   const [imports] = useState(
     () =>
       new ImportController({
@@ -222,6 +224,7 @@ export default function App() {
     setProject(null);
     setResults(null);
     setSearchWarning("");
+    searchEpoch.current += 1;
     setPreview(null);
     setSelected(null);
     setActiveSection("");
@@ -749,18 +752,43 @@ export default function App() {
                         (!status?.visual_ai_ready || !visualReadyAssets.length)
                       )
                         return;
+                      const requestEpoch = ++searchEpoch.current;
+                      const submittedQuery = query;
+                      const submittedMode = searchMode;
+                      const submittedPid = pid;
                       task(async () => {
                         setSearchWarning("");
-                        if (searchMode === "visual") {
-                          const response = await api<VisualSearchResponse>(
-                            `/projects/${pid}/search`, "POST", { query, mode: searchMode },
-                          );
-                          setResults(response.results);
-                          setSearchWarning(response.warning ?? "");
+                        setResults(null);
+                        if (submittedMode === "visual") {
+                          setVisualSearchBusy(true);
+                          try {
+                            const response = await api<VisualSearchResponse>(
+                              `/projects/${submittedPid}/search`,
+                              "POST",
+                              { query: submittedQuery, mode: submittedMode },
+                              120000,
+                            );
+                            if (
+                              searchEpoch.current === requestEpoch &&
+                              activePid.current === submittedPid
+                            ) {
+                              setResults(response.results);
+                              setSearchWarning(response.warning ?? "");
+                            }
+                          } finally {
+                            setVisualSearchBusy(false);
+                          }
                         } else {
-                          setResults(await api<SearchResult[]>(
-                            `/projects/${pid}/search`, "POST", { query, mode: searchMode },
-                          ));
+                          const found = await api<SearchResult[]>(
+                            `/projects/${submittedPid}/search`,
+                            "POST",
+                            { query: submittedQuery, mode: submittedMode },
+                          );
+                          if (
+                            searchEpoch.current === requestEpoch &&
+                            activePid.current === submittedPid
+                          )
+                            setResults(found);
                         }
                       });
                     }}
@@ -775,11 +803,10 @@ export default function App() {
                       }
                       value={query}
                       onChange={(e) => {
+                        searchEpoch.current += 1;
                         setQuery(e.target.value);
-                        if (!e.target.value) {
-                          setResults(null);
-                          setSearchWarning("");
-                        }
+                        setResults(null);
+                        setSearchWarning("");
                       }}
                     />
                     <button
@@ -805,6 +832,7 @@ export default function App() {
                         aria-label="Search mode"
                         value={searchMode}
                         onChange={(e) => {
+                          searchEpoch.current += 1;
                           setSearchMode(e.target.value as typeof searchMode);
                           setResults(null);
                           setSearchWarning("");
@@ -952,8 +980,15 @@ export default function App() {
                       ”
                     </p>
                   )}
+                  {visualSearchBusy && (
+                    <p className="search-explainer" role="status">
+                      Checking the top visual candidates against the footage…
+                    </p>
+                  )}
                   {searchWarning && (
-                    <p className="search-explainer" role="alert">{searchWarning}</p>
+                    <p className="search-explainer" role="alert">
+                      {searchWarning}
+                    </p>
                   )}
                   {active && (
                     <p className="add-target">

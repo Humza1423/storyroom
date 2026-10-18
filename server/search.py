@@ -139,46 +139,26 @@ def search_visual(project_id, query, limit=5, trace=None, status=None):
                          if candidate not in shortlist)
     shortlist = shortlist[:MAX_VISUAL_VERIFICATIONS]
 
+    hashes = {row["asset_id"]: row["visual_proxy_hash"] for row in rows}
+    specs = [
+        (
+            f"c{index + 1}",
+            config.asset_dir(candidate["asset_id"]) / "proxy.mp4",
+            hashes[candidate["asset_id"]],
+            candidate["start_frame"],
+            candidate["end_frame"],
+        )
+        for index, candidate in enumerate(shortlist)
+    ]
+    verdicts, error = ai.verify_visual_matches(query, specs)
     accepted = []
     checked = 0
-    for candidate in shortlist:
-        asset_id = candidate["asset_id"]
-        proxy = config.asset_dir(asset_id) / "proxy.mp4"
-        proxy_hash = next(row["visual_proxy_hash"] for row in rows
-                          if row["asset_id"] == asset_id)
-        try:
-            verdict = ai.verify_visual_match(
-                query, proxy, proxy_hash,
-                candidate["start_frame"], candidate["end_frame"],
-            )
-        except Exception as exc:
-            code = getattr(exc, "code", getattr(exc, "status_code", None))
-            safe_detail = getattr(exc, "safe_message", None)
-            if accepted and status is not None:
-                status["warning"] = (
-                    "Search stopped before checking every candidate: "
-                    + (safe_detail or "video verification is unavailable")
-                    + ". Only confirmed matches are shown."
-                )
-                status["checked_candidates"] = checked
-                status["incomplete"] = True
-                break
-            if safe_detail:
-                raise ValueError(
-                    f"{safe_detail}. No unverified results were shown; "
-                    "retry later or use manual search."
-                ) from exc
-            if code == 429:
-                raise ValueError(
-                    "Gemini video verification has no available quota for this API "
-                    "project right now. No unverified matches were shown. Check "
-                    "your AI Studio model quota or use manual search."
-                ) from exc
-            raise ValueError(
-                "Visual verification is unavailable. No unverified results were shown; "
-                "retry later or use manual search."
-            ) from exc
+    for spec, candidate in zip(specs, shortlist, strict=True):
+        verdict = verdicts.get(spec[0])
+        if verdict is None:
+            continue
         checked += 1
+        asset_id = candidate["asset_id"]
         matched = verdict.decision == "match" and bool(verdict.visible_evidence.strip())
         if trace is not None:
             trace.append({
@@ -198,6 +178,19 @@ def search_visual(project_id, query, limit=5, trace=None, status=None):
             accepted.append(result)
         if len(accepted) >= limit:
             break
+    if error:
+        safe_detail = getattr(error, "safe_message", None)
+        detail = safe_detail or "Video verification is unavailable"
+        if not accepted or status is None:
+            raise ValueError(
+                f"{detail}. No unverified results were shown; retry later or use manual search."
+            ) from error
+        status["warning"] = (
+            f"Search is incomplete: {detail.rstrip('.')}"
+            ". Only confirmed matches are shown."
+        )
+        status["checked_candidates"] = checked
+        status["incomplete"] = True
     if status is not None and not status.get("incomplete"):
         status["checked_candidates"] = checked
         status["incomplete"] = len(ranked) > checked and len(accepted) < limit
