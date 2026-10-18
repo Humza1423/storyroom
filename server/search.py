@@ -3,11 +3,12 @@ import re
 
 from . import ai, config, db
 from .media import sha256_file
-from .vector_index import (
-    ExactVectorIndex,
-    rank_distinct_events,
-)
+from .vector_index import ExactVectorIndex, rank_distinct_events
 from .visual_index import segment_windows, temporal_profile
+
+# Verification is a paid/rate-limited video request, not a local vector lookup.
+# Search a bounded shortlist; a creator can refine the query to inspect others.
+MAX_VISUAL_VERIFICATIONS = 5
 
 
 def features(query, moment, semantic=0.0):
@@ -57,7 +58,7 @@ def search(project_id, query, semantic=False, limit=50):
     ]
 
 
-def search_visual(project_id, query, limit=5, trace=None):
+def search_visual(project_id, query, limit=5, trace=None, status=None):
     if not query.strip():
         return []
     provider = ai.embedding_provider()
@@ -120,28 +121,27 @@ def search_visual(project_id, query, limit=5, trace=None):
     scored = ExactVectorIndex().search(query_vector, rows, limit=len(rows))
     # Keep raw cosine scores inside the ranking pipeline. The API deliberately
     # does not expose them as confidence values.
-    coarse = rank_distinct_events(scored, profiles, limit=len(rows), refine_ranges=False)
     ranked = rank_distinct_events(scored, profiles, limit=len(rows))
-    paired = list(zip(coarse, ranked, strict=True))
     # First check distinct sources, then fill the bounded shortlist with more
     # occurrences. This lets a true match survive a visually similar source
     # that happens to dominate the cosine ranking.
     shortlist = []
     per_asset = {}
-    for candidate_pair in paired:
-        asset_id = candidate_pair[0]["asset_id"]
+    for candidate in ranked:
+        asset_id = candidate["asset_id"]
         if per_asset.get(asset_id, 0) < 2:
-            shortlist.append(candidate_pair)
+            shortlist.append(candidate)
             per_asset[asset_id] = per_asset.get(asset_id, 0) + 1
-        if len(shortlist) == 10:
+        if len(shortlist) == MAX_VISUAL_VERIFICATIONS:
             break
-    if len(shortlist) < 10:
-        shortlist.extend(candidate_pair for candidate_pair in paired
-                         if candidate_pair not in shortlist)
-    shortlist = shortlist[:10]
+    if len(shortlist) < MAX_VISUAL_VERIFICATIONS:
+        shortlist.extend(candidate for candidate in ranked
+                         if candidate not in shortlist)
+    shortlist = shortlist[:MAX_VISUAL_VERIFICATIONS]
 
     accepted = []
-    for coarse_candidate, candidate in shortlist:
+    checked = 0
+    for candidate in shortlist:
         asset_id = candidate["asset_id"]
         proxy = config.asset_dir(asset_id) / "proxy.mp4"
         proxy_hash = next(row["visual_proxy_hash"] for row in rows
@@ -149,21 +149,20 @@ def search_visual(project_id, query, limit=5, trace=None):
         try:
             verdict = ai.verify_visual_match(
                 query, proxy, proxy_hash,
-                coarse_candidate["start_frame"], coarse_candidate["end_frame"],
+                candidate["start_frame"], candidate["end_frame"],
             )
-            matched = verdict.decision == "match" and bool(verdict.visible_evidence.strip())
-            if matched and (
-                coarse_candidate["start_frame"], coarse_candidate["end_frame"]
-            ) != (candidate["start_frame"], candidate["end_frame"]):
-                # Refinement can select only part of a mixed event. Check the
-                # exact range we will return, not just its broader context.
-                verdict = ai.verify_visual_match(
-                    query, proxy, proxy_hash,
-                    candidate["start_frame"], candidate["end_frame"],
-                )
         except Exception as exc:
             code = getattr(exc, "code", getattr(exc, "status_code", None))
             safe_detail = getattr(exc, "safe_message", None)
+            if accepted and status is not None:
+                status["warning"] = (
+                    "Search stopped before checking every candidate: "
+                    + (safe_detail or "video verification is unavailable")
+                    + ". Only confirmed matches are shown."
+                )
+                status["checked_candidates"] = checked
+                status["incomplete"] = True
+                break
             if safe_detail:
                 raise ValueError(
                     f"{safe_detail}. No unverified results were shown; "
@@ -179,6 +178,7 @@ def search_visual(project_id, query, limit=5, trace=None):
                 "Visual verification is unavailable. No unverified results were shown; "
                 "retry later or use manual search."
             ) from exc
+        checked += 1
         matched = verdict.decision == "match" and bool(verdict.visible_evidence.strip())
         if trace is not None:
             trace.append({
@@ -198,4 +198,12 @@ def search_visual(project_id, query, limit=5, trace=None):
             accepted.append(result)
         if len(accepted) >= limit:
             break
+    if status is not None and not status.get("incomplete"):
+        status["checked_candidates"] = checked
+        status["incomplete"] = len(ranked) > checked and len(accepted) < limit
+        if status["incomplete"]:
+            status["warning"] = (
+                f"Only the first {checked} ranked moments were verified to limit cloud requests. "
+                "Try a more specific search if the moment you want is missing."
+            )
     return accepted

@@ -468,7 +468,9 @@ def find_moments(pid: str, data: SearchInput):
             raise ValueError(
                 "Configure Gemini visual-search access and confirm the selected tier's terms or pricing first."
             )
-        return search_visual(pid, data.query)
+        status = {}
+        results = search_visual(pid, data.query, status=status)
+        return {"results": results, **status}
     return search(pid, data.query, semantic=(mode == "description"))
 
 

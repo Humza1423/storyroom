@@ -2,6 +2,30 @@
 
 Updated: 2026-10-17. Status: local development preview; release gates remain open.
 
+## Bounded visual verification checkpoint (2026-10-17)
+
+A search previously made as many as **20** Gemini Flash verifier requests: ten
+candidate events, each potentially checked twice. That request fan-out caused
+the observed per-minute 429; a late failure discarded earlier verified hits.
+Search now verifies only the exact range it will show, once per candidate, and
+checks at most five ranked candidates. If quota fails after a confirmed hit,
+the confirmed hit remains with an incomplete-search warning; unverified hits
+never appear. A warning also explains when the five-request cap left more
+ranked events unchecked. This reduces worst-case verifier calls from 20 to 5,
+but can miss a true event ranked below five and does not calibrate Gemini's
+semantic judgment or make motion-derived boundaries exact.
+
+Verification: full backend **112 passed**, focused visual tests **28 passed**,
+production build passed, focused isolated visual-browser workflow **2 passed**,
+and full isolated browser workflow **29 passed**. A controlled query on the
+four-source indexed project returned the previously cached, verified puppy
+range 0–114 frames. With the normal shortlist, the next uncached verifier
+request hit a real HTTP 429 requests-per-minute limit; Storyroom kept the puppy
+range and flagged search incomplete. This verifies failure recovery, **not**
+fresh batch verification or search accuracy. Five separate calls are still too
+many for this free project's quota; a single-call batch verifier is the next
+engineering change before a broad live search test.
+
 ## Safe Gemini verifier diagnostics (2026-10-17)
 
 The video-verifier boundary now preserves Gemini's HTTP status, provider status,

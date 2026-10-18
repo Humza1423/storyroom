@@ -399,3 +399,60 @@ def test_safe_provider_diagnostic_reaches_search_error_without_changing_fail_clo
         visual_search.search_visual(project_id, "bag")
     assert "No unverified results were shown" in str(caught.value)
 
+
+def test_late_quota_error_keeps_only_earlier_verified_hit(redteam, monkeypatch):
+    project_id = create_project("partial-verification")
+    first = add_asset(redteam, project_id, "opaque-a.mp4", [unit_vector(1.0, 0.0)])
+    second = add_asset(redteam, project_id, "opaque-b.mp4", [unit_vector(0.9, 0.1)])
+    redteam["provider"].vectors["jumping jacks"] = unit_vector(1.0, 0.0)
+    calls = []
+
+    def verify(_query, proxy, _hash, start, end):
+        calls.append((proxy.parent.name, start, end))
+        if proxy.parent.name == second:
+            raise ai.VisualProviderError("Gemini verifier HTTP 429: rate limit", 429)
+        return VisualVerdict(decision="match", visible_evidence="Visible jumping jacks")
+
+    monkeypatch.setattr(ai, "verify_visual_match", verify)
+    status = {}
+    result = visual_search.search_visual(project_id, "jumping jacks", status=status)
+
+    assert [item["asset_id"] for item in result] == [first]
+    assert calls == [(first, 0, 60), (second, 0, 60)]
+    assert status["checked_candidates"] == 1
+    assert status["incomplete"] is True
+    assert "HTTP 429" in status["warning"]
+
+
+def test_visual_search_verifies_only_final_range_and_caps_calls(redteam, monkeypatch):
+    project_id = create_project("bounded-verification")
+    add_asset(redteam, project_id, "opaque.mp4", [unit_vector(1.0, 0.0)] * 7)
+    redteam["provider"].vectors["squats"] = unit_vector(1.0, 0.0)
+    calls = []
+
+    def verify(_query, _proxy, _hash, start, end):
+        calls.append((start, end))
+        return VisualVerdict(decision="no_match", visible_evidence="")
+
+    monkeypatch.setattr(ai, "verify_visual_match", verify)
+    status = {}
+    assert visual_search.search_visual(project_id, "squats", status=status) == []
+    assert len(calls) == visual_search.MAX_VISUAL_VERIFICATIONS
+    assert status["checked_candidates"] == visual_search.MAX_VISUAL_VERIFICATIONS
+    assert status["incomplete"] is True
+    assert "Only the first 5" in status["warning"]
+
+    original_rank = visual_search.rank_distinct_events
+
+    def narrower(scored, profiles, limit=5, refine_ranges=True):
+        candidates = original_rank(scored, profiles, limit, refine_ranges)
+        if candidates:
+            candidates[0]["start_frame"] = 10
+            candidates[0]["end_frame"] = 45
+        return candidates
+
+    monkeypatch.setattr(visual_search, "rank_distinct_events", narrower)
+    calls.clear()
+    visual_search.search_visual(project_id, "squats", status={})
+    assert calls[0] == (10, 45)
+

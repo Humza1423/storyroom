@@ -107,7 +107,7 @@ def test_visual_index_search_storybin_and_existing_export(client, clip, monkeypa
         json={"query": "someone lifting weights", "mode": "visual"},
     )
     assert result.status_code == 200, result.text
-    candidate = result.json()[0]
+    candidate = result.json()["results"][0]
     assert candidate["kind"] == "visual"
     assert "score" not in candidate  # cosine rank is not a user confidence
     assert candidate["asset_id"] == aid

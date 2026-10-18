@@ -40,6 +40,12 @@ export type VisualCandidate = {
   kind: "visual";
 };
 export type SearchResult = Moment | VisualCandidate;
+export type VisualSearchResponse = {
+  results: VisualCandidate[];
+  checked_candidates?: number;
+  incomplete?: boolean;
+  warning?: string;
+};
 export type VisualIndexEstimate = {
   estimated_usd: number;
   reserved_usd: number;

@@ -66,11 +66,12 @@ provider, model, dimensions, proxy hash, and sampling version.
 
 The live adapter now uses Gemini Embedding 2 to shortlist distinct events and a
 separate video verifier to check visible action before returning a candidate. The
-earlier score-based gate remains as a benchmark baseline. The verifier path has
-passed deterministic and browser tests, but the configured Google API project
-reports **zero GenerateContent quota** for both Flash models tested. Its live
-accuracy is therefore unmeasured. The next gate is access to a project with
-verifier quota, followed by the reviewed 50-video comparison in
+earlier score-based gate remains as a benchmark baseline. Verifier fan-out is now
+bounded to five candidate requests per search; a late quota error preserves earlier
+confirmed results with an incomplete warning. An alternate unpaid project passed
+one direct verifier call, but full search hit a requests-per-minute limit; live
+search accuracy remains unmeasured. The next gate is a controlled end-to-end
+search on a project with enough verifier quota, followed by the reviewed comparison in
 [AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md) and STATUS. Preserve
 the embedding retriever and frame-range selection format. Compare provider
 billing with Storyroom's conservative reservation. Do not use

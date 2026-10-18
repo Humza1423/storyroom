@@ -53,6 +53,7 @@ import type {
   Asset,
   Moment,
   SearchResult,
+  VisualSearchResponse,
   Selection,
   Section,
   Project,
@@ -77,6 +78,7 @@ export default function App() {
     [notice, setNotice] = useState("");
   const [query, setQuery] = useState(""),
     [results, setResults] = useState<SearchResult[] | null>(null),
+    [searchWarning, setSearchWarning] = useState(""),
     [searchMode, setSearchMode] = useState<
       "keyword" | "description" | "visual"
     >("keyword");
@@ -219,6 +221,7 @@ export default function App() {
     let stopped = false;
     setProject(null);
     setResults(null);
+    setSearchWarning("");
     setPreview(null);
     setSelected(null);
     setActiveSection("");
@@ -746,15 +749,20 @@ export default function App() {
                         (!status?.visual_ai_ready || !visualReadyAssets.length)
                       )
                         return;
-                      task(async () =>
-                        setResults(
-                          await api<SearchResult[]>(
-                            `/projects/${pid}/search`,
-                            "POST",
-                            { query, mode: searchMode },
-                          ),
-                        ),
-                      );
+                      task(async () => {
+                        setSearchWarning("");
+                        if (searchMode === "visual") {
+                          const response = await api<VisualSearchResponse>(
+                            `/projects/${pid}/search`, "POST", { query, mode: searchMode },
+                          );
+                          setResults(response.results);
+                          setSearchWarning(response.warning ?? "");
+                        } else {
+                          setResults(await api<SearchResult[]>(
+                            `/projects/${pid}/search`, "POST", { query, mode: searchMode },
+                          ));
+                        }
+                      });
                     }}
                   >
                     <Search size={15} />
@@ -768,7 +776,10 @@ export default function App() {
                       value={query}
                       onChange={(e) => {
                         setQuery(e.target.value);
-                        if (!e.target.value) setResults(null);
+                        if (!e.target.value) {
+                          setResults(null);
+                          setSearchWarning("");
+                        }
                       }}
                     />
                     <button
@@ -796,6 +807,7 @@ export default function App() {
                         onChange={(e) => {
                           setSearchMode(e.target.value as typeof searchMode);
                           setResults(null);
+                          setSearchWarning("");
                         }}
                       >
                         <option value="keyword">Keyword</option>
@@ -940,6 +952,9 @@ export default function App() {
                       ”
                     </p>
                   )}
+                  {searchWarning && (
+                    <p className="search-explainer" role="alert">{searchWarning}</p>
+                  )}
                   {active && (
                     <p className="add-target">
                       Add buttons place moments in:{" "}
@@ -972,7 +987,7 @@ export default function App() {
                       ),
                     )}
                   </div>
-                  {results?.length === 0 && (
+                  {results?.length === 0 && !searchWarning && (
                     <div className="empty-small">
                       {searchMode === "visual"
                         ? "No confident visual matches. Try a different description or index more footage. Storyroom hides clips it cannot verify."
