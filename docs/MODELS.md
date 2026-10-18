@@ -8,7 +8,8 @@ We have not proven that Gemini is the best model for this application. It is a p
 |---|---|---|
 | Gemini Flash | Short-video observation and brief-driven structured proposals | Initial implementation; live quality unverified |
 | Gemini Embedding 2 | Direct text-to-video-range semantic retrieval | Live Commons exercise pilot finds two distinct jumping-jacks occurrences; later false positives remain |
-| Gemini 3.8 Flash visual verifier | Check shortlisted video ranges against the requested visible action | Adapter and fail-closed search path implemented; current API project has zero generation quota, so live accuracy is unmeasured |
+| Gemini 3.8 Flash visual verifier | Check shortlisted video ranges against the requested visible action | A real single-clip verdict succeeded on the working free project, but a full batch received HTTP 503; its free quota is only 5 requests/minute and 20/day on that project. Live accuracy remains unmeasured. |
+| Gemini 3.5 Flash Lite visual verifier | Higher-quota preview option for the same verification boundary | On the working free project, a four-video search returned two puppy moments and rejected an absent boxing-bag query. This smoke test does not establish comparative accuracy; the local preview explicitly selects this model in ignored `.env`. |
 | SigLIP 2 | Text-to-frame retrieval without going through a caption | Strong next retrieval benchmark; static frames do not establish temporal actions |
 | DINOv3 | Visual features for similarity / duplicate-shot candidates | Defer until repetitive footage is a measured issue |
 | SAM 3.1 | Object segmentation and tracking | Defer; masks do not solve our story-assembly job |

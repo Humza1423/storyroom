@@ -41,7 +41,7 @@ and real-provider AI quality remain release gates. See the
 | Search | Keyword and description-based search remain available; visual search indexes prepared proxies only after an explicit action and cloud-analysis permission |
 | Story workspace | Custom sections, repeated clip placement, drag/reorder controls, frame trimming, notes, and saved revisions |
 | Preview and export | MP4 rendering and cuts-only FCP7 XML imported into Resolve 21.1.1 with tested H.264 footage, including a 4K timeline; broader formats remain unverified |
-| AI assistance | Visual search now checks shortlisted ranges with a video verifier before showing a match. The current Google project has zero verifier quota, so live accuracy and the 100-query evaluation remain open. Manual search and editing work. |
+| AI assistance | Visual search checks shortlisted ranges with a video verifier before showing a match. A local free-tier project/key switch restored live search for a small positive/negative smoke test; broad accuracy and the 100-query evaluation remain open. Manual search and editing work. |
 | Learning to rank | Labeling and grouped evaluation scripts implemented; no trained model is deployed |
 
 ## Run locally

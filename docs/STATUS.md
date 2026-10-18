@@ -2,6 +2,39 @@
 
 Updated: 2026-10-18. Status: local development preview; release gates remain open.
 
+## Gemini 429 diagnosis and local recovery (2026-10-18)
+
+The ignored local `.env` still selected a key from the older **Generative
+Language Client** project. Three tiny requests with that key—Gemini 3.8 Flash,
+3.1 Flash Lite, and 2.5 Flash Lite—all returned HTTP 429 for the same
+GenerateContent requests-per-minute project quota. Waiting for a minute or
+switching models within that project was therefore not a reliable fix. Google
+AI Studio showed a separate free **Blaze project** with nonzero quotas. One
+rights-checked Cavemantraining video request with its existing key succeeded
+on 3.8 Flash. A new, dedicated **Storyroom visual search** key was created in
+that project, stored only in ignored local `.env`, and used by Storyroom's real
+verifier function to confirm a kettlebell swing with visible evidence. No
+billing was enabled and no key was committed.
+
+One complete four-video search with 3.8 Flash then failed with HTTP 503
+`UNAVAILABLE` (high demand), **not 429**. With an explicit local verifier-model
+selection of `gemini-3.5-flash-lite`, the same indexed project returned two
+separate puppy ranges for `puppy playing`: frames 114–162 and 372–467 of the
+puppy clip. The absent query `person punching a boxing bag` returned zero
+results. This is a positive/negative smoke test, not proof of accuracy. The
+working free project's observed limits were 5 RPM / 20 RPD for 3.8 Flash and
+15 RPM / 500 RPD for 3.5 Flash Lite; keys in that project share those limits.
+The outstanding gate is human review of ranges and a broader labeled
+cross-footage evaluation, including comparison of verifier models.
+Verification after the local configuration change: backend **114 passed**,
+production build passed, and isolated browser workflow **29 passed**. The
+live searches used the existing four-video evaluation database; no media or
+credentials were added to Git.
+The initial dedicated key was rotated after AI Studio displayed it during
+setup; that key was revoked. The replacement was copied without printing it,
+stored only in ignored `.env`, and successfully completed a fresh real-video
+verifier request before the local launcher was restarted.
+
 ## Single-request batch verifier checkpoint (2026-10-18)
 
 The first fan-out fix still hit the free project's requests-per-minute limit
