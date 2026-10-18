@@ -15,9 +15,14 @@ fails; that is a separate behavior change and remains a known issue.
 Verification: visual-search focused tests **26 passed**, Ruff passed, and the
 production frontend build passed. Full backend suite: **109 passed, 1 failed**;
 the unrelated `test_failed_child_is_named_and_exits_nonzero` launcher test timed
-out while shutting down its subprocess. No live provider retry has yet been
-performed with the new diagnostics, so the next UI search is needed to capture
-the actual current Gemini error instead of inferring its cause.
+out while shutting down its subprocess. After restarting an isolated Storyroom
+server with the diagnostic change, a real API search reproduced HTTP **429
+`RESOURCE_EXHAUSTED`**. Gemini's message identifies the exhausted quota as
+**Generate Content API requests per minute for a region**. The endpoint now
+returns that sanitized provider detail instead of the old generic error. The
+search still aborts on that later failed candidate and discards any earlier
+verified candidates; reducing verifier request fan-out and preserving verified
+partial results remain the next fixes.
 
 ## Cross-category visual-search check (2026-10-17)
 
