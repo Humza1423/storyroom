@@ -2,6 +2,38 @@
 
 Updated: 2026-10-17. Status: local development preview; release gates remain open.
 
+## Cross-category visual-search check (2026-10-17)
+
+An isolated Storyroom project was tested with four separately sourced Commons
+clips, unlike the earlier exercise-only footage: cooking lunch (640×480), a
+puppy playing (1080×606, ~48 s), a basketball pass (1280×720), and a skateboard
+trick (1920×1080). Local originals, conversions, licenses, hashes, and FFmpeg
+commands are recorded in the ignored `data/evaluation/visual-search/diverse/`
+directory. All four imports/preparation jobs completed. Gemini Embedding 2
+indexed all **55/55** visual segments (161 sampled frames) on the alternate
+unpaid API project; this is distinct from the earlier project's zero-quota
+failure and did not require billing.
+
+The user-visible Visual AI search for `A puppy playing and moving around`
+failed closed: Storyroom showed no unverified matches because Gemini video
+verification was unavailable. A local diagnostic replay using the already
+cached query vector ranked the puppy clip's 0.00–3.80 s and 42.20–47.93 s
+regions first (raw cosine 0.6875 and 0.6778); unrelated skateboard, cooking,
+and basketball candidates followed at 0.5260–0.5475. These are retrieval
+rankings, **not verified search results or accuracy evidence**. A direct live
+verification attempt then returned HTTP 429 for Gemini GenerateContent's
+per-minute request quota. No false match was shown, but no true match could be
+confirmed either. The small pilot therefore validates diverse-media import and
+indexing, not finished semantic search.
+
+Engineering implication: retrieval currently may ask the verifier to check up
+to ten candidates, plus a refined-range recheck, in one query. That can exceed
+a free project's per-minute quota and currently turns the whole search into an
+unavailable error. Before a broader accuracy benchmark, make verification
+quota-aware and provide useful progress/partial verified results without ever
+showing unverified candidates. No code or encoder behavior changed in this
+footage-only check.
+
 ## Visual action verification checkpoint (2026-10-17)
 
 Visual search now uses Gemini Embedding 2 to nominate distinct candidate ranges
