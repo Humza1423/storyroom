@@ -20,19 +20,25 @@ verification was unavailable. A local diagnostic replay using the already
 cached query vector ranked the puppy clip's 0.00–3.80 s and 42.20–47.93 s
 regions first (raw cosine 0.6875 and 0.6778); unrelated skateboard, cooking,
 and basketball candidates followed at 0.5260–0.5475. These are retrieval
-rankings, **not verified search results or accuracy evidence**. A direct live
-verification attempt then returned HTTP 429 for Gemini GenerateContent's
-per-minute request quota. No false match was shown, but no true match could be
-confirmed either. The small pilot therefore validates diverse-media import and
-indexing, not finished semantic search.
+rankings, **not verified search results or accuracy evidence**. The first
+follow-up direct-verifier diagnostic accidentally read the key from the older
+Storyroom server; its 429s were from the wrong API project and are disregarded.
+Using the isolated test server's actual Blaze-project key, Gemini 3.8 Flash
+verified the puppy's 0.00–3.80 s range as a match, with visible evidence that
+the puppy was walking across the room. However, a subsequent full UI search
+still returned “Visual verification is unavailable” and no results. The
+verifier cache confirms one successful verdict; a later candidate request was
+left unconfirmed, but the exact provider error was not retained. Thus the
+verifier can work, while the complete multi-candidate UI search remains
+unproven.
 
-Engineering implication: retrieval currently may ask the verifier to check up
-to ten candidates, plus a refined-range recheck, in one query. That can exceed
-a free project's per-minute quota and currently turns the whole search into an
-unavailable error. Before a broader accuracy benchmark, make verification
-quota-aware and provide useful progress/partial verified results without ever
-showing unverified candidates. No code or encoder behavior changed in this
-footage-only check.
+Engineering implication: retrieval may ask the verifier to check up to ten
+candidates, plus a refined-range recheck, in one query. The current loop fails
+the entire search if a later verifier call errors, so an earlier verified match
+can be discarded. Preserve only individually verified results if a later
+candidate fails, expose useful progress/error detail, and pace requests to the
+configured project's limits before broader accuracy evaluation. No code or
+encoder behavior changed in this footage-only check.
 
 ## Visual action verification checkpoint (2026-10-17)
 
