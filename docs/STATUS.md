@@ -12,7 +12,8 @@ ranks, the five candidates sent for verification, verdicts, request/cache
 counts, and stage/end-to-end timing. Source retrieval, moment overlap, boundary
 error, and rejection are scored separately. A strict 16-video/60-query pilot
 profile was added beside the existing 50-video/100-query study; neither has a
-completed human-reviewed score yet.
+completed human-reviewed score yet. A smaller 16-video/20-query **diagnostic
+smoke** profile now provides a labeled checkpoint, not a held-out score.
 
 Real, rights-checked footage exposed a specific recall failure. In the Commons
 exercise project, `burpees` returned two late ranges on page 0. An early
@@ -48,11 +49,11 @@ previously licensed clips in an isolated 16-video project under ignored
 one-range requests before batching. A direct two-range live comparison returned
 the same separate 768-dimensional vectors as the original single-range calls
 (cosine 1.0 each). No video-embedding model or segment boundaries changed.
-The clips have not yet received a complete human-reviewed temporal answer key;
-the strict 16-video/60-query benchmark therefore has no score. The next
-quality gate is that answer key and a measured query-aware context/boundary
-experiment. Do not broadly widen returned cuts or replace the embedding/index
-version based on the single early-burpee failure.
+The clips have not yet received a complete 60-query temporal answer key;
+the strict pilot therefore has no score. The next quality gate is that answer
+key and a measured query-aware context/boundary experiment. Do not broadly
+widen returned cuts or replace the embedding/index version based on the single
+early-burpee failure.
 
 A separate 12-prompt live smoke run across this isolated project found the
 expected source for seven positive prompts (jumping jacks, burpees, basketball,
@@ -69,14 +70,36 @@ quota errors, does not silently select a paid tier, and never shows unverified
 matches. This retry is covered by deterministic tests, but has not yet
 established a reliable live success rate. No paid calls were made.
 
-Eight additional live prompts widened the smoke check: six absent actions
+Eight additional live prompts widened the first smoke check: six absent actions
 (`dumbbell bicep curls`, `dog swimming`, `cat sleeping`, `chopping vegetables
 with a knife`, `riding a bicycle outdoors`, `playing piano`) all returned no
 match. `Metronome ticking` found clip 14 at 4.0–7.8 and 8.4–11.7 seconds;
 `strawberry growing from a flower` found clip 12 at 3.0–4.4 and 5.4–7.8
-seconds. The bicycle negative took **50.4 seconds**. These 20 total prompts
-do not yet have reviewed per-moment answer keys or a source-held-out split,
-so they are not an accuracy benchmark and do not establish timing quality.
+seconds. Since Storyroom does not analyze audio in this mode, the scored
+metronome query was changed to visible `metronome pendulum swinging`; that
+also found clip 14. The bicycle negative took **50.4 seconds**.
+
+After independently inspecting dense frame contact sheets, the cache-only
+16-video/20-query diagnostic scored **12/12 correct source clips**, but only
+**9/12 correct playable moments** within the reviewed intervals. All **8/8
+hard negatives** returned no match. Top-result precision among returned
+results was **9/12**. The embedding-only pilot gate on the same query set
+returned false matches on **3/8 negatives** and had **8/15** relevant first
+results; verification improved this small set's precision, not localization.
+Sports exposed the weakness: **1/4** sports positives had a correct moment.
+The skateboard cut included too much lead-in, the soccer cut ended before the
+corner kick, and the track-start cut was not in the first five verified
+candidates. Median boundary error was 0.9 seconds over only three matched
+event labels—not a reliable overall timing estimate. Every label in this
+smoke set is development-only; there is **no untouched held-out test set** and
+no production-readiness claim. A cache-only rerun made **zero** new Gemini
+requests and is not a live latency benchmark.
+
+A one-request query-aware localization probe on the inspected sports videos
+returned approximate visible intervals: skateboard ollie **2.0–2.67 s**,
+soccer corner kick **3.33–4.33 s**, and race start **5.0–6.33 s**. The 18-second
+call supports testing broader local context plus query-specific boundaries,
+but three examples do not justify shipping the new cuts automatically.
 
 Verification for the earlier checkpoint: backend **128 passed**; production
 build passed; isolated browser workflow **30 passed**; scoped Ruff and diff
@@ -86,6 +109,15 @@ syntax, and diff checks passed. Repository-wide Ruff
 still reports pre-existing issues outside this change. Exact vector search and
 the five-candidate per-request limit remain; initial-page verifier request
 count is unchanged on a successful first attempt.
+
+The 20-query diagnostic checkpoint ran with **135 backend tests passing**,
+production build passing, and a cache-only evaluation making **zero** Gemini
+requests (20 query-vector cache hits and 100 verifier-verdict cache hits). The
+first isolated browser run passed 28/30 tests; two import/permission tests
+timed out or lost a draft during the long run. Both passed immediately when
+rerun alone, and a second complete isolated run passed **30/30** in 49.8 s.
+This is evidence of a possible intermittent browser-test race, not proof that
+the UI issue is fixed; no application change was made for it in this checkpoint.
 
 ## Gemini 429 diagnosis and local recovery (2026-10-18)
 

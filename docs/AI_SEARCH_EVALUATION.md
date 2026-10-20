@@ -19,12 +19,40 @@ contains only part of the movement.
 `scripts/evaluate_visual_search.py` now hooks the actual batch verifier and
 refuses uncached cloud calls by default. It has strict `--profile pilot`
 (16 videos, 60 reviewed queries: 36 positive, 12 paraphrase, 12 negative)
-and `--profile full` (50 videos, 100 reviewed queries) shapes. Run it only
+and `--profile full` (50 videos, 100 reviewed queries) shapes, plus a smaller
+`--profile smoke` (16 videos, 20 queries: 12 positive, 8 negative) diagnostic.
+Run it only
 against a dedicated ignored evaluation database; `--allow-free-gemini`
 explicitly permits missing unpaid-tier requests. The report separates
 right-source retrieval from right-moment overlap and start/end error, and
 records shortlist, verifier, cache, and latency evidence. An isolated dataset
-and reviewed answer key are still required; neither benchmark has a score.
+and reviewed answer key are still required; neither strict benchmark has a score.
+
+The local smoke answer key is
+`data/evaluation/visual-search/pilot16/answer-key-smoke.json`. Its 20 queries
+are all **development** queries, not a held-out quality estimate. In a
+cache-only run, the verified path found the right source for 12/12 positives,
+but a useful reviewed moment for only 9/12; all 8/8 absent-action prompts
+returned no result. The embedding-only gate on the same set falsely returned
+something for 3/8 absent-action prompts. Sports timing was the clearest leak:
+only 1/4 sports positives yielded a useful moment. Those counts expose what to
+fix; they do not establish general accuracy or live latency. To reproduce
+without spending API quota, run:
+
+```sh
+.venv/bin/python scripts/evaluate_visual_search.py \
+  data/evaluation/visual-search/pilot16/answer-key-smoke.json \
+  --profile smoke \
+  --data-dir data/evaluation/visual-search/pilot16/session
+```
+
+The next quality experiment should compare query-aware localization inside
+bounded neighboring context with the current motion-only cuts, on reviewed
+action boundaries. Keep source identity, frame mapping, and the five-candidate
+verification limit fixed while comparing; do not ship a new cut policy from
+three favorable examples. The local answer key and media are ignored, so a
+fresh checkout must reconstruct the rights-checked dataset before this command
+can run.
 
 The first diverse pilot inputs are locally prepared under ignored
 `data/evaluation/visual-search/diverse-expansion/` with source revisions,

@@ -73,8 +73,12 @@ The alternate unpaid project now supports live searches. Page 0 remains
 unchanged; creators can explicitly inspect further verified candidates without
 automatically increasing every query's cost. The Commons exercise check found
 an early burpee that ranks tenth and is too narrowly cut to show a full
-movement. Thus the next gate is the reviewed 16-video/60-query comparison,
-then a measured query-aware context/boundary experiment—not an ANN migration or
+movement. A smaller reviewed 16-video/20-query development diagnostic now finds
+the correct source for all 12 positives but the correct playable moment for only
+9; sports timing is weakest (1/4). Thus the next implementation experiment is
+bounded query-aware context/boundary localization, measured against those
+labels and live latency before activation. Then complete the source-held-out
+16-video/60-query comparison—not an ANN migration or
 a claim of production accuracy. See [AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md)
 and STATUS. Preserve
 the embedding retriever and frame-range selection format. Compare provider

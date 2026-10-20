@@ -30,6 +30,14 @@ def candidate_matches(candidate, expected, fps=30, min_iou=0.25):
         return False
     actual = (candidate["start_frame"] / fps, candidate["end_frame"] / fps)
     target = (float(expected["start_sec"]), float(expected["end_sec"]))
+    if expected.get("label_type") == "presence":
+        # A brief, correctly localized view of a continuously visible subject
+        # need not cover one quarter of a long static take. The returned range
+        # must still lie predominantly inside the labeled presence interval.
+        overlap = max(0.0, min(actual[1], target[1]) - max(actual[0], target[0]))
+        return (actual[1] > actual[0]
+                and overlap / (actual[1] - actual[0]) >= 0.75
+                and actual[1] - actual[0] <= target[1] - target[0] + 0.5)
     # Midpoint containment is insufficient: a whole-file result can contain a
     # correct action while including many unrelated actions around it.
     return interval_iou(actual, target) >= min_iou
@@ -112,7 +120,7 @@ def evaluate_rows(rows, returned_by_id, fps_by_asset=None, diagnose_stages=True)
             None,
         )
         boundary_error = None
-        if matched_target:
+        if matched_target and matched_target.get("label_type") != "presence":
             matched_hit = next(
                 hit
                 for hit in returned
@@ -223,6 +231,7 @@ def validate_dataset(dataset, profile="full"):
     shapes = {
         "full": (50, 100, 5, 10, {"positive": 50, "paraphrase": 25, "negative": 25}),
         "pilot": (16, 60, 4, 4, {"positive": 36, "paraphrase": 12, "negative": 12}),
+        "smoke": (16, 20, 4, 4, {"positive": 12, "paraphrase": 0, "negative": 8}),
     }
     if profile not in shapes:
         raise ValueError(f"Unknown evaluation profile: {profile}")
@@ -267,6 +276,8 @@ def validate_dataset(dataset, profile="full"):
                 raise ValueError(f"Query {row['id']} references an asset outside the benchmark.")
             if float(target.get("end_sec", 0)) <= float(target.get("start_sec", 0)):
                 raise ValueError(f"Query {row['id']} has an invalid labeled range.")
+            if target.get("label_type", "event") not in {"event", "presence"}:
+                raise ValueError(f"Query {row['id']} has an invalid label type.")
     counts = {kind: sum(row["kind"] == kind for row in queries)
               for kind in ("positive", "paraphrase", "negative")}
     if counts != required_kinds:
@@ -293,8 +304,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("dataset", type=Path, help="Human-reviewed benchmark JSON")
     parser.add_argument(
-        "--profile", choices=("full", "pilot"), default="full",
-        help="Strict 50-video/100-query study or strict 16-video/60-query pilot",
+        "--profile", choices=("full", "pilot", "smoke"), default="full",
+        help="Strict 50/100 study, 16/60 pilot, or 16/20 diagnostic smoke check",
     )
     parser.add_argument(
         "--data-dir",
@@ -325,17 +336,17 @@ def install_instrumentation(ai, search_module, db, config, traces, allow_free_ge
 
     class CacheGuardProvider:
         def __init__(self, provider):
-            self.provider = provider
-            self.provider_name = provider.provider
+            self._provider = provider
+            self.provider = provider.provider
             self.model = provider.model
 
         def __getattr__(self, name):
-            return getattr(self.provider, name)
+            return getattr(self._provider, name)
 
         def embed_text_query(self, query, job_id=None):
             prepared = f"task: search result | query: {query.strip()}"
             cache_key = (
-                f"{self.provider_name}:{self.model}:{config.EMBED_DIMENSIONS}:query:{prepared}"
+                f"{self.provider}:{self.model}:{config.EMBED_DIMENSIONS}:query:{prepared}"
             )
             key = "visual-embedding:" + hashlib.sha256(cache_key.encode()).hexdigest()
             cached = db.cache_get(key)
@@ -348,7 +359,7 @@ def install_instrumentation(ai, search_module, db, config, traces, allow_free_ge
                 raise RuntimeError(f"Query vector is not cached for {query!r}; refusing a network call.")
             started = time.perf_counter()
             try:
-                return self.provider.embed_text_query(query, job_id)
+                return self._provider.embed_text_query(query, job_id)
             finally:
                 trace["query_embedding_ms"] = (time.perf_counter() - started) * 1000
 

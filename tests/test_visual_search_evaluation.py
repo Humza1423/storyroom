@@ -162,6 +162,48 @@ def test_broad_result_is_not_counted_as_correct_event():
     assert result["per_query"][0]["failure_stage"] == "retrieval_miss"
 
 
+def test_presence_label_accepts_short_view_without_fabricating_boundary_accuracy():
+    row = {
+        "id": "q", "category": "animals", "split": "development", "kind": "positive",
+        "relevant": [{"asset_id": "dog", "start_sec": 0, "end_sec": 14,
+                      "label_type": "presence"}],
+    }
+    output = {"q": [{"asset_id": "dog", "start_frame": 90, "end_frame": 150}]}
+    result = evaluation.evaluate_rows([row], output)
+    assert result["positive_top5_recall"] == 1
+    assert result["median_boundary_error_sec"] is None
+    assert result["boundary_label_count"] == 0
+    assert not evaluation.candidate_matches(
+        {"asset_id": "dog", "start_frame": 360, "end_frame": 540},
+        {"asset_id": "dog", "start_sec": 0, "end_sec": 14,
+         "label_type": "presence"},
+    )
+
+
+def test_smoke_profile_has_explicit_16_video_20_query_shape():
+    videos = [
+        {"asset_id": f"a-{category}-{index}", "category": str(category)}
+        for category in range(4) for index in range(4)
+    ]
+    queries = []
+    for kind, count in (("positive", 12), ("negative", 8)):
+        for index in range(count):
+            category = index % 4
+            queries.append({
+                "id": f"{kind}-{index}", "project_id": "isolated",
+                "query": f"query {kind} {index}", "category": str(category),
+                "kind": kind, "split": "development",
+                "relevant": [] if kind == "negative" else [{
+                    "asset_id": f"a-{category}-{index % 4}",
+                    "start_sec": 0, "end_sec": 2,
+                }],
+            })
+    smoke = {"videos": videos, "queries": queries}
+    assert evaluation.validate_dataset(smoke, "smoke") is smoke
+    with pytest.raises(ValueError, match="60 reviewed searches"):
+        evaluation.validate_dataset(smoke, "pilot")
+
+
 def test_actual_normalized_frame_clock_is_used_when_supplied():
     row = {
         "id": "q", "category": "sports", "split": "test", "kind": "positive",
@@ -227,6 +269,8 @@ def test_cache_only_guard_checks_every_candidate_in_production_batch(tmp_path):
     config = SimpleNamespace(EMBED_DIMENSIONS=768)
     traces = {"current": {}}
     evaluation.install_instrumentation(ai, search, db, config, traces, False)
+    assert ai.embedding_provider().provider == "gemini"
+    assert ai.embedding_provider().model == "embedding"
     candidates = [
         ("c1", proxy, "hash", 0, 30),
         ("c2", proxy, "hash", 30, 60),
