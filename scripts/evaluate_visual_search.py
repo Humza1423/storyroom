@@ -14,6 +14,7 @@ import json
 import os
 import statistics
 import sys
+import time
 from pathlib import Path
 
 
@@ -29,18 +30,50 @@ def candidate_matches(candidate, expected, fps=30, min_iou=0.25):
         return False
     actual = (candidate["start_frame"] / fps, candidate["end_frame"] / fps)
     target = (float(expected["start_sec"]), float(expected["end_sec"]))
-    return interval_iou(actual, target) >= min_iou or (
-        actual[0] <= (target[0] + target[1]) / 2 <= actual[1]
-    )
+    # Midpoint containment is insufficient: a whole-file result can contain a
+    # correct action while including many unrelated actions around it.
+    return interval_iou(actual, target) >= min_iou
 
 
-def evaluate_rows(rows, returned_by_id):
-    """Summarize top-5 relevance, top-1 precision, negatives, and boundaries."""
+def classify_miss(row, returned, trace, fps_by_asset):
+    """Locate the earliest stage at which a labeled positive was lost."""
+    expected = row.get("relevant", [])
+    if row.get("kind") == "negative":
+        return "false_positive" if returned else "correct_rejection"
+    if any(
+        candidate_matches(hit, target, fps_by_asset.get(hit.get("asset_id"), 30))
+        for hit in returned for target in expected
+    ):
+        return "success"
+    ranked = trace.get("ranked_events", [])
+    shortlist = trace.get("shortlist", [])
+    if not any(hit.get("asset_id") == target["asset_id"]
+               for hit in ranked for target in expected):
+        return "retrieval_miss"
+    if not any(candidate_matches(hit, target, fps_by_asset.get(hit.get("asset_id"), 30))
+               for hit in ranked for target in expected):
+        return "temporal_candidate_miss"
+    if not any(candidate_matches(hit, target, fps_by_asset.get(hit.get("asset_id"), 30))
+               for hit in shortlist for target in expected):
+        return "shortlist_miss"
+    if trace.get("verifier_error"):
+        return "verifier_error"
+    if not any(hit.get("accepted") and candidate_matches(
+        hit, target, fps_by_asset.get(hit.get("asset_id"), 30)
+    ) for hit in trace.get("verifier", []) for target in expected):
+        return "verifier_rejection"
+    return "boundary_miss"
+
+
+def evaluate_rows(rows, returned_by_id, fps_by_asset=None, diagnose_stages=True):
+    """Score source retrieval, event localization, negatives, and boundaries separately."""
+    fps_by_asset = fps_by_asset or {}
     outcomes = []
     boundary_errors = []
     for row in rows:
         returned = returned_by_id[row["id"]]
         expected = row.get("relevant", [])
+        trace = row.get("trace", {})
         if row.get("kind") == "negative":
             outcomes.append(
                 {
@@ -52,13 +85,20 @@ def evaluate_rows(rows, returned_by_id):
                     "top1_relevant": False,
                     "returned_any": bool(returned),
                     "boundary_error_sec": None,
+                    "asset_top5_hit": False,
+                    "failure_stage": classify_miss(row, returned, trace, fps_by_asset)
+                    if diagnose_stages else "not_applicable",
+                    "latency_ms": trace.get("latency_ms"),
                 }
             )
             continue
         matches = [
-            any(candidate_matches(hit, target) for target in expected)
+            any(candidate_matches(hit, target, fps_by_asset.get(hit["asset_id"], 30))
+                for target in expected)
             for hit in returned
         ]
+        asset_top5 = any(hit.get("asset_id") == target["asset_id"]
+                         for hit in returned for target in expected)
         top5 = any(matches)
         top1 = bool(matches and matches[0])
         matched_target = next(
@@ -67,7 +107,7 @@ def evaluate_rows(rows, returned_by_id):
                 for hit, is_match in zip(returned, matches)
                 if is_match
                 for target in expected
-                if candidate_matches(hit, target)
+                if candidate_matches(hit, target, fps_by_asset.get(hit["asset_id"], 30))
             ),
             None,
         )
@@ -76,13 +116,15 @@ def evaluate_rows(rows, returned_by_id):
             matched_hit = next(
                 hit
                 for hit in returned
-                if candidate_matches(hit, matched_target)
+                if candidate_matches(hit, matched_target,
+                                     fps_by_asset.get(hit["asset_id"], 30))
             )
+            fps = fps_by_asset.get(matched_hit["asset_id"], 30)
             start_error = abs(
-                matched_hit["start_frame"] / 30 - float(matched_target["start_sec"])
+                matched_hit["start_frame"] / fps - float(matched_target["start_sec"])
             )
             end_error = abs(
-                matched_hit["end_frame"] / 30 - float(matched_target["end_sec"])
+                matched_hit["end_frame"] / fps - float(matched_target["end_sec"])
             )
             boundary_error = max(start_error, end_error)
             boundary_errors.append(boundary_error)
@@ -96,6 +138,10 @@ def evaluate_rows(rows, returned_by_id):
                 "top1_relevant": top1,
                 "returned_any": bool(returned),
                 "boundary_error_sec": boundary_error,
+                "asset_top5_hit": asset_top5,
+                "failure_stage": classify_miss(row, returned, trace, fps_by_asset)
+                if diagnose_stages else "not_applicable",
+                "latency_ms": trace.get("latency_ms"),
             }
         )
 
@@ -108,6 +154,7 @@ def evaluate_rows(rows, returned_by_id):
         returned_queries = [row for row in group if row["returned_any"]]
         return {
             "queries": len(group),
+            "positive_asset_top5_recall": rate(positives, lambda item: item["asset_top5_hit"]),
             "positive_top5_recall": rate(positives, lambda item: item["top5_hit"]),
             "positive_top1_accuracy": rate(positives, lambda item: item["top1_relevant"]),
             "top1_precision_on_returned": rate(
@@ -127,6 +174,10 @@ def evaluate_rows(rows, returned_by_id):
     }
     return {
         "query_count": len(outcomes),
+        "positive_asset_top5_recall": rate(
+            [item for item in outcomes if item["kind"] != "negative"],
+            lambda item: item["asset_top5_hit"],
+        ),
         "positive_top5_recall": rate(
             [item for item in outcomes if item["kind"] != "negative"],
             lambda item: item["top5_hit"],
@@ -147,33 +198,55 @@ def evaluate_rows(rows, returned_by_id):
             statistics.median(boundary_errors) if boundary_errors else None
         ),
         "boundary_label_count": len(boundary_errors),
+        "failure_stage_counts": {
+            stage: sum(item["failure_stage"] == stage for item in outcomes)
+            for stage in sorted({item["failure_stage"] for item in outcomes})
+        },
+        "latency_ms": {
+            "p50": statistics.median(samples) if (samples := [
+                item["latency_ms"] for item in outcomes if item["latency_ms"] is not None
+            ]) else None,
+            "p95": sorted(samples)[min(len(samples) - 1, int(len(samples) * 0.95))]
+            if samples else None,
+        },
         "by_category": by_category,
         "by_split": by_split,
         "per_query": outcomes,
     }
 
 
-def validate_dataset(dataset):
+def validate_dataset(dataset, profile="full"):
     videos = dataset.get("videos")
     queries = dataset.get("queries")
     if not isinstance(videos, list) or not isinstance(queries, list):
         raise TypeError("Dataset must contain 'videos' and 'queries' arrays.")
-    if len(videos) < 50:
-        raise ValueError(f"Need at least 50 videos; found {len(videos)}.")
-    if len(queries) != 100:
-        raise ValueError(f"Expected exactly 100 reviewed searches; found {len(queries)}.")
+    shapes = {
+        "full": (50, 100, 5, 10, {"positive": 50, "paraphrase": 25, "negative": 25}),
+        "pilot": (16, 60, 4, 4, {"positive": 36, "paraphrase": 12, "negative": 12}),
+    }
+    if profile not in shapes:
+        raise ValueError(f"Unknown evaluation profile: {profile}")
+    video_count, query_count, category_count, per_category, required_kinds = shapes[profile]
+    if len(videos) != video_count:
+        raise ValueError(f"Expected exactly {video_count} videos; found {len(videos)}.")
+    if len(queries) != query_count:
+        raise ValueError(f"Expected exactly {query_count} reviewed searches; found {len(queries)}.")
     categories = {video.get("category") for video in videos}
-    if len(categories) < 5:
-        raise ValueError("Videos must cover at least five footage categories.")
+    if len(categories) != category_count:
+        raise ValueError(f"Videos must cover exactly {category_count} footage categories.")
     category_counts = {
         category: sum(video.get("category") == category for video in videos)
         for category in categories
     }
-    if any(count < 10 for count in category_counts.values()) or len(videos) != 50:
-        raise ValueError("Use exactly 50 videos with 10 videos in each of five categories.")
+    if any(count != per_category for count in category_counts.values()):
+        raise ValueError(f"Use {per_category} videos in each footage category.")
     video_ids = [video.get("asset_id") for video in videos]
     if len(set(video_ids)) != len(video_ids) or None in video_ids:
         raise ValueError("Each video needs a unique indexed asset_id.")
+    for video in videos:
+        fps = float(video.get("normalized_fps", 30))
+        if fps <= 0 or fps > 240:
+            raise ValueError(f"Invalid normalized frame rate for {video['asset_id']}.")
     query_ids = [row.get("id") for row in queries]
     if len(set(query_ids)) != len(query_ids) or None in query_ids:
         raise ValueError("Each query must have a unique non-empty id.")
@@ -196,8 +269,8 @@ def validate_dataset(dataset):
                 raise ValueError(f"Query {row['id']} has an invalid labeled range.")
     counts = {kind: sum(row["kind"] == kind for row in queries)
               for kind in ("positive", "paraphrase", "negative")}
-    if counts != {"positive": 50, "paraphrase": 25, "negative": 25}:
-        raise ValueError(f"Expected 50 positives, 25 paraphrases, 25 negatives; got {counts}.")
+    if counts != required_kinds:
+        raise ValueError(f"Expected {required_kinds}; got {counts}.")
     return dataset
 
 
@@ -220,6 +293,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("dataset", type=Path, help="Human-reviewed benchmark JSON")
     parser.add_argument(
+        "--profile", choices=("full", "pilot"), default="full",
+        help="Strict 50-video/100-query study or strict 16-video/60-query pilot",
+    )
+    parser.add_argument(
         "--data-dir",
         type=Path,
         required=True,
@@ -233,37 +310,18 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    args = parse_args()
-    repo = Path(__file__).resolve().parents[1]
-    try:
-        data_dir = validate_isolated_data_dir(args.data_dir, repo)
-    except ValueError as error:
-        raise SystemExit(str(error)) from error
-    try:
-        dataset = validate_dataset(json.loads(args.dataset.read_text()))
-    except (OSError, json.JSONDecodeError, ValueError) as error:
-        raise SystemExit(f"Invalid benchmark: {error}") from error
+def install_instrumentation(ai, search_module, db, config, traces, allow_free_gemini):
+    """Observe production's *batched* verifier without changing search decisions.
 
-    os.environ["STORYROOM_DATA"] = str(data_dir)
-    # This runner never enables paid-tier requests or paid fallback.
-    os.environ["STORYROOM_GEMINI_TIER"] = "unpaid"
-    sys.path.insert(0, str(repo))
-    from fastapi.testclient import TestClient
-
-    from server import ai, config, db
-    from server import search as search_module
-    from server.app import app
+    Cache checks happen before either provider boundary. A cache-only evaluation
+    therefore cannot accidentally issue a request when just one verdict in a
+    five-candidate batch is missing.
+    """
     from server.vector_index import ExactVectorIndex, filter_visual_candidates
 
-    if not config.UNPAID_TERMS_ACKNOWLEDGED:
-        raise SystemExit("Set STORYROOM_GEMINI_UNPAID_TERMS_ACKNOWLEDGED=true to use cloud indexing/search.")
-    if config.VISUAL_TIER != "unpaid":
-        raise SystemExit("Refusing: visual model is not configured for the unpaid tier.")
-
-    traces = {}
     original_embedding_provider = ai.embedding_provider
-    original_verify = ai.verify_visual_match
+    original_verify_batch = ai.verify_visual_matches
+    original_rank = search_module.rank_distinct_events
 
     class CacheGuardProvider:
         def __init__(self, provider):
@@ -281,36 +339,72 @@ def main():
             )
             key = "visual-embedding:" + hashlib.sha256(cache_key.encode()).hexdigest()
             cached = db.cache_get(key)
+            trace = traces.setdefault("current", {})
+            trace["query_embedding_cache_hits"] = int(cached is not None)
+            trace["query_embedding_request_attempts"] = int(cached is None and allow_free_gemini)
             if cached is not None:
                 return cached
-            if not args.allow_free_gemini:
+            if not allow_free_gemini:
                 raise RuntimeError(f"Query vector is not cached for {query!r}; refusing a network call.")
-            return self.provider.embed_text_query(query, job_id)
+            started = time.perf_counter()
+            try:
+                return self.provider.embed_text_query(query, job_id)
+            finally:
+                trace["query_embedding_ms"] = (time.perf_counter() - started) * 1000
 
-    ai.embedding_provider = lambda: CacheGuardProvider(original_embedding_provider())
-
-    def guarded_verify(query, proxy, proxy_hash, start, end):
-        key = ai.visual_verifier_cache_key(query, proxy_hash, start, end)
-        if db.cache_get(key) is None and not args.allow_free_gemini:
+    def guarded_verify_batch(query, candidates):
+        trace = traces.setdefault("current", {})
+        verifier = []
+        missing = []
+        for candidate_id, proxy, proxy_hash, start, end in candidates:
+            cached = db.cache_get(ai.visual_verifier_cache_key(query, proxy_hash, start, end))
+            item = {
+                "candidate_id": candidate_id,
+                "asset_id": proxy.parent.name,
+                "start_frame": start,
+                "end_frame": end,
+                "cache_hit": cached is not None,
+            }
+            verifier.append(item)
+            if cached is None:
+                missing.append(item)
+        trace["shortlist"] = [
+            {key: item[key] for key in ("candidate_id", "asset_id", "start_frame", "end_frame")}
+            for item in verifier
+        ]
+        trace["verifier_cache_hits"] = len(candidates) - len(missing)
+        trace["verifier_cache_misses"] = len(missing)
+        trace["verifier_batch_invocations"] = 1
+        trace["verifier_request_attempts"] = int(bool(missing) and allow_free_gemini)
+        if missing and not allow_free_gemini:
+            absent = ", ".join(item["candidate_id"] for item in missing)
             raise RuntimeError(
-                f"Visual verdict is not cached for {query!r} at {start}:{end}; "
-                "refusing a network call."
+                f"Visual verdict cache misses for {query!r} ({absent}); refusing a network call."
             )
-        verdict = original_verify(query, proxy, proxy_hash, start, end)
-        traces.setdefault("current", {}).setdefault("verifier", []).append({
-            "asset_id": proxy.parent.name, "start_frame": start,
-            "end_frame": end, "decision": verdict.decision,
-            "evidence": verdict.visible_evidence,
-        })
-        return verdict
-
-    ai.verify_visual_match = guarded_verify
-    original_rank = search_module.rank_distinct_events
+        started = time.perf_counter()
+        try:
+            verdicts, error = original_verify_batch(query, candidates)
+        finally:
+            trace["verifier_ms"] = (time.perf_counter() - started) * 1000
+        trace["verifier_error"] = str(error) if error else None
+        for item in verifier:
+            verdict = verdicts.get(item["candidate_id"])
+            item["decision"] = verdict.decision if verdict else None
+            item["evidence"] = verdict.visible_evidence if verdict else None
+            item["accepted"] = bool(
+                verdict and verdict.decision == "match" and verdict.visible_evidence.strip()
+            )
+        trace["verifier"] = verifier
+        return verdicts, error
 
     class CapturingIndex(ExactVectorIndex):
         def search(self, query_vector, rows, limit=20):
+            started = time.perf_counter()
             scored = super().search(query_vector, rows, limit)
-            traces.setdefault("current", {})["raw_segments"] = [
+            trace = traces.setdefault("current", {})
+            trace["vector_search_ms"] = (time.perf_counter() - started) * 1000
+            trace["indexed_segments"] = len(rows)
+            trace["raw_segments"] = [
                 {"asset_id": row["asset_id"], "start_frame": row["start_frame"],
                  "end_frame": row["end_frame"], "score": score}
                 for score, row in scored[:20]
@@ -318,33 +412,96 @@ def main():
             return scored
 
     def capture_rank(scored, profiles, limit=5, refine_ranges=True):
+        started = time.perf_counter()
         result = original_rank(scored, profiles, limit, refine_ranges=refine_ranges)
+        trace = traces.setdefault("current", {})
         if refine_ranges:
-            traces.setdefault("current", {})["ranked_events"] = [dict(row) for row in result[:20]]
-            traces["current"]["embedding_only_baseline"] = filter_visual_candidates(result)
+            trace["event_rank_ms"] = (time.perf_counter() - started) * 1000
+            trace["ranked_events"] = [dict(row) for row in result]
+            trace["embedding_only_baseline"] = filter_visual_candidates(result)
         return result
 
+    ai.embedding_provider = lambda: CacheGuardProvider(original_embedding_provider())
+    ai.verify_visual_matches = guarded_verify_batch
     search_module.ExactVectorIndex = CapturingIndex
     search_module.rank_distinct_events = capture_rank
+
+
+def main():
+    args = parse_args()
+    repo = Path(__file__).resolve().parents[1]
+    try:
+        data_dir = validate_isolated_data_dir(args.data_dir, repo)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    try:
+        dataset = validate_dataset(json.loads(args.dataset.read_text()), args.profile)
+    except (OSError, json.JSONDecodeError, ValueError) as error:
+        raise SystemExit(f"Invalid benchmark: {error}") from error
+
+    os.environ["STORYROOM_DATA"] = str(data_dir)
+    # This runner never enables paid-tier requests or paid fallback.
+    os.environ["STORYROOM_GEMINI_TIER"] = "unpaid"
+    sys.path.insert(0, str(repo))
+    from fastapi.testclient import TestClient
+
+    from server import ai, config, db
+    from server import search as search_module
+    from server.app import app
+    if not config.UNPAID_TERMS_ACKNOWLEDGED:
+        raise SystemExit("Set STORYROOM_GEMINI_UNPAID_TERMS_ACKNOWLEDGED=true to use cloud indexing/search.")
+    if config.VISUAL_TIER != "unpaid":
+        raise SystemExit("Refusing: visual model is not configured for the unpaid tier.")
+
+    traces = {}
+    install_instrumentation(
+        ai, search_module, db, config, traces, args.allow_free_gemini
+    )
 
     outputs = {}
     baseline_outputs = {}
     with TestClient(app, headers={"X-Storyroom": "local"}) as client:
         for row in dataset["queries"]:
             traces["current"] = {}
+            started = time.perf_counter()
             response = client.post(
                 f"/api/projects/{row['project_id']}/search",
                 json={"query": row["query"], "mode": "visual"},
             )
             if response.status_code != 200:
                 raise SystemExit(f"Query {row['id']} failed ({response.status_code}): {response.text}")
-            returned = response.json()
+            traces["current"]["latency_ms"] = (time.perf_counter() - started) * 1000
+            payload = response.json()
+            returned = payload["results"]
             outputs[row["id"]] = returned
             row["trace"] = traces.get("current", {})
+            row["trace"]["response_status"] = {
+                key: value for key, value in payload.items() if key != "results"
+            }
             baseline_outputs[row["id"]] = row["trace"].get("embedding_only_baseline", [])
 
-    report = evaluate_rows(dataset["queries"], outputs)
-    report["embedding_only_baseline"] = evaluate_rows(dataset["queries"], baseline_outputs)
+    fps_by_asset = {
+        video["asset_id"]: float(video.get("normalized_fps", config.FPS))
+        for video in dataset["videos"]
+    }
+    report = evaluate_rows(dataset["queries"], outputs, fps_by_asset)
+    report["embedding_only_baseline"] = evaluate_rows(
+        dataset["queries"], baseline_outputs, fps_by_asset, diagnose_stages=False
+    )
+    report["profile"] = args.profile
+    report["queries"] = [
+        {"id": row["id"], "query": row["query"], "returned": outputs[row["id"]],
+         "trace": row["trace"]}
+        for row in dataset["queries"]
+    ]
+    report["request_totals"] = {
+        key: sum(row["trace"].get(key, 0) for row in dataset["queries"])
+        for key in (
+            "query_embedding_cache_hits", "query_embedding_request_attempts",
+            "verifier_cache_hits", "verifier_cache_misses", "verifier_batch_invocations",
+            "verifier_request_attempts",
+        )
+    }
     report["model"] = config.EMBED_MODEL
     report["verifier_model"] = config.VISUAL_VERIFIER_MODEL
     report["retrieval"] = "exact cosine over locally stored visual vectors"

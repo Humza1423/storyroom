@@ -47,6 +47,7 @@ class SearchInput(Strict):
     query: str = Field(default="", max_length=1000)
     semantic: bool = False
     mode: Literal["keyword", "description", "visual"] | None = None
+    page: int = Field(default=0, ge=0, le=7, strict=True)
 
 
 class FeedbackInput(Strict):

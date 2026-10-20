@@ -42,6 +42,8 @@ export type VisualCandidate = {
 export type SearchResult = Moment | VisualCandidate;
 export type VisualSearchResponse = {
   results: VisualCandidate[];
+  page: number;
+  has_more: boolean;
   checked_candidates?: number;
   incomplete?: boolean;
   warning?: string;

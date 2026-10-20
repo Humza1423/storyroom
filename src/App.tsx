@@ -80,6 +80,10 @@ export default function App() {
     [results, setResults] = useState<SearchResult[] | null>(null),
     [searchWarning, setSearchWarning] = useState(""),
     [visualSearchBusy, setVisualSearchBusy] = useState(false),
+    [visualPage, setVisualPage] = useState<number | null>(null),
+    [visualHasMore, setVisualHasMore] = useState(false),
+    [visualPagingBusy, setVisualPagingBusy] = useState(false),
+    [visualPagingError, setVisualPagingError] = useState(""),
     [searchMode, setSearchMode] = useState<
       "keyword" | "description" | "visual"
     >("keyword");
@@ -172,13 +176,16 @@ export default function App() {
       if (activePid.current === pid) setProject(p);
     }
   }
-  async function task(fn: () => Promise<void>) {
+  async function task(
+    fn: () => Promise<void>,
+    stillRelevant: () => boolean = () => true,
+  ) {
     setBusy(true);
     setError("");
     try {
       await fn();
     } catch (e) {
-      setError((e as Error).message);
+      if (stillRelevant()) setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -225,6 +232,11 @@ export default function App() {
     setResults(null);
     setSearchWarning("");
     searchEpoch.current += 1;
+    setVisualPage(null);
+    setVisualHasMore(false);
+    setVisualSearchBusy(false);
+    setVisualPagingBusy(false);
+    setVisualPagingError("");
     setPreview(null);
     setSelected(null);
     setActiveSection("");
@@ -283,6 +295,72 @@ export default function App() {
       : !clips.length
         ? "Preview a moment and add it to the selected Storybin."
         : "Play your assembly, adjust cuts, then render or export.";
+  async function checkMoreVisualMoments() {
+    if (
+      searchMode !== "visual" ||
+      visualPage === null ||
+      visualPage >= 7 ||
+      !visualHasMore ||
+      visualPagingBusy ||
+      visualSearchBusy
+    )
+      return;
+    const requestEpoch = searchEpoch.current;
+    const submittedPid = pid;
+    const nextPage = visualPage + 1;
+    const submittedQuery = query;
+    setVisualPagingBusy(true);
+    setVisualPagingError("");
+    try {
+      const response = await api<VisualSearchResponse>(
+        `/projects/${submittedPid}/search`,
+        "POST",
+        { query: submittedQuery, mode: "visual", page: nextPage },
+        120000,
+      );
+      if (
+        searchEpoch.current !== requestEpoch ||
+        activePid.current !== submittedPid
+      )
+        return;
+      setResults((current) => {
+        const existing = (current ?? []).filter(
+          (result): result is VisualCandidate =>
+            "kind" in result && result.kind === "visual",
+        );
+        const ids = new Set(existing.map((candidate) => candidate.id));
+        const ranges = new Set(
+          existing.map(
+            (candidate) =>
+              `${candidate.asset_id}:${candidate.start_frame}:${candidate.end_frame}`,
+          ),
+        );
+        const added = response.results.filter((candidate) => {
+          const range = `${candidate.asset_id}:${candidate.start_frame}:${candidate.end_frame}`;
+          if (ids.has(candidate.id) || ranges.has(range)) return false;
+          ids.add(candidate.id);
+          ranges.add(range);
+          return true;
+        });
+        return [...existing, ...added];
+      });
+      setVisualPage(response.page);
+      setVisualHasMore(response.has_more && response.page < 7);
+      setSearchWarning(response.warning ?? "");
+    } catch (error) {
+      if (
+        searchEpoch.current === requestEpoch &&
+        activePid.current === submittedPid
+      )
+        setVisualPagingError((error as Error).message);
+    } finally {
+      if (
+        searchEpoch.current === requestEpoch &&
+        activePid.current === submittedPid
+      )
+        setVisualPagingBusy(false);
+    }
+  }
   function jumpTo(id: string) {
     document
       .getElementById(id)
@@ -756,41 +834,61 @@ export default function App() {
                       const submittedQuery = query;
                       const submittedMode = searchMode;
                       const submittedPid = pid;
-                      task(async () => {
-                        setSearchWarning("");
-                        setResults(null);
-                        if (submittedMode === "visual") {
-                          setVisualSearchBusy(true);
-                          try {
-                            const response = await api<VisualSearchResponse>(
+                      task(
+                        async () => {
+                          setSearchWarning("");
+                          setResults(null);
+                          setVisualPage(null);
+                          setVisualHasMore(false);
+                          setVisualPagingError("");
+                          if (submittedMode === "visual") {
+                            setVisualSearchBusy(true);
+                            try {
+                              const response = await api<VisualSearchResponse>(
+                                `/projects/${submittedPid}/search`,
+                                "POST",
+                                {
+                                  query: submittedQuery,
+                                  mode: submittedMode,
+                                  page: 0,
+                                },
+                                120000,
+                              );
+                              if (
+                                searchEpoch.current === requestEpoch &&
+                                activePid.current === submittedPid
+                              ) {
+                                setResults(response.results);
+                                setSearchWarning(response.warning ?? "");
+                                setVisualPage(response.page);
+                                setVisualHasMore(
+                                  response.has_more && response.page < 7,
+                                );
+                              }
+                            } finally {
+                              if (
+                                searchEpoch.current === requestEpoch &&
+                                activePid.current === submittedPid
+                              )
+                                setVisualSearchBusy(false);
+                            }
+                          } else {
+                            const found = await api<SearchResult[]>(
                               `/projects/${submittedPid}/search`,
                               "POST",
                               { query: submittedQuery, mode: submittedMode },
-                              120000,
                             );
                             if (
                               searchEpoch.current === requestEpoch &&
                               activePid.current === submittedPid
-                            ) {
-                              setResults(response.results);
-                              setSearchWarning(response.warning ?? "");
-                            }
-                          } finally {
-                            setVisualSearchBusy(false);
+                            )
+                              setResults(found);
                           }
-                        } else {
-                          const found = await api<SearchResult[]>(
-                            `/projects/${submittedPid}/search`,
-                            "POST",
-                            { query: submittedQuery, mode: submittedMode },
-                          );
-                          if (
-                            searchEpoch.current === requestEpoch &&
-                            activePid.current === submittedPid
-                          )
-                            setResults(found);
-                        }
-                      });
+                        },
+                        () =>
+                          searchEpoch.current === requestEpoch &&
+                          activePid.current === submittedPid,
+                      );
                     }}
                   >
                     <Search size={15} />
@@ -807,6 +905,11 @@ export default function App() {
                         setQuery(e.target.value);
                         setResults(null);
                         setSearchWarning("");
+                        setVisualPage(null);
+                        setVisualHasMore(false);
+                        setVisualSearchBusy(false);
+                        setVisualPagingBusy(false);
+                        setVisualPagingError("");
                       }}
                     />
                     <button
@@ -836,6 +939,11 @@ export default function App() {
                           setSearchMode(e.target.value as typeof searchMode);
                           setResults(null);
                           setSearchWarning("");
+                          setVisualPage(null);
+                          setVisualHasMore(false);
+                          setVisualSearchBusy(false);
+                          setVisualPagingBusy(false);
+                          setVisualPagingError("");
                         }}
                       >
                         <option value="keyword">Keyword</option>
@@ -985,9 +1093,20 @@ export default function App() {
                       Checking the top visual candidates against the footage…
                     </p>
                   )}
+                  {visualPagingBusy && (
+                    <p className="search-explainer" role="status">
+                      Checking more visual moments…
+                    </p>
+                  )}
                   {searchWarning && (
                     <p className="search-explainer" role="alert">
                       {searchWarning}
+                    </p>
+                  )}
+                  {visualPagingError && (
+                    <p className="search-explainer" role="alert">
+                      Could not check more moments: {visualPagingError}. Your
+                      earlier matches are still available; try again.
                     </p>
                   )}
                   {active && (
@@ -1022,10 +1141,27 @@ export default function App() {
                       ),
                     )}
                   </div>
+                  {searchMode === "visual" &&
+                    results !== null &&
+                    visualHasMore && (
+                      <button
+                        type="button"
+                        className="secondary wide"
+                        onClick={checkMoreVisualMoments}
+                        disabled={visualPagingBusy || visualSearchBusy || busy}
+                        aria-label="Check more moments"
+                      >
+                        {visualPagingBusy
+                          ? "Checking more moments…"
+                          : "Check more moments"}
+                      </button>
+                    )}
                   {results?.length === 0 && !searchWarning && (
                     <div className="empty-small">
                       {searchMode === "visual"
-                        ? "No confident visual matches. Try a different description or index more footage. Storyroom hides clips it cannot verify."
+                        ? visualHasMore
+                          ? "No confirmed matches in the moments checked so far. Check more moments, or try a different description."
+                          : "No confident visual matches. Try a different description or index more footage. Storyroom hides clips it cannot verify."
                         : "No matching moments. Try different words, add a description, or analyze your footage."}
                     </div>
                   )}

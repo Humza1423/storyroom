@@ -6,6 +6,7 @@ import logging
 import math
 import os
 import re
+import time
 from typing import Protocol
 
 from . import config, db
@@ -66,6 +67,22 @@ def _safe_provider_error(exc):
     elif provider_status:
         parts[-1] += f" ({provider_status})"
     return f"{parts[0]}: {message}", status_code, provider_status
+
+
+def _generate_with_unpaid_503_retry(api, **kwargs):
+    """Retry one transient capacity failure; never retry a quota error.
+
+    Successful first attempts incur no wait or extra request. Paid calls and
+    ambiguous timeouts are deliberately not retried automatically.
+    """
+    try:
+        return api.models.generate_content(**kwargs)
+    except Exception as exc:
+        if config.VISUAL_TIER != "unpaid" or getattr(exc, "code", None) != 503:
+            raise
+        log.warning("Gemini video verifier returned HTTP 503; retrying once after 2 seconds")
+        time.sleep(2)
+        return api.models.generate_content(**kwargs)
 
 
 def estimate(seconds=0, text_chars=0, output_tokens=4096):
@@ -314,6 +331,68 @@ class GeminiEmbeddingProvider:
             frame_count * config.VISUAL_VIDEO_FRAME_RATE,
         )
 
+    def embed_video_ranges(self, ranges: list[tuple[bytes, str]], job_id: str):
+        """Embed several independent video ranges in one immediate request.
+
+        Each range is a separate Content object. Passing bare Parts instead
+        would aggregate the videos into one vector and corrupt the index.
+        """
+        if not ranges:
+            return []
+        from google.genai import types
+
+        vectors = [None] * len(ranges)
+        missing = []
+        for index, (content, fingerprint) in enumerate(ranges):
+            cache_key = (
+                f"{self.provider}:{self.model}:{config.EMBED_DIMENSIONS}:"
+                f"{config.VISUAL_INDEX_VERSION}:{fingerprint}"
+            )
+            key = "visual-embedding:" + hashlib.sha256(cache_key.encode()).hexdigest()
+            cached = db.cache_get(key)
+            if cached is not None:
+                vectors[index] = cached
+            else:
+                duration_frames = int(fingerprint.rsplit(":", 1)[-1])
+                frame_count = max(1, math.ceil(duration_frames / config.FPS))
+                missing.append((index, content, key, frame_count))
+        if not missing:
+            return vectors
+
+        api = embedding_client()
+        reservation = None
+        try:
+            reservation = db.reserve(
+                job_id, self.model,
+                sum(item[3] for item in missing) * config.VISUAL_VIDEO_FRAME_RATE,
+            )
+            result = api.models.embed_content(
+                model=self.model,
+                contents=[
+                    types.Content(parts=[types.Part.from_bytes(data=content, mime_type="video/mp4")])
+                    for _, content, _, _ in missing
+                ],
+                config=types.EmbedContentConfig(output_dimensionality=config.EMBED_DIMENSIONS),
+            )
+            embeddings = getattr(result, "embeddings", None) or []
+            if len(embeddings) != len(missing):
+                raise ValueError("Embedding provider returned an unexpected number of video vectors.")
+            validated = [_normalized_vector(item.values) for item in embeddings]
+            for (index, _, key, _), values in zip(missing, validated):
+                vectors[index] = values
+                db.cache_set(key, values)
+            db.execute("UPDATE usage SET status='estimated' WHERE id=?", (reservation,))
+            return vectors
+        except Exception:
+            if reservation:
+                db.execute(
+                    "UPDATE usage SET status='unconfirmed' WHERE id=? AND actual IS NULL",
+                    (reservation,),
+                )
+            raise
+        finally:
+            api.close()
+
     def embed_text_query(self, query: str, job_id: str | None = None):
         if not query.strip():
             raise ValueError("Enter a search phrase first.")
@@ -381,11 +460,15 @@ def verify_visual_match(query, proxy, proxy_hash, start_frame, end_frame):
         input_tokens * config.VISUAL_VERIFIER_INPUT_RATE
         + 768 * config.VISUAL_VERIFIER_OUTPUT_RATE
     ) / 1_000_000
-    reservation = db.reserve(None, config.VISUAL_VERIFIER_MODEL, reserved_cost)
+    reservation = db.reserve(
+        None, config.VISUAL_VERIFIER_MODEL,
+        reserved_cost * (2 if config.VISUAL_TIER == "unpaid" else 1),
+    )
     api = None
     try:
         api = embedding_client()
-        response = api.models.generate_content(
+        response = _generate_with_unpaid_503_retry(
+            api,
             model=config.VISUAL_VERIFIER_MODEL,
             contents=[
                 types.Part(
@@ -512,13 +595,17 @@ def verify_visual_matches(query, candidates):
             input_tokens * config.VISUAL_VERIFIER_INPUT_RATE
             + 2048 * config.VISUAL_VERIFIER_OUTPUT_RATE
         ) / 1_000_000
-        reservation = db.reserve(None, config.VISUAL_VERIFIER_MODEL, reserved_cost)
+        reservation = db.reserve(
+            None, config.VISUAL_VERIFIER_MODEL,
+            reserved_cost * (2 if config.VISUAL_TIER == "unpaid" else 1),
+        )
     except Exception as exc:  # noqa: BLE001 - retain prior cached verdicts on setup failure
         return verdicts, exc
     api = None
     try:
         api = embedding_client()
-        response = api.models.generate_content(
+        response = _generate_with_unpaid_503_retry(
+            api,
             model=config.VISUAL_VERIFIER_MODEL,
             contents=contents,
             config=types.GenerateContentConfig(

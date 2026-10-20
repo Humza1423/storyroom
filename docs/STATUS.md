@@ -1,6 +1,91 @@
 # Project status and release checklist
 
-Updated: 2026-10-18. Status: local development preview; release gates remain open.
+Updated: 2026-10-20. Status: local development preview; release gates remain open.
+
+## Visual-search quality investigation and explicit continuation (2026-10-20)
+
+The evaluation runner now instruments Storyroom's **actual batched verifier**
+rather than the obsolete single-candidate function. Cache-only runs refuse
+uncached requests before calling Google; explicit `--allow-free-gemini` is
+required for unpaid-tier calls. It records raw vector ranks, distinct-event
+ranks, the five candidates sent for verification, verdicts, request/cache
+counts, and stage/end-to-end timing. Source retrieval, moment overlap, boundary
+error, and rejection are scored separately. A strict 16-video/60-query pilot
+profile was added beside the existing 50-video/100-query study; neither has a
+completed human-reviewed score yet.
+
+Real, rights-checked footage exposed a specific recall failure. In the Commons
+exercise project, `burpees` returned two late ranges on page 0. An early
+candidate at frames **96–132** (3.20–4.40 s) existed in the index but ranked
+tenth and was not verified on page 0. Visual search now lets the creator choose
+**Check more moments**: page 0 is unchanged, and each explicit later page checks
+up to five previously unchecked ranked events in one bounded batch. The early
+candidate appears on page 2, not page 1. Its live verifier verdict was
+`no_match` because the short range contained only a partial movement. Testing
+the local **75–165** frame range (2.50–5.50 s) with the same verifier returned
+`match` with visible squat/plank/stand evidence. This isolates a remaining
+**query-specific temporal-context/localization defect**; pagination makes the
+candidate inspectable but does not fix first-page ranking or cut accuracy.
+
+An additional four-source Commons smoke check gave the expected source for
+`puppy playing`, `basketball pass`, `person cooking lunch`, and `skateboard
+trick`; absent `person punching a boxing bag`, `kettlebell swing`, and `dog
+swimming` returned no match. In the exercise project, `person punching a heavy
+bag` also returned no match. The shorter object query `boxing bag` did match
+hanging bags visible behind jumping jacks; the separately labeled
+`Boxing_training.mp4` source actually shows sparring without a bag. These are
+prompt/clip-level observations, **not** a measured accuracy percentage or proof
+of precise boundaries. One uncached page-2 burpee check took 31.7 s; default
+search latency has not been benchmarked on a representative set.
+
+Eight further individually licensed Commons originals and compatible MP4
+copies are locally prepared under ignored
+`data/evaluation/visual-search/diverse-expansion/`, with provenance, hashes,
+actual media properties, and exclusions. They were combined with eight
+previously licensed clips in an isolated 16-video project under ignored
+`data/evaluation/visual-search/pilot16/session/`. All 16 imported and indexed:
+**253 ranges, 67 batched Gemini embedding requests**, versus 253
+one-range requests before batching. A direct two-range live comparison returned
+the same separate 768-dimensional vectors as the original single-range calls
+(cosine 1.0 each). No video-embedding model or segment boundaries changed.
+The clips have not yet received a complete human-reviewed temporal answer key;
+the strict 16-video/60-query benchmark therefore has no score. The next
+quality gate is that answer key and a measured query-aware context/boundary
+experiment. Do not broadly widen returned cuts or replace the embedding/index
+version based on the single early-burpee failure.
+
+A separate 12-prompt live smoke run across this isolated project found the
+expected source for seven positive prompts (jumping jacks, burpees, basketball,
+skateboard, soccer, cat, dishes) and returned no result for absent horse. Four
+other prompts initially hit Gemini **HTTP 503** before a verifier decision, so
+they are service failures, not search misses. Manual retries on the same free
+3.5 Flash-Lite model subsequently found the expected source for dog, track,
+and kettlebell swing and correctly rejected punching a heavy bag. One swing
+search took **63.5 seconds**; latency is a real release blocker. Trying the
+3.1 Flash-Lite verifier helped one prompt but also produced 503 on three
+others, so changing model is not a reliable availability fix. The unpaid
+verifier now makes one bounded retry only after HTTP 503; it never retries
+quota errors, does not silently select a paid tier, and never shows unverified
+matches. This retry is covered by deterministic tests, but has not yet
+established a reliable live success rate. No paid calls were made.
+
+Eight additional live prompts widened the smoke check: six absent actions
+(`dumbbell bicep curls`, `dog swimming`, `cat sleeping`, `chopping vegetables
+with a knife`, `riding a bicycle outdoors`, `playing piano`) all returned no
+match. `Metronome ticking` found clip 14 at 4.0–7.8 and 8.4–11.7 seconds;
+`strawberry growing from a flower` found clip 12 at 3.0–4.4 and 5.4–7.8
+seconds. The bicycle negative took **50.4 seconds**. These 20 total prompts
+do not yet have reviewed per-moment answer keys or a source-held-out split,
+so they are not an accuracy benchmark and do not establish timing quality.
+
+Verification for the earlier checkpoint: backend **128 passed**; production
+build passed; isolated browser workflow **30 passed**; scoped Ruff and diff
+checks passed. After batching/retry tests, backend **133 passed**, production
+build passed, isolated browser workflow **30 passed**, and changed-file Ruff,
+syntax, and diff checks passed. Repository-wide Ruff
+still reports pre-existing issues outside this change. Exact vector search and
+the five-candidate per-request limit remain; initial-page verifier request
+count is unchanged on a successful first attempt.
 
 ## Gemini 429 diagnosis and local recovery (2026-10-18)
 

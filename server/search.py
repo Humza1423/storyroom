@@ -9,6 +9,47 @@ from .visual_index import segment_windows, temporal_profile
 # Verification is a paid/rate-limited video request, not a local vector lookup.
 # Search a bounded shortlist; a creator can refine the query to inspect others.
 MAX_VISUAL_VERIFICATIONS = 5
+MAX_VISUAL_PAGES = 8
+
+
+def _take_visual_shortlist(ranked):
+    """Preserve the existing five-candidate ordering within one page."""
+    shortlist = []
+    per_asset = {}
+    for candidate in ranked:
+        asset_id = candidate["asset_id"]
+        if per_asset.get(asset_id, 0) < 2:
+            shortlist.append(candidate)
+            per_asset[asset_id] = per_asset.get(asset_id, 0) + 1
+        if len(shortlist) == MAX_VISUAL_VERIFICATIONS:
+            break
+    if len(shortlist) < MAX_VISUAL_VERIFICATIONS:
+        shortlist.extend(candidate for candidate in ranked
+                         if candidate not in shortlist)
+    return shortlist[:MAX_VISUAL_VERIFICATIONS]
+
+
+def _visual_candidate_page(ranked, page):
+    """Page *verification candidates*, never unverified results.
+
+    Preserve page zero's existing source cap, then expose remaining events in
+    global relevance order. Reapplying the cap on each page would repeatedly
+    postpone a real repeated action in the strongest source.
+    """
+    if type(page) is not int or not 0 <= page < MAX_VISUAL_PAGES:
+        raise ValueError(f"Visual search page must be between 0 and {MAX_VISUAL_PAGES - 1}.")
+    first_page = _take_visual_shortlist(ranked)
+    first_ids = {candidate["id"] for candidate in first_page}
+    remaining = [candidate for candidate in ranked if candidate["id"] not in first_ids]
+    if page == 0:
+        return first_page, bool(remaining) and MAX_VISUAL_PAGES > 1
+    offset = (page - 1) * MAX_VISUAL_VERIFICATIONS
+    shortlist = remaining[offset:offset + MAX_VISUAL_VERIFICATIONS]
+    if not shortlist:
+        raise ValueError("No more visual search candidates are available on that page.")
+    has_more = (offset + MAX_VISUAL_VERIFICATIONS < len(remaining)
+                and page + 1 < MAX_VISUAL_PAGES)
+    return shortlist, has_more
 
 
 def features(query, moment, semantic=0.0):
@@ -58,8 +99,12 @@ def search(project_id, query, semantic=False, limit=50):
     ]
 
 
-def search_visual(project_id, query, limit=5, trace=None, status=None):
+def search_visual(project_id, query, limit=5, trace=None, status=None, page=0):
+    if type(page) is not int or not 0 <= page < MAX_VISUAL_PAGES:
+        raise ValueError(f"Visual search page must be between 0 and {MAX_VISUAL_PAGES - 1}.")
     if not query.strip():
+        if status is not None:
+            status.update(page=page, has_more=False)
         return []
     provider = ai.embedding_provider()
     rows = db.rows(
@@ -122,22 +167,9 @@ def search_visual(project_id, query, limit=5, trace=None, status=None):
     # Keep raw cosine scores inside the ranking pipeline. The API deliberately
     # does not expose them as confidence values.
     ranked = rank_distinct_events(scored, profiles, limit=len(rows))
-    # First check distinct sources, then fill the bounded shortlist with more
-    # occurrences. This lets a true match survive a visually similar source
-    # that happens to dominate the cosine ranking.
-    shortlist = []
-    per_asset = {}
-    for candidate in ranked:
-        asset_id = candidate["asset_id"]
-        if per_asset.get(asset_id, 0) < 2:
-            shortlist.append(candidate)
-            per_asset[asset_id] = per_asset.get(asset_id, 0) + 1
-        if len(shortlist) == MAX_VISUAL_VERIFICATIONS:
-            break
-    if len(shortlist) < MAX_VISUAL_VERIFICATIONS:
-        shortlist.extend(candidate for candidate in ranked
-                         if candidate not in shortlist)
-    shortlist = shortlist[:MAX_VISUAL_VERIFICATIONS]
+    shortlist, has_more = _visual_candidate_page(ranked, page)
+    if status is not None:
+        status.update(page=page, has_more=has_more)
 
     hashes = {row["asset_id"]: row["visual_proxy_hash"] for row in rows}
     specs = [
@@ -193,10 +225,24 @@ def search_visual(project_id, query, limit=5, trace=None, status=None):
         status["incomplete"] = True
     if status is not None and not status.get("incomplete"):
         status["checked_candidates"] = checked
-        status["incomplete"] = len(ranked) > checked and len(accepted) < limit
+        status["incomplete"] = (
+            (len(ranked) > checked if page == 0 else has_more)
+            and len(accepted) < limit
+        )
         if status["incomplete"]:
             status["warning"] = (
                 f"Only the first {checked} ranked moments were verified to limit cloud requests. "
                 "Try a more specific search if the moment you want is missing."
+                if page == 0 else
+                f"Only {checked} moments on page {page + 1} were verified to limit cloud requests. "
+                "Choose the next page or refine your search if the moment is missing."
             )
+    if (status is not None and page == MAX_VISUAL_PAGES - 1
+            and len(ranked) > MAX_VISUAL_PAGES * MAX_VISUAL_VERIFICATIONS):
+        status["incomplete"] = True
+        status.setdefault(
+            "warning",
+            "Search reached its eight-page safety limit. Refine your description "
+            "to inspect remaining moments; unverified footage was not shown.",
+        )
     return accepted

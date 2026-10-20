@@ -1,8 +1,59 @@
 # Visual-search quality check
 
-Updated: 2026-10-17. This page records a small live engineering pilot, not an accuracy
-claim. The earlier pilot used four licensed, short exercise videos in the local project
-`Visual search QA · Commons actions`. Pexels footage was not indexed.
+Updated: 2026-10-20. This page records engineering observations, **not** a
+representative accuracy claim. The original four-clip exercise pilot and its
+older results below are historical; the current evidence is in STATUS. Pexels
+footage was not indexed.
+
+## Current evaluation path
+
+The live path embeds the text query once, ranks stored proxy-video embeddings
+with exact cosine similarity, groups events, and sends at most five candidate
+ranges to one Gemini video-verification request. Only `match` with visible
+evidence is shown. Page 0 uses the original five-candidate ordering; each
+explicit **Check more moments** page takes the next five unchecked ranked
+events. More pages can cost more provider requests, but do not slow or charge
+the initial search. The model cannot infer a complete action from a cut that
+contains only part of the movement.
+
+`scripts/evaluate_visual_search.py` now hooks the actual batch verifier and
+refuses uncached cloud calls by default. It has strict `--profile pilot`
+(16 videos, 60 reviewed queries: 36 positive, 12 paraphrase, 12 negative)
+and `--profile full` (50 videos, 100 reviewed queries) shapes. Run it only
+against a dedicated ignored evaluation database; `--allow-free-gemini`
+explicitly permits missing unpaid-tier requests. The report separates
+right-source retrieval from right-moment overlap and start/end error, and
+records shortlist, verifier, cache, and latency evidence. An isolated dataset
+and reviewed answer key are still required; neither benchmark has a score.
+
+The first diverse pilot inputs are locally prepared under ignored
+`data/evaluation/visual-search/diverse-expansion/` with source revisions,
+licenses, hashes, conversions, and exclusions. Sixteen clips (these eight plus
+eight previously licensed clips) are imported and indexed in the isolated
+`data/evaluation/visual-search/pilot16/session/` project. The 253 video ranges
+needed 67 batched embedding requests; batching did not change the vectors.
+A 12-prompt smoke run found expected sources on completed requests but suffered
+four initial Gemini HTTP 503 verifier failures. Subsequent free-tier retries
+completed those prompts, including a correct rejection for punching a heavy
+bag; one swing search took 63.5 seconds. This is neither a 60-query score nor
+a reliability guarantee. Do not
+copy source-page titles into search labels or treat them as visual ground truth;
+review the actual frames and mark event boundaries independently. Split by
+source/creator before tuning any policy, and keep an untouched held-out set.
+
+The added Commons source pages are [soccer corner](https://commons.wikimedia.org/wiki/File:2018_FIFA_U-17_Women%27s_World_Cup_-_New_Zealand_vs_Canada_-_22.webm),
+[track start](https://commons.wikimedia.org/wiki/File:VIDEO0036_01.webm),
+[sleeping dog](https://commons.wikimedia.org/wiki/File:REM_-_Rapid_eye_movement_sleep_of_a_dog.webm),
+[cat close-up](https://commons.wikimedia.org/wiki/File:2_year_old_Siamese_Tabby_Cat_1_2016-05-22.webm),
+[strawberry growth](https://commons.wikimedia.org/wiki/File:Strawberry_growth_(Video).webm),
+[metronome](https://commons.wikimedia.org/wiki/File:Metronome.webm),
+[electric bike pump](https://commons.wikimedia.org/wiki/File:Lamicell_electric_air_pump_inflating_a_bicycle_tyre.webm),
+and [washing dishes](https://commons.wikimedia.org/wiki/File:Washing_Dishes.webmhd.webm).
+The ignored local provenance file records authors, revisions, individual
+licenses, original URLs, hashes, and conversions. The existing exercise and
+four-source Commons sets supply the other eight clips. No media is committed.
+
+## Historical observations (superseded where they conflict with STATUS)
 
 ## Current search decision and blocker
 

@@ -68,6 +68,129 @@ def enable_visual_ai(monkeypatch):
         ai, "verify_visual_match",
         lambda *_: VisualVerdict(decision="match", visible_evidence="Visible movement"),
     )
+
+
+def test_gemini_video_batch_keeps_independent_vectors_and_cache(client, monkeypatch):
+    enable_visual_ai(monkeypatch)
+    calls = []
+
+    class FakeModels:
+        def embed_content(self, **kwargs):
+            calls.append(kwargs)
+            assert len(kwargs["contents"]) == 2
+            assert all(len(item.parts) == 1 for item in kwargs["contents"])
+            return SimpleNamespace(embeddings=[
+                SimpleNamespace(values=[1.0] + [0.0] * 767),
+                SimpleNamespace(values=[0.0, 1.0] + [0.0] * 766),
+            ])
+
+    class FakeClient:
+        models = FakeModels()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ai, "embedding_client", FakeClient)
+    provider = ai.GeminiEmbeddingProvider()
+    ranges = [(b"first video", "first:0:30:30"), (b"second video", "second:30:60:30")]
+    first = provider.embed_video_ranges(ranges, None)
+    assert first[0][0] == 1.0 and first[1][1] == 1.0
+    assert len(calls) == 1
+    assert len(db.rows("SELECT * FROM usage")) == 1
+    assert provider.embed_video_ranges(ranges, None) == first
+    assert len(calls) == 1
+
+
+def test_gemini_video_batch_rejects_partial_response_without_caching(client, monkeypatch):
+    enable_visual_ai(monkeypatch)
+
+    class FakeClient:
+        models = SimpleNamespace(embed_content=lambda **_: SimpleNamespace(
+            embeddings=[SimpleNamespace(values=[1.0] + [0.0] * 767)]
+        ))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ai, "embedding_client", FakeClient)
+    ranges = [(b"first", "first:0:30:30"), (b"second", "second:30:60:30")]
+    with pytest.raises(ValueError, match="unexpected number"):
+        ai.GeminiEmbeddingProvider().embed_video_ranges(ranges, None)
+    assert db.rows("SELECT * FROM cache") == []
+    assert db.one("SELECT status FROM usage")["status"] == "unconfirmed"
+
+
+def test_visual_worker_batches_and_resumes_after_failed_batch(client, tmp_path, monkeypatch):
+    long_clip = tmp_path / "batch-source.mp4"
+    subprocess.run(
+        ["ffmpeg", "-nostdin", "-y", "-v", "error", "-f", "lavfi", "-i",
+         "testsrc2=size=320x180:rate=30:duration=8", "-c:v", "libx264",
+         "-threads", "2", "-pix_fmt", "yuv420p", str(long_clip)],
+        check=True,
+    )
+    pid, aid = create_ready(client, long_clip)
+    permit_cloud_analysis(client, aid)
+    enable_visual_ai(monkeypatch)
+
+    class BatchProvider(FakeEmbeddingProvider):
+        def __init__(self):
+            super().__init__()
+            self.batch_sizes = []
+            self.fail_second = True
+
+        def embed_video_ranges(self, ranges, job_id):
+            self.batch_sizes.append(len(ranges))
+            if self.fail_second and len(self.batch_sizes) == 2:
+                raise TimeoutError("simulated batch timeout")
+            return [[1.0] + [0.0] * (config.EMBED_DIMENSIONS - 1) for _ in ranges]
+
+    provider = BatchProvider()
+    monkeypatch.setattr(ai, "embedding_provider", lambda: provider)
+    first_job = client.post(
+        f"/api/projects/{pid}/visual-index", json={"asset_ids": [aid]}
+    ).json()["job_ids"][0]
+    assert once()
+    first = db.one("SELECT status,result FROM jobs WHERE id=?", (first_job,))
+    assert first["status"] == "failed"
+    assert provider.batch_sizes[0] == 4
+    assert json.loads(first["result"])["visual_index"]["completed_segments"] == 4
+    assert db.one("SELECT COUNT(*) AS n FROM visual_segments WHERE asset_id=?", (aid,))["n"] == 4
+
+    provider.fail_second = False
+    retry = client.post(f"/api/jobs/{first_job}/retry").json()["job_id"]
+    assert once()
+    done = db.one("SELECT status,result FROM jobs WHERE id=?", (retry,))
+    assert done["status"] == "done"
+    assert json.loads(done["result"])["indexed_segments"] > 4
+    assert sum(provider.batch_sizes[2:]) == json.loads(done["result"])["indexed_segments"] - 4
+
+
+def test_visual_worker_saves_completed_batch_before_cancellation(client, tmp_path, monkeypatch):
+    source = tmp_path / "cancel-batch.mp4"
+    subprocess.run(
+        ["ffmpeg", "-nostdin", "-y", "-v", "error", "-f", "lavfi", "-i",
+         "testsrc2=size=320x180:rate=30:duration=8", "-c:v", "libx264",
+         "-threads", "2", "-pix_fmt", "yuv420p", str(source)],
+        check=True,
+    )
+    pid, aid = create_ready(client, source)
+    permit_cloud_analysis(client, aid)
+    enable_visual_ai(monkeypatch)
+
+    class CancellingBatchProvider(FakeEmbeddingProvider):
+        def embed_video_ranges(self, ranges, job_id):
+            db.execute("UPDATE jobs SET cancel=1 WHERE id=?", (job_id,))
+            return [[1.0] + [0.0] * (config.EMBED_DIMENSIONS - 1) for _ in ranges]
+
+    monkeypatch.setattr(ai, "embedding_provider", CancellingBatchProvider)
+    job = client.post(
+        f"/api/projects/{pid}/visual-index", json={"asset_ids": [aid]}
+    ).json()["job_ids"][0]
+    assert once()
+    cancelled_job = db.one("SELECT status,result FROM jobs WHERE id=?", (job,))
+    assert cancelled_job["status"] == "cancelled"
+    assert json.loads(cancelled_job["result"])["visual_index"]["completed_segments"] == 4
+    assert db.one("SELECT COUNT(*) AS n FROM visual_segments WHERE asset_id=?", (aid,))["n"] == 4
     monkeypatch.setattr(
         ai, "verify_visual_matches",
         lambda _query, candidates: (
@@ -390,6 +513,50 @@ def test_batch_verifier_checks_two_ranges_in_one_request_and_caches(client, monk
     assert len(fake.calls) == 1
     assert len(fake.calls[0]["contents"]) == 5
     assert db.rows("SELECT status FROM usage") == [{"status": "settled"}]
+
+
+def test_unpaid_batch_verifier_retries_one_503_but_not_429(client, monkeypatch, clip):
+    monkeypatch.setattr(config, "visual_ai_ready", lambda: True)
+    monkeypatch.setattr(config, "VISUAL_TIER", "unpaid")
+    monkeypatch.setattr(ai, "verification_clip", lambda *_: b"fake-video")
+    delays = []
+    monkeypatch.setattr(ai.time, "sleep", delays.append)
+
+    class ProviderError(RuntimeError):
+        def __init__(self, code):
+            self.code = code
+
+    class FlakyClient:
+        def __init__(self, failure_code):
+            self.models = self
+            self.calls = 0
+            self.failure_code = failure_code
+
+        def generate_content(self, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise ProviderError(self.failure_code)
+            return SimpleNamespace(
+                text='{"verdicts":[{"candidate_id":"c1","decision":"match","visible_evidence":"push-up"},{"candidate_id":"c2","decision":"no_match","visible_evidence":""}]}',
+                usage_metadata=None,
+            )
+
+        def close(self):
+            pass
+
+    candidates = [("c1", clip, "hash", 0, 24), ("c2", clip, "hash", 24, 48)]
+    flaky = FlakyClient(503)
+    monkeypatch.setattr(ai, "embedding_client", lambda: flaky)
+    verdicts, error = ai.verify_visual_matches("push-ups", candidates)
+    assert error is None and verdicts["c1"].decision == "match"
+    assert flaky.calls == 2 and delays == [2]
+
+    db.execute("DELETE FROM cache")
+    limited = FlakyClient(429)
+    monkeypatch.setattr(ai, "embedding_client", lambda: limited)
+    verdicts, error = ai.verify_visual_matches("push-ups", candidates)
+    assert verdicts == {} and isinstance(error, ai.VisualProviderError)
+    assert limited.calls == 1 and delays == [2]
 
 
 def test_batch_verifier_rejects_misassigned_ids_without_caching(client, monkeypatch, clip):

@@ -66,14 +66,17 @@ provider, model, dimensions, proxy hash, and sampling version.
 
 The live adapter now uses Gemini Embedding 2 to shortlist distinct events and a
 separate video verifier to check visible action before returning a candidate. The
-earlier score-based gate remains as a benchmark baseline. Verifier fan-out is now
-bounded to one uncached request containing up to five labeled candidate clips;
-cached confirmed results survive a batch failure with an incomplete warning.
-An alternate unpaid project passed one direct verifier call, but full search
-still hit a requests-per-minute limit with a single batch request; live
-search accuracy remains unmeasured. The next gate is a controlled end-to-end
-search on a project with enough verifier quota, followed by the reviewed comparison in
-[AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md) and STATUS. Preserve
+earlier score-based gate remains as a benchmark baseline. Verifier fan-out is
+bounded to one uncached request containing up to five labeled candidate clips
+per explicit search page; cached confirmed results survive a batch failure.
+The alternate unpaid project now supports live searches. Page 0 remains
+unchanged; creators can explicitly inspect further verified candidates without
+automatically increasing every query's cost. The Commons exercise check found
+an early burpee that ranks tenth and is too narrowly cut to show a full
+movement. Thus the next gate is the reviewed 16-video/60-query comparison,
+then a measured query-aware context/boundary experiment—not an ANN migration or
+a claim of production accuracy. See [AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md)
+and STATUS. Preserve
 the embedding retriever and frame-range selection format. Compare provider
 billing with Storyroom's conservative reservation. Do not use
 Pexels for indexing. Google unpaid-service data terms and human review mean the
@@ -103,9 +106,11 @@ are legitimate. Measure whether organizing helps decisions rather than adding wo
 ## 5. Evaluate and prepare an open-source release
 
 The current accuracy investigation supersedes the earlier 20-query / three-set
-pilot target. Prepare 50 opaque-name videos across five fitness actions and 100
-human-reviewed searches (50 positives, 25 paraphrases, 25 hard negatives), with
-participant-level development and held-out test splits. Report top-five recall,
+pilot target. First run a balanced 16-video/60-query pilot across exercise,
+sport, everyday/object, and animal/nature footage, split by source. Then expand
+to the prepared 50 opaque-name exercise videos and 100 human-reviewed searches
+(50 positives, 25 paraphrases, 25 hard negatives) when rights, quota, and review
+capacity allow. Report top-five recall,
 top-one precision, negative-query false positives, and boundary error separately.
 The working pilot targets are 90% for the first three retrieval measures (with
 negative-query false positives at most 5%) and median boundary error at most one

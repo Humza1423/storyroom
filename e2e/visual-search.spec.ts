@@ -192,3 +192,119 @@ test("visual candidates can be previewed, selected and independently trimmed", a
     })
     .toMatchObject({ moment_id: null, start_frame: 12, end_frame: 42 });
 });
+
+test("visual search checks more moments without losing earlier matches", async ({
+  page,
+  request,
+}) => {
+  await page.route("**/api/status", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: {
+        ...(await response.json()),
+        visual_ai_ready: true,
+        embedding_tier: "unpaid",
+        unpaid_terms_acknowledged: true,
+      },
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "New project", exact: true }).click();
+  await page.getByLabel("Project name").fill("Visual pagination " + Date.now());
+  await page.getByRole("button", { name: "Create project" }).click();
+  await page
+    .locator("input[type=file]")
+    .setInputFiles(`${process.env.STORYROOM_FIXTURES}/clip-0.mp4`);
+  await expect(page.locator(".moment-card")).toHaveCount(1, {
+    timeout: 60000,
+  });
+  await page
+    .getByRole("button", { name: /Permissions for clip-0\.mp4/ })
+    .click();
+  await page.getByLabel("source", { exact: true }).fill("Generated fixture");
+  await page.getByLabel("author", { exact: true }).fill("Storyroom tests");
+  await page
+    .getByLabel("license", { exact: true })
+    .fill("Test fixture; no external media");
+  await page
+    .getByLabel("I have permission to send this footage for cloud analysis")
+    .check();
+  await page.getByRole("button", { name: "Save permissions" }).click();
+
+  const projectId = await page.evaluate(() =>
+    localStorage.getItem("storyroom.project"),
+  );
+  const project = await (
+    await request.get(`/api/projects/${projectId}`)
+  ).json();
+  const assetId = project.assets[0].id;
+  let pageOneAttempts = 0;
+  const requestedPages: number[] = [];
+  await page.route("**/api/projects/*/search", async (route) => {
+    const body = route.request().postDataJSON();
+    if (body.mode !== "visual") return route.continue();
+    requestedPages.push(body.page);
+    if (body.page === 1 && pageOneAttempts++ === 0) {
+      await route.fulfill({
+        status: 429,
+        json: { detail: "Verifier quota reached" },
+      });
+      return;
+    }
+    const candidate = (
+      id: string,
+      start: number,
+      end: number,
+      rank: number,
+    ) => ({
+      id,
+      asset_id: assetId,
+      start_frame: start,
+      end_frame: end,
+      rank,
+      kind: "visual",
+    });
+    await route.fulfill({
+      json:
+        body.page === 0
+          ? {
+              page: 0,
+              has_more: true,
+              results: [candidate("first", 0, 30, 1)],
+            }
+          : {
+              page: 1,
+              has_more: false,
+              results: [
+                candidate("first", 0, 30, 1),
+                candidate("second", 30, 60, 2),
+              ],
+            },
+    });
+  });
+
+  await page.getByLabel("Search mode").selectOption("visual");
+  await page.getByLabel("Search footage").fill("jumping jacks");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("VISUAL MATCH · #1")).toBeVisible();
+  const more = page.getByRole("button", { name: "Check more moments" });
+  await expect(more).toBeVisible();
+  await more.click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Could not check more moments: Verifier quota reached",
+  );
+  await expect(page.getByText("VISUAL MATCH · #1")).toBeVisible();
+  await more.click();
+  await expect(page.getByText("VISUAL MATCH · #2")).toBeVisible();
+  await expect(page.locator(".moment-card")).toHaveCount(2);
+  await expect(more).toHaveCount(0);
+  expect(requestedPages).toEqual([0, 1, 1]);
+
+  await page.getByLabel("Search footage").fill("another action");
+  await expect(page.locator(".moment-card")).toHaveCount(0);
+  await expect(more).toHaveCount(0);
+  await page.getByLabel("Search mode").selectOption("keyword");
+  await page.getByLabel("Search mode").selectOption("visual");
+  await expect(more).toHaveCount(0);
+});

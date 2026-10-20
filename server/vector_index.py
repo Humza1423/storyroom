@@ -139,6 +139,36 @@ def rank_distinct_events(scored, profiles, limit=5, refine_ranges=True):
     return candidates
 
 
+def distinct_asset_shortlist(candidates, limit=5, max_per_asset=2):
+    """Experiment: use one slot per source before checking repeated events.
+
+    The caller supplies candidates in relevance order. This changes which
+    candidates are verified, not the input ranking or verifier-call limit.
+    It is opt-in until labeled searches establish whether source coverage
+    helps more than inspecting a second event from the best source.
+    """
+    if limit <= 0 or max_per_asset <= 0:
+        return []
+    shortlist = []
+    selected_ids = set()
+    per_asset = {}
+    for pass_number in range(1, max_per_asset + 1):
+        for candidate in candidates:
+            asset_id = candidate["asset_id"]
+            candidate_id = candidate["id"]
+            if candidate_id in selected_ids:
+                continue
+            count = per_asset.get(asset_id, 0)
+            if count >= pass_number:
+                continue
+            shortlist.append(candidate)
+            selected_ids.add(candidate_id)
+            per_asset[asset_id] = count + 1
+            if len(shortlist) >= limit:
+                return shortlist
+    return shortlist
+
+
 def filter_visual_candidates(candidates, limit=5):
     """Abstain on weak/ambiguous searches and suppress weak cross-clip hits.
 

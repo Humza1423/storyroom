@@ -469,8 +469,10 @@ def find_moments(pid: str, data: SearchInput):
                 "Configure Gemini visual-search access and confirm the selected tier's terms or pricing first."
             )
         status = {}
-        results = search_visual(pid, data.query, status=status)
+        results = search_visual(pid, data.query, page=data.page, status=status)
         return {"results": results, **status}
+    if data.page:
+        raise ValueError("Result pages are available only in Visual AI search.")
     return search(pid, data.query, semantic=(mode == "description"))
 
 
