@@ -99,7 +99,8 @@ def search(project_id, query, semantic=False, limit=50):
     ]
 
 
-def search_visual(project_id, query, limit=5, trace=None, status=None, page=0):
+def search_visual(project_id, query, limit=5, trace=None, status=None, page=0,
+                  experimental_localization=False):
     if type(page) is not int or not 0 <= page < MAX_VISUAL_PAGES:
         raise ValueError(f"Visual search page must be between 0 and {MAX_VISUAL_PAGES - 1}.")
     if not query.strip():
@@ -223,6 +224,54 @@ def search_visual(project_id, query, limit=5, trace=None, status=None, page=0):
         )
         status["checked_candidates"] = checked
         status["incomplete"] = True
+    if experimental_localization and accepted:
+        # An additional, explicit experiment only. A failed localization never
+        # promotes an embedding-only hit: every fallback cut was verified above.
+        asset_frames = {row["asset_id"]: row["frames"] for row in rows}
+        local_specs = [
+            (f"c{index + 1}", config.asset_dir(result["asset_id"]) / "proxy.mp4",
+             hashes[result["asset_id"]], result["start_frame"],
+             result["end_frame"], asset_frames[result["asset_id"]])
+            for index, result in enumerate(accepted)
+        ]
+        localized, localization_error = ai.localize_visual_matches(query, local_specs)
+        if status is not None:
+            status["localization_experiment"] = True
+        if localization_error:
+            if status is not None:
+                previous = status.get("warning", "")
+                status["warning"] = (
+                    (previous + " ") if previous else ""
+                ) + "Timing refinement failed; showing only previously verified approximate cuts."
+        else:
+            updated = []
+            for spec, result in zip(local_specs, accepted, strict=True):
+                outcome = localized.get(spec[0])
+                if not outcome or outcome["decision"] != "match":
+                    continue
+                proposed = dict(result)
+                proposed["start_frame"] = outcome["start_frame"]
+                proposed["end_frame"] = outcome["end_frame"]
+                updated.append([result, proposed])
+            for index, (_, proposed) in enumerate(updated):
+                for earlier in range(index):
+                    prior = updated[earlier][1]
+                    if (
+                        prior["asset_id"] == proposed["asset_id"]
+                        and max(prior["start_frame"], proposed["start_frame"])
+                        < min(prior["end_frame"], proposed["end_frame"])
+                    ):
+                        # Ambiguous expanded proposals must not collapse two
+                        # previously independent, verified occurrences.
+                        updated[earlier][1] = updated[earlier][0]
+                        updated[index][1] = updated[index][0]
+                        proposed = updated[index][1]
+            accepted = []
+            for _, proposed in updated:
+                proposed["rank"] = len(accepted) + 1
+                accepted.append(proposed)
+            if status is not None:
+                status["localized_candidates"] = len(updated)
     if status is not None and not status.get("incomplete"):
         status["checked_candidates"] = checked
         status["incomplete"] = (
@@ -230,13 +279,14 @@ def search_visual(project_id, query, limit=5, trace=None, status=None, page=0):
             and len(accepted) < limit
         )
         if status["incomplete"]:
-            status["warning"] = (
+            warning = (
                 f"Only the first {checked} ranked moments were verified to limit cloud requests. "
                 "Try a more specific search if the moment you want is missing."
                 if page == 0 else
                 f"Only {checked} moments on page {page + 1} were verified to limit cloud requests. "
                 "Choose the next page or refine your search if the moment is missing."
             )
+            status["warning"] = " ".join(filter(None, (status.get("warning"), warning)))
     if (status is not None and page == MAX_VISUAL_PAGES - 1
             and len(ranked) > MAX_VISUAL_PAGES * MAX_VISUAL_VERIFICATIONS):
         status["incomplete"] = True

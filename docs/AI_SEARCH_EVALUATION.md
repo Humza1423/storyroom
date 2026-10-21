@@ -46,13 +46,58 @@ without spending API quota, run:
   --data-dir data/evaluation/visual-search/pilot16/session
 ```
 
-The next quality experiment should compare query-aware localization inside
-bounded neighboring context with the current motion-only cuts, on reviewed
-action boundaries. Keep source identity, frame mapping, and the five-candidate
-verification limit fixed while comparing; do not ship a new cut policy from
-three favorable examples. The local answer key and media are ignored, so a
+The opt-in experiment below compares query-aware localization inside bounded
+neighboring context with the current motion-only cuts on reviewed action
+boundaries. It keeps source identity, frame mapping, and the five-candidate
+verification limit fixed; do not ship a new default cut policy from four
+development examples. The local answer key and media are ignored, so a
 fresh checkout must reconstruct the rights-checked dataset before this command
 can run.
+
+## Ticket 1: optional timing experiment (2026-10-21)
+
+`experimental_localization: true` on a Visual AI search request invokes a
+second, bounded video-model pass **after** the ordinary verifier accepts a
+candidate. The default request still returns the original motion-derived cut.
+The experiment is API-only for now; no UI control or paid fallback was added.
+The existing cache of yes/no verifier responses is untouched. Invalid model
+times, missing visual evidence, uncertain answers, or distant occurrences
+cannot become a localized result. A provider failure preserves the already
+verified approximate cut and reports a timing warning.
+
+On the four development-labeled sports positives, the normal path returned a
+useful reviewed moment for **1/4**; the opt-in pass returned **3/4**. The
+skateboard trick moved from 0–4.80 s to 2.00–2.67 s; the race start moved from
+2.80–5.80 s to 5.30–7.97 s. The corner-kick cut changed from 0–2.20 s to
+2.33–4.33 s but still ends before the reviewed 3.80–4.70 s kick finishes, so
+it remains a failure. The basketball response contained a time outside the
+supplied video and was rejected; the prior verified 0–5.67 s range remained.
+Median boundary error (0.4 s) covers only the matched event labels and is not
+a general timing score. The source was right for all four in both paths.
+
+The fresh opt-in pass needs **one additional Gemini request per search page**
+containing accepted candidates, batching up to five; cache reuse needs zero.
+The controlled comparison refused uncached query embeddings and ordinary
+verifier calls. In the final run, three localization requests were new and
+soccer was cached from a prior run; four new calls would be needed from an
+empty localization cache. Observed uncached extra wall times were roughly
+2–12 seconds across these tiny examples, not a latency distribution. The
+project was configured for Gemini's unpaid tier; Storyroom cannot independently
+verify the provider's billing status. No paid fallback exists in the experiment.
+
+Reproduce only with the ignored local rights-checked data and an explicitly
+configured unpaid Gemini project:
+
+```sh
+.venv/bin/python scripts/evaluate_visual_localization.py \
+  data/evaluation/visual-search/pilot16/answer-key-smoke.json \
+  --data-dir data/evaluation/visual-search/pilot16/session \
+  --allow-free-gemini
+```
+
+This is development evidence, not held-out accuracy. The next ticket needs
+unfamiliar footage and reviewed positive, paraphrased, and hard-negative
+queries before changing the default.
 
 The first diverse pilot inputs are locally prepared under ignored
 `data/evaluation/visual-search/diverse-expansion/` with source revisions,

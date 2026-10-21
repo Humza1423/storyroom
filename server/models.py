@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Strict(BaseModel):
@@ -48,6 +48,7 @@ class SearchInput(Strict):
     semantic: bool = False
     mode: Literal["keyword", "description", "visual"] | None = None
     page: int = Field(default=0, ge=0, le=7, strict=True)
+    experimental_localization: bool = False
 
 
 class FeedbackInput(Strict):
@@ -96,3 +97,19 @@ class VisualBatchItem(VisualVerdict):
 
 class VisualBatchVerdicts(Strict):
     verdicts: list[VisualBatchItem] = Field(min_length=1, max_length=5)
+
+
+class VisualLocalizationItem(VisualBatchItem):
+    start_seconds: float = Field(allow_inf_nan=False)
+    end_seconds: float = Field(allow_inf_nan=False)
+
+    @field_validator("start_seconds", "end_seconds", mode="before")
+    @classmethod
+    def require_number(cls, value):
+        if type(value) not in (int, float):
+            raise ValueError("Localization time must be a JSON number")
+        return value
+
+
+class VisualLocalizationBatch(Strict):
+    results: list[VisualLocalizationItem] = Field(min_length=1, max_length=5)

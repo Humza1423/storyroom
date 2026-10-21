@@ -468,3 +468,81 @@ def test_visual_search_verifies_only_final_range_and_caps_calls(redteam, monkeyp
     visual_search.search_visual(project_id, "squats", status={})
     assert calls[0] == (10, 45)
 
+
+def test_opt_in_localization_keeps_repeated_actions_separate(redteam, monkeypatch):
+    project_id = create_project("two-repetitions")
+    asset_id = add_asset(
+        redteam, project_id, "opaque-repeat.mp4",
+        [unit_vector(1.0, 0.0), unit_vector(0.99, 0.1)],
+    )
+    redteam["provider"].vectors["jumping jacks"] = unit_vector(1.0, 0.0)
+    calls = []
+
+    def localize(_query, candidates):
+        calls.append(candidates)
+        return {
+            "c1": {"decision": "match", "start_frame": 8, "end_frame": 52},
+            "c2": {"decision": "match", "start_frame": 68, "end_frame": 110},
+        }, None
+
+    monkeypatch.setattr(ai, "localize_visual_matches", localize)
+    baseline = visual_search.search_visual(project_id, "jumping jacks")
+    status = {}
+    improved = visual_search.search_visual(
+        project_id, "jumping jacks", experimental_localization=True, status=status,
+    )
+    assert [(row["start_frame"], row["end_frame"]) for row in baseline] == [
+        (0, 60), (60, 120),
+    ]
+    assert [(row["start_frame"], row["end_frame"]) for row in improved] == [
+        (8, 52), (68, 110),
+    ]
+    assert all(row["asset_id"] == asset_id for row in improved)
+    assert len(calls) == 1 and len(calls[0]) == 2
+    assert status["localization_experiment"] is True
+
+    def conflicting(_query, _candidates):
+        return {
+            "c1": {"decision": "match", "start_frame": 0, "end_frame": 70},
+            "c2": {"decision": "match", "start_frame": 55, "end_frame": 120},
+        }, None
+
+    monkeypatch.setattr(ai, "localize_visual_matches", conflicting)
+    distinct = visual_search.search_visual(
+        project_id, "jumping jacks", experimental_localization=True,
+    )
+    assert [(row["start_frame"], row["end_frame"]) for row in distinct] == [
+        (0, 60), (60, 120),
+    ]
+
+
+def test_opt_in_localization_failure_preserves_only_prior_verified_cuts(redteam, monkeypatch):
+    project_id = create_project("failed-timing")
+    add_asset(redteam, project_id, "opaque.mp4", [unit_vector(1.0, 0.0)])
+    redteam["provider"].vectors["burpees"] = unit_vector(1.0, 0.0)
+    monkeypatch.setattr(
+        ai, "localize_visual_matches",
+        lambda *_: ({}, RuntimeError("unavailable")),
+    )
+    status = {}
+    results = visual_search.search_visual(
+        project_id, "burpees", experimental_localization=True, status=status,
+    )
+    assert [(row["start_frame"], row["end_frame"]) for row in results] == [(0, 60)]
+    assert "Timing refinement failed" in status["warning"]
+    assert "Only the first" not in status["warning"]
+
+
+def test_opt_in_uncertain_localization_drops_candidate(redteam, monkeypatch):
+    project_id = create_project("uncertain-timing")
+    add_asset(redteam, project_id, "opaque.mp4", [unit_vector(1.0, 0.0)])
+    redteam["provider"].vectors["burpees"] = unit_vector(1.0, 0.0)
+    monkeypatch.setattr(
+        ai, "localize_visual_matches",
+        lambda *_: ({"c1": {"decision": "uncertain", "visible_evidence": ""}}, None),
+    )
+    assert len(visual_search.search_visual(project_id, "burpees")) == 1
+    assert visual_search.search_visual(
+        project_id, "burpees", experimental_localization=True,
+    ) == []
+

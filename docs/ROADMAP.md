@@ -73,12 +73,14 @@ The alternate unpaid project now supports live searches. Page 0 remains
 unchanged; creators can explicitly inspect further verified candidates without
 automatically increasing every query's cost. The Commons exercise check found
 an early burpee that ranks tenth and is too narrowly cut to show a full
-movement. A smaller reviewed 16-video/20-query development diagnostic now finds
+movement. A smaller reviewed 16-video/20-query development diagnostic finds
 the correct source for all 12 positives but the correct playable moment for only
-9; sports timing is weakest (1/4). Thus the next implementation experiment is
-bounded query-aware context/boundary localization, measured against those
-labels and live latency before activation. Then complete the source-held-out
-16-video/60-query comparison—not an ANN migration or
+9; sports timing is weakest (1/4). Ticket 1 added an **opt-in** bounded,
+query-aware localization pass: it improved the four sports development queries
+from 1/4 to 3/4 useful moments, but one cut still misses the requested action
+and the pass adds an API request. It remains off by default. Next, evaluate on
+unfamiliar, source-held-out footage before activation or ranking changes; then
+complete the broader 16-video/60-query comparison—not an ANN migration or
 a claim of production accuracy. See [AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md)
 and STATUS. Preserve
 the embedding retriever and frame-range selection format. Compare provider

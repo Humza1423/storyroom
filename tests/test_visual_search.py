@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from conftest import create_ready
 
-from server import ai, config, db
+from server import ai, config, db, media
 from server.models import VisualVerdict
 from server.vector_index import (
     ExactVectorIndex,
@@ -246,6 +246,28 @@ def test_visual_index_search_storybin_and_existing_export(client, clip, monkeypa
     assert candidate["media_url"] == f"/api/assets/{aid}/proxy"
     assert client.get(candidate["media_url"]).status_code == 200
 
+    calls = []
+
+    def localized(_query, specs):
+        calls.append(specs)
+        return {"c1": {
+            "decision": "match", "visible_evidence": "Visible weight lift",
+            "start_frame": 4, "end_frame": 26,
+        }}, None
+
+    monkeypatch.setattr(ai, "localize_visual_matches", localized)
+    experiment = client.post(
+        f"/api/projects/{pid}/search",
+        json={"query": "someone lifting weights", "mode": "visual",
+              "experimental_localization": True},
+    )
+    assert experiment.status_code == 200, experiment.text
+    candidate = experiment.json()["results"][0]
+    assert (candidate["start_frame"], candidate["end_frame"]) == (4, 26)
+    assert experiment.json()["localization_experiment"] is True
+    assert len(calls) == 1 and len(calls[0]) == 1
+    assert client.get(candidate["media_url"]).status_code == 200
+
     board = [
         {
             "id": "visual-section",
@@ -256,8 +278,8 @@ def test_visual_index_search_storybin_and_existing_export(client, clip, monkeypa
                     "id": "visual-choice",
                     "asset_id": aid,
                     "moment_id": None,
-                    "start_frame": candidate["start_frame"],
-                    "end_frame": candidate["end_frame"],
+                    "start_frame": candidate["start_frame"] + 2,
+                    "end_frame": candidate["end_frame"] - 2,
                     "note": "",
                 }
             ],
@@ -267,6 +289,13 @@ def test_visual_index_search_storybin_and_existing_export(client, clip, monkeypa
         f"/api/projects/{pid}/board", json={"revision": 0, "sections": board}
     ).status_code == 200
     assert client.get(f"/api/projects/{pid}").json()["board"] == board
+    render = client.post(
+        f"/api/projects/{pid}/jobs/render", json={"query": ""}
+    ).json()["job_id"]
+    assert once()
+    assert db.one("SELECT status FROM jobs WHERE id=?", (render,))["status"] == "done"
+    assert media.probe(config.DATA / "exports" / f"{render}.mp4")["frames"] == 18
+    assert client.get(f"/api/jobs/{render}/download").status_code == 200
     export = client.post(
         f"/api/projects/{pid}/jobs/export", json={"query": ""}
     ).json()["job_id"]
