@@ -18,13 +18,18 @@ events cannot be joined by overlapping proposed spans. The UI and normal API
 requests are unchanged; manual trim, board save, render, and export still use
 the same selection format.
 
-The real, rights-checked four-sports development check improved from **1/4 to
-3/4** useful reviewed moments. Skateboard and race-start cuts moved much closer
-to their labeled actions. The soccer result still starts too early and stops
-before the kick ends; basketball's model time fell outside the supplied video
-and was rejected, preserving the earlier verified cut. The source clip was
-correct for all four in both paths. There is no held-out evidence yet, so the
-experiment is **not enabled by default** and search is not production-ready.
+The cached four-sports development check now finds a relevant moment in **4/4**
+queries (the previous result was 3/4). Gemini's cached soccer interval mapped
+to frames 70–130 (2.33–4.33 s), while the reviewed kick ends at frame 141
+(4.70 s). The frame conversion was correct; Gemini ended its proposed range
+early. Localization now adds up to 15 frames (0.5 s) of follow-through, limited
+to the supplied context and action-duration cap. Soccer now returns frames
+70–141 (2.33–4.70 s), which contains the complete kick. Its start remains about
+1.47 s early, so this fixes event inclusion but does not make the boundary
+precise. The other three cached examples still pass; basketball's invalid model
+time still falls back to its earlier verified cut. This replay used zero new
+Gemini calls. There is no held-out evidence yet, so the experiment remains
+**opt-in** and search is not production-ready.
 The comparison used cached query vectors and yes/no verifier verdicts: the
 experiment added one unpaid-tier localization request per cold sports query
 (four total; one was cached during the final four-query run). Observed uncached
@@ -35,13 +40,11 @@ for exact ranges and the reproducible local command.
 Deterministic coverage includes valid/invalid time conversion, missing visual
 evidence, uncertain/no-match outputs, provider failure, damaged cache entries,
 independent repeated actions, and save/trim/render/export of a localized range.
-The first full backend run had **154 passed, 1 failed**: the historical launcher
-shutdown test timed out after 60 s. It passed alone, then the full rerun passed
-**157/157** (one existing Starlette/httpx deprecation warning). The production
-build passed, the isolated browser workflow passed **30/30**, and changed-file
-Ruff plus whitespace checks passed. New-commit GitHub CI is reported after push.
-Next ticket: unfamiliar licensed footage and a held-out answer key; do not tune
-the default or claim accuracy from these four development clips.
+The full backend suite passed **158/158** (one existing Starlette/httpx
+deprecation warning). The production build passed and the isolated browser
+workflow passed **30/30**. Next ticket: unfamiliar licensed footage and a
+held-out answer key; do not tune the default or claim broad accuracy from these
+four development clips.
 
 ## Visual-search quality investigation and explicit continuation (2026-10-20)
 
