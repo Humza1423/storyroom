@@ -1,4 +1,5 @@
 import fcntl
+import hashlib
 import json
 import logging
 import tempfile
@@ -10,6 +11,161 @@ from .diagnostics import MediaDiagnostics
 from .exporter import export_timeline
 from .models import Observations, Proposal, Rerank
 from .search import search
+from .visual_index import sampled_frames, temporal_profile
+
+
+def index_visual(job, asset):
+    ident = job["id"]
+    if not json.loads(asset["provenance"]).get("cloud_analysis"):
+        raise ValueError(
+            "Confirm permission for cloud analysis in the asset's provenance before visual indexing."
+        )
+    proxy = config.asset_dir(asset["id"]) / "proxy.mp4"
+    if not proxy.is_file():
+        raise ValueError("The playback proxy is missing. Retry media preparation.")
+    proxy_hash = media.sha256_file(proxy)
+    provider = ai.embedding_provider()
+    progress(ident, 0, f"Finding likely action boundaries in {asset['name']}")
+    profile = temporal_profile(proxy, asset["frames"], proxy_hash, lambda: cancelled(ident))
+    windows = profile.index_ranges()
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE assets SET visual_proxy_hash=? WHERE id=?",
+            (proxy_hash, asset["id"]),
+        )
+        existing = {
+            (row["start_frame"], row["end_frame"])
+            for row in conn.execute(
+                """SELECT start_frame,end_frame FROM visual_segments
+                   WHERE asset_id=? AND provider=? AND model=? AND dimensions=?
+                     AND index_version=? AND proxy_hash=?""",
+                (
+                    asset["id"],
+                    provider.provider,
+                    provider.model,
+                    config.EMBED_DIMENSIONS,
+                    config.VISUAL_INDEX_VERSION,
+                    proxy_hash,
+                ),
+            )
+        }
+
+    done = len(existing)
+    total = len(windows)
+    with tempfile.TemporaryDirectory(dir=config.DATA) as tmp:
+        batch_method = getattr(provider, "embed_video_ranges", None)
+        batch_size = 4 if callable(batch_method) else 1
+        missing_windows = [window for window in windows if window not in existing]
+        for offset in range(0, len(missing_windows), batch_size):
+            group = missing_windows[offset:offset + batch_size]
+            to_embed = []
+            prepared = []
+            for start, end in group:
+                if cancelled(ident):
+                    raise media.Cancelled()
+                length_frames = end - start
+                start_seconds = start / config.FPS
+                duration_seconds = length_frames / config.FPS
+                progress(
+                    ident, done / max(1, total),
+                    f"Indexing {asset['name']} · range {start_seconds:.1f}–{end / config.FPS:.1f}s · {done + 1}/{total}",
+                )
+                reusable = db.one(
+                    """SELECT embedding FROM visual_segments
+                       WHERE asset_id=? AND provider=? AND model=? AND dimensions=?
+                         AND proxy_hash=? AND start_frame=? AND end_frame=?
+                       ORDER BY created DESC LIMIT 1""",
+                    (asset["id"], provider.provider, provider.model,
+                     config.EMBED_DIMENSIONS, proxy_hash, start, end),
+                )
+                if reusable:
+                    prepared.append((start, end, json.loads(reusable["embedding"])))
+                else:
+                    part = Path(tmp) / f"visual-window-{len(to_embed)}.mp4"
+                    media.embedding_chunk(
+                        proxy, part, start_seconds, duration_seconds,
+                        lambda: cancelled(ident),
+                    )
+                    fingerprint = f"{proxy_hash}:{start}:{end}:{length_frames}"
+                    prepared.append((start, end, None))
+                    to_embed.append((part.read_bytes(), fingerprint))
+            fresh = iter(())
+            if to_embed:
+                if callable(batch_method):
+                    vectors = batch_method(to_embed, ident)
+                else:
+                    vectors = [provider.embed_video_range(content, fingerprint, ident)
+                               for content, fingerprint in to_embed]
+                if len(vectors) != len(to_embed):
+                    raise ValueError("Embedding provider returned an unexpected number of video vectors.")
+                fresh = iter(vectors)
+            for start, end, reused_vector in prepared:
+                # A completed batch has already returned usable vectors. Save
+                # all of them before honoring a cancellation so a retry does
+                # not lose completed work; single-range providers retain their
+                # previous per-range cancellation behavior.
+                if not callable(batch_method) and cancelled(ident):
+                    raise media.Cancelled()
+                vector = reused_vector if reused_vector is not None else next(fresh)
+                segment_id = hashlib.sha256(
+                    (
+                        f"{asset['id']}:{start}:{end}:{provider.provider}:{provider.model}:"
+                        f"{config.EMBED_DIMENSIONS}:{config.VISUAL_INDEX_VERSION}:{proxy_hash}"
+                    ).encode()
+                ).hexdigest()[:32]
+                frame_count = sampled_frames(start, end)
+                with db.connect() as conn:
+                    conn.execute(
+                        """INSERT OR IGNORE INTO visual_segments
+                           (id,asset_id,start_frame,end_frame,provider,model,dimensions,
+                            index_version,proxy_hash,sampled_frames,embedding,created)
+                           VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (
+                            segment_id,
+                            asset["id"],
+                            start,
+                            end,
+                            provider.provider,
+                            provider.model,
+                            config.EMBED_DIMENSIONS,
+                            config.VISUAL_INDEX_VERSION,
+                            proxy_hash,
+                            frame_count,
+                            json.dumps(vector, separators=(",", ":")),
+                            time.time(),
+                        ),
+                    )
+                done += 1
+                partial = {
+                    "visual_index": {
+                        "asset_id": asset["id"],
+                        "completed_segments": done,
+                        "total_segments": total,
+                        "provider": provider.provider,
+                        "model": provider.model,
+                        "index_version": config.VISUAL_INDEX_VERSION,
+                    }
+                }
+                db.execute(
+                    "UPDATE jobs SET result=? WHERE id=? AND status='running'",
+                    (json.dumps(partial, separators=(",", ":")), ident),
+                )
+                if not cancelled(ident):
+                    progress(
+                        ident, done / max(1, total),
+                        f"Indexed {asset['name']} · {done}/{total} ranges",
+                    )
+            if cancelled(ident):
+                raise media.Cancelled()
+    return {
+        "asset_id": asset["id"],
+        "indexed_segments": done,
+        "total_segments": total,
+        "provider": provider.provider,
+        "model": provider.model,
+        "index_version": config.VISUAL_INDEX_VERSION,
+        "proxy_hash": proxy_hash,
+    }
 
 log = logging.getLogger("storyroom.worker")
 
@@ -148,6 +304,13 @@ def perform(job, diagnostics=None):
         if asset["status"] != "ready":
             raise ValueError("Wait for this clip's media preparation to finish.")
         return analyze(job, asset)
+    if job["kind"] == "visual_index":
+        asset = db.one("SELECT * FROM assets WHERE id=?", (payload["asset_id"],))
+        if asset["project_id"] != job["project_id"]:
+            raise ValueError("Clip is not in this project.")
+        if asset["status"] != "ready":
+            raise ValueError("Wait for this clip's media preparation to finish.")
+        return index_visual(job, asset)
     if job["kind"] in ("story", "rerank"):
         project = db.one("SELECT * FROM projects WHERE id=?", (job["project_id"],))
         brief = payload.get("brief_revision", project["brief"])

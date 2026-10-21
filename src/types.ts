@@ -30,6 +30,34 @@ export type Moment = {
   uncertainty?: string;
   score?: number;
 };
+/** A ranked range returned by direct video-to-text retrieval; not a caption. */
+export type VisualCandidate = {
+  id: string;
+  asset_id: string;
+  start_frame: number;
+  end_frame: number;
+  rank: number;
+  kind: "visual";
+};
+export type SearchResult = Moment | VisualCandidate;
+export type VisualSearchResponse = {
+  results: VisualCandidate[];
+  page: number;
+  has_more: boolean;
+  checked_candidates?: number;
+  incomplete?: boolean;
+  warning?: string;
+};
+export type VisualIndexEstimate = {
+  estimated_usd: number;
+  reserved_usd: number;
+  segment_count: number;
+  missing_segment_count: number;
+  frame_count: number;
+  indexed_count: number;
+  tier: "unpaid" | "paid";
+  quota_note: string;
+};
 export type Selection = {
   id: string;
   asset_id: string;
@@ -65,7 +93,11 @@ export type Job = {
       stages: Record<
         string,
         | { status: "running" }
-        | { status: "complete"; elapsed_seconds: number; output_bytes: number | null }
+        | {
+            status: "complete";
+            elapsed_seconds: number;
+            output_bytes: number | null;
+          }
         | {
             status: "failed" | "cancelled";
             elapsed_seconds: number;
@@ -108,4 +140,8 @@ export type Status = {
   spend: number;
   limit: number;
   ffmpeg: boolean;
+  visual_ai_ready?: boolean;
+  embedding_tier?: "unpaid" | "paid";
+  embedding_model?: string;
+  unpaid_terms_acknowledged?: boolean;
 };

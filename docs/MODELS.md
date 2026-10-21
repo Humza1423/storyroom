@@ -7,6 +7,9 @@ We have not proven that Gemini is the best model for this application. It is a p
 | Candidate | Appropriate role | Current decision |
 |---|---|---|
 | Gemini Flash | Short-video observation and brief-driven structured proposals | Initial implementation; live quality unverified |
+| Gemini Embedding 2 | Direct text-to-video-range semantic retrieval | Live Commons exercise pilot finds two distinct jumping-jacks occurrences; later false positives remain |
+| Gemini 3.8 Flash visual verifier | Check shortlisted video ranges against the requested visible action | A real single-clip verdict succeeded on the working free project, but a full batch received HTTP 503; its free quota is only 5 requests/minute and 20/day on that project. Live accuracy remains unmeasured. |
+| Gemini 3.5 Flash Lite visual verifier | Higher-quota preview option for the same verification boundary | On the working free project, a four-video search returned two puppy moments and rejected an absent boxing-bag query. This smoke test does not establish comparative accuracy; the local preview explicitly selects this model in ignored `.env`. |
 | SigLIP 2 | Text-to-frame retrieval without going through a caption | Strong next retrieval benchmark; static frames do not establish temporal actions |
 | DINOv3 | Visual features for similarity / duplicate-shot candidates | Defer until repetitive footage is a measured issue |
 | SAM 3.1 | Object segmentation and tracking | Defer; masks do not solve our story-assembly job |
@@ -25,7 +28,7 @@ Hold the interface and evaluation footage fixed. Compare description search agai
 
 Measure useful candidates in the first five, missed relevant moments, boundary usefulness, indexing time, search latency, peak memory, cost per source minute, and installation complexity. Use the same held-out shoots for every candidate. Do not add all seven models and attribute any improvement to “the AI stack.”
 
-The first comparison should focus on direct visual search versus description search. A hybrid may be useful, but it must improve results enough to pay for its additional processing and maintenance.
+The current comparison is the old embedding-only gate versus the new embedding-plus-video-verifier search. The verifier must improve human-reviewed results enough to justify its request cost and latency; its model answer is not ground truth. The visual index uses 768-dimensional vectors from adaptive 720p proxy ranges; descriptions use their own vectors and cannot be compared with these. Indexing uses the configured Gemini API tier, not a local Qwen/Hugging Face checkpoint. A local cross-modal model remains a later comparison if real evaluations or cloud privacy/cost constraints justify it. Exact search remains in place; benchmark HNSW/FAISS only after localization quality is measured across footage sets.
 
 ## Using a model versus training it
 

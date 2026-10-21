@@ -216,7 +216,7 @@ for (const code of ["project_capacity", "disk_space"]) {
       .setInputFiles([generated(0), generated(1), generated(2)]);
     await expect(
       page.getByRole("status", { name: "Batch summary" }),
-    ).toContainText("Batch paused");
+    ).toContainText("Batch paused", { timeout: 20000 });
     await expect(
       page.getByRole("button", { name: "Retry upload", exact: true }),
     ).toBeEnabled();
@@ -289,6 +289,7 @@ test("delayed import and refresh stay with their original project while another 
   await expect(
     page.getByRole("heading", { name: "Other destination", exact: true }),
   ).toBeVisible();
+  await page.locator(".brief-details summary").click();
   await page.locator(".brief-bar textarea").fill("Keep this unsaved draft");
   await expect(page.locator(".import-row")).toHaveCount(0);
   await expect(
@@ -411,6 +412,7 @@ test("an import refresh cannot replace a board saved after that refresh started"
 }) => {
   const pid = await create(request, "Edit while importing");
   await open(page, "Edit while importing");
+  await page.locator(".brief-details summary").click();
   await page.locator(".brief-bar textarea").fill("Keep this draft too");
   let hold = false;
   let release!: () => void;

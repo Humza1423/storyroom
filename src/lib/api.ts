@@ -25,10 +25,14 @@ export async function api<T>(
   url: string,
   method = "GET",
   body?: unknown,
+  timeoutMs?: number,
 ): Promise<T> {
   const form = body instanceof FormData;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), form ? 120000 : 15000);
+  const timer = setTimeout(
+    () => controller.abort(),
+    timeoutMs ?? (form ? 120000 : 15000),
+  );
   try {
     const response = await fetch("/api" + url, {
       method,

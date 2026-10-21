@@ -87,7 +87,7 @@ def test_failed_child_is_named_and_exits_nonzero(tmp_path):
     data.mkdir()
     with sqlite3.connect(data / "storyroom.sqlite") as c:
         c.execute("CREATE TABLE schema_versions(version INTEGER PRIMARY KEY)")
-        c.executemany("INSERT INTO schema_versions VALUES(?)", [(1,), (2,)])
+        c.executemany("INSERT INTO schema_versions VALUES(?)", [(1,), (2,), (3,)])
     with socket.socket() as a, socket.socket() as b:
         a.bind(("127.0.0.1", 0))
         b.bind(("127.0.0.1", 0))

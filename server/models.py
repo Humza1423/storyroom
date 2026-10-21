@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Strict(BaseModel):
@@ -44,6 +46,8 @@ class AnalysisInput(Strict):
 class SearchInput(Strict):
     query: str = Field(default="", max_length=1000)
     semantic: bool = False
+    mode: Literal["keyword", "description", "visual"] | None = None
+    page: int = Field(default=0, ge=0, le=7, strict=True)
 
 
 class FeedbackInput(Strict):
@@ -79,3 +83,16 @@ class Proposal(Strict):
 class Rerank(Strict):
     candidate_ids: list[str] = Field(max_length=5)
     explanation: str = Field(max_length=1000)
+
+
+class VisualVerdict(Strict):
+    decision: Literal["match", "no_match", "uncertain"]
+    visible_evidence: str = Field(default="", max_length=400)
+
+
+class VisualBatchItem(VisualVerdict):
+    candidate_id: str = Field(min_length=1, max_length=10)
+
+
+class VisualBatchVerdicts(Strict):
+    verdicts: list[VisualBatchItem] = Field(min_length=1, max_length=5)

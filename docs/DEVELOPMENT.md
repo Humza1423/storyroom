@@ -105,22 +105,66 @@ exports containing personal filesystem paths.
 
 ## Optional cloud AI
 
-Manual editing works without cloud setup. Before enabling paid calls:
+Manual editing works without cloud setup. For the new visual-search path, you can
+start with Gemini's unpaid service, but only after checking the Google project
+actually has no active billing. Copy `.env.example` to `.env`, set your own
+`GEMINI_API_KEY`, and set `STORYROOM_GEMINI_UNPAID_TERMS_ACKNOWLEDGED=true` only
+after reading Google's current terms. Restart Storyroom. The app reports this as
+a local setting; it cannot verify Google's billing tier or quotas. Its UI may
+show a $0 provider price estimate, but the internal budget still reserves a
+conservative paid-rate amount as a guard in case the account setting is wrong.
 
-1. Create a paid Gemini API project/key and keep the key local.
-2. Copy `.env.example` to `.env` and set `GEMINI_API_KEY`.
-3. Verify model availability and prices in the provider account. Update the model
-   settings and rates, then set `STORYROOM_PRICING_CONFIRMED=true`.
-4. Restart Storyroom. Record each clip's source/license and cloud-analysis
-   permission through its settings button.
-5. Click **Analyze**, inspect the estimate, and explicitly start analysis. Use AI
-   search or request a story structure after adding a creative brief.
+Google's unpaid-service data may be used to improve its products and may be
+reviewed by people. Do not submit sensitive, confidential, or personal footage.
+Source license does not automatically grant privacy rights for identifiable
+people. Record source/license and cloud-analysis permission through each clip's
+settings button. Only index material suitable for this provider and tier.
 
-The checked-in configuration names `gemini-3.8-flash` and `gemini-embedding-2`.
-These are adapter defaults, not verified claims of model availability or quality.
-Fake-provider tests cover the integration contract; real requests and evaluation
-remain required. An unavailable model causes an error; there is no silent fallback.
-See [model choices](MODELS.md).
+Restart Storyroom, select **Visual AI**, click **Estimate & index permitted
+clips**, review the displayed ranges/cost/tier notice, then explicitly start
+indexing. The worker sends two-second ranges, one second apart, from prepared 720p proxies; it does
+not send audio. Search uses the same model to embed the query and compares it
+against saved visual-range vectors. A candidate is a useful range to inspect,
+not a guaranteed action label or exact boundary. Keyword and description search
+remain separate modes.
+
+To use paid visual search instead, set `STORYROOM_GEMINI_TIER=paid`, verify the
+current model price and project billing, and set `STORYROOM_PRICING_CONFIRMED=true`.
+The configured defaults are implementation inputs, not a billing quote. Check
+the provider's [pricing](https://ai.google.dev/gemini-api/docs/pricing) before
+enabling paid use. Existing description/analysis and story-generation tools
+also require verified prices and `STORYROOM_PRICING_CONFIRMED=true`.
+
+The checked-in models `gemini-3.8-flash` and `gemini-embedding-2` are adapter
+defaults, not claims of availability or comparative quality. Fake-provider
+tests cover the integration contract; real requests and evaluation remain
+separate release gates. An unavailable model causes an error; there is no
+silent fallback. Select a different verifier explicitly with
+`STORYROOM_VISUAL_VERIFIER_MODEL` in ignored `.env`, then restart Storyroom.
+Changing the verifier does not require reindexing; changing the embedding
+model does. See [model choices](MODELS.md).
+
+### Diagnose a Gemini 429
+
+An API key inherits the quotas of its Google Cloud **project**. Creating another
+key in the same project does not grant a fresh quota. In Google AI Studio, open
+**API Keys** and identify the project for the key in Storyroom's ignored `.env`;
+then open **Rate Limit**, select that project, enable **All models**, and check
+the configured verifier's RPM and RPD. The displayed limits can change. Do not
+paste the key into an issue, terminal output, or chat.
+
+A `429 RESOURCE_EXHAUSTED` that names GenerateContent requests per minute can
+mean the project's model limit is zero or unavailable, even after waiting for
+a minute. In the October 18 investigation, the old Storyroom key returned 429
+on three Flash models; a dedicated key on a different free project succeeded.
+The working project's observed limits were 5 RPM / 20 RPD for Gemini 3.8 Flash,
+15 RPM / 500 RPD for Gemini 3.5 Flash Lite, and 100 RPM / 1,000 RPD for Gemini
+Embedding 2. These are **project-level**, not per-key allowances. No billing was
+enabled. A later `503 UNAVAILABLE` on 3.8 Flash was a separate high-demand
+failure, not evidence that the 429 returned. The local preview explicitly uses
+3.5 Flash Lite; that model's search accuracy is not yet established. Keep the
+stronger model as an option for measured comparisons rather than silently
+falling back or retrying until the daily quota is gone.
 
 The initial configured rates are $1.50/M input tokens, $9/M output tokens, and
 $0.20/M text embedding tokens. These are provisional budget inputs, not a billing

@@ -14,7 +14,10 @@ def test_fresh_repeat_and_competing_startups(tmp_path):
         list(pool.map(lambda _: migrate(path), range(4)))
     migrate(path)
     with sqlite3.connect(path) as c:
-        assert c.execute("SELECT * FROM schema_versions").fetchall() == [(1,)]
+        assert c.execute("SELECT * FROM schema_versions").fetchall() == [(1,), (2,)]
+        assert c.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='visual_segments'"
+        ).fetchone()
         assert c.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
     assert not list(tmp_path.glob("*.before-*.sqlite"))
 
@@ -73,7 +76,7 @@ def test_existing_project_survives_upgrade_and_backup(client, clip):
             "feedback",
         )
         snapshots = {table: db.rows(f"SELECT * FROM {table}") for table in tables}
-        migrate(path)  # Existing v1 adoption performs no data rewrite.
+        migrate(path)  # Reopening the current version performs no data rewrite.
 
         def second(c):
             c.execute("CREATE TABLE upgrade_fixture(value TEXT)")
@@ -85,7 +88,7 @@ def test_existing_project_survives_upgrade_and_backup(client, clip):
         } == snapshots
         assert db.one("SELECT COUNT(*) AS n FROM revisions")["n"] > 0
         assert db.one("SELECT COUNT(*) AS n FROM moment_fts")["n"] == 1
-        (backup,) = config.DATA.glob("*.before-v2.*.sqlite")
+        (backup,) = config.DATA.glob("*.before-v3.*.sqlite")
         with sqlite3.connect(backup) as saved:
             assert saved.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
             assert saved.execute("SELECT value FROM cache").fetchone()[0] == "retained"
@@ -93,7 +96,33 @@ def test_existing_project_survives_upgrade_and_backup(client, clip):
                 saved.execute("SELECT board FROM projects").fetchone()[0]
                 == db.one("SELECT board FROM projects")["board"]
             )
-            assert saved.execute("SELECT * FROM schema_versions").fetchall() == [(1,)]
+            assert saved.execute("SELECT * FROM schema_versions").fetchall() == [
+                (1,),
+                (2,),
+            ]
+
+
+def test_visual_index_upgrade_preserves_existing_v1_project(tmp_path):
+    path = tmp_path / "legacy.sqlite"
+    migrate(path, MIGRATIONS[:1])
+    with sqlite3.connect(path) as c:
+        c.execute(
+            "INSERT INTO projects(id,name,created) VALUES('old','Saved project',1)"
+        )
+    migrate(path)
+    with sqlite3.connect(path) as c:
+        assert c.execute("SELECT name FROM projects WHERE id='old'").fetchone() == (
+            "Saved project",
+        )
+        assert c.execute("SELECT version FROM schema_versions ORDER BY version").fetchall() == [
+            (1,),
+            (2,),
+        ]
+        assert "visual_proxy_hash" in {
+            row[1] for row in c.execute("PRAGMA table_info(assets)")
+        }
+        assert c.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    assert len(list(tmp_path.glob("*.before-v2.*.sqlite"))) == 1
 
 
 def test_failed_upgrade_rolls_back_schema_data_and_version(tmp_path):
@@ -108,7 +137,7 @@ def test_failed_upgrade_rolls_back_schema_data_and_version(tmp_path):
     with pytest.raises(ValueError, match="injected"):
         migrate(path, (*MIGRATIONS, broken))
     with sqlite3.connect(path) as c:
-        assert c.execute("SELECT * FROM schema_versions").fetchall() == [(1,)]
+        assert c.execute("SELECT * FROM schema_versions").fetchall() == [(1,), (2,)]
         assert not c.execute("SELECT * FROM cache").fetchall()
         assert not c.execute(
             "SELECT name FROM sqlite_master WHERE name='should_not_exist'"
@@ -119,7 +148,7 @@ def test_refuses_future_and_invalid_versions(tmp_path):
     path = tmp_path / "db.sqlite"
     migrate(path)
     with sqlite3.connect(path) as c:
-        c.execute("INSERT INTO schema_versions VALUES(2)")
+        c.execute("INSERT INTO schema_versions VALUES(3)")
     with pytest.raises(RuntimeError, match="newer"):
         migrate(path)
     with sqlite3.connect(path) as c:
@@ -142,4 +171,4 @@ def test_migration_cannot_implicitly_commit(tmp_path):
         assert not c.execute(
             "SELECT name FROM sqlite_master WHERE name IN ('rolled_back','escaped')"
         ).fetchall()
-        assert c.execute("SELECT * FROM schema_versions").fetchall() == [(1,)]
+        assert c.execute("SELECT * FROM schema_versions").fetchall() == [(1,), (2,)]

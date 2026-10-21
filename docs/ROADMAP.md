@@ -53,26 +53,48 @@ remains accepted but experimental. Defer encoder/disk optimization until better
 hardware or user demand justifies it. This does not silently lower the output
 resolution or weaken the verified 1080p and 4K handoff checks.
 
-## 3. Validate footage intelligence, not just the adapter
+## 3. Direct visual search vertical slice
 
-Keep pretrained inference behind the existing AI boundary. Verify current model
-identifiers, SDK compatibility, account availability, and pricing before a real
-call. Gemini is the current adapter, not a demonstrated best model. Compare
-alternatives only on relevant failures; see [MODELS](MODELS.md).
+The provider/index/retrieval/UI code is implemented on the feature branch; see
+[STATUS](STATUS.md) for the exact test evidence. It adds a distinct Gemini
+Embedding 2 path over adaptive event/detail ranges of prepared 720p proxies,
+cached text-query embeddings, SQLite persistence, exact cosine ranking, and
+playable candidates that become ordinary frame-range selections. Existing keyword
+and description search remain separate. The model is a candidate generator, not
+an exact action detector; audio is not indexed. Vector spaces are isolated by
+provider, model, dimensions, proxy hash, and sampling version.
 
-Pipeline: normalized proxy → overlapping chunks of at most 30 seconds at 2 fps →
-structured observations → validated frame ranges → description embeddings →
-local keyword/vector retrieval. Sparse sampling can miss fast motion; do not
-promise precise action boundaries or successful-attempt detection.
+The live adapter now uses Gemini Embedding 2 to shortlist distinct events and a
+separate video verifier to check visible action before returning a candidate. The
+earlier score-based gate remains as a benchmark baseline. Verifier fan-out is
+bounded to one uncached request containing up to five labeled candidate clips
+per explicit search page; cached confirmed results survive a batch failure.
+The alternate unpaid project now supports live searches. Page 0 remains
+unchanged; creators can explicitly inspect further verified candidates without
+automatically increasing every query's cost. The Commons exercise check found
+an early burpee that ranks tenth and is too narrowly cut to show a full
+movement. A smaller reviewed 16-video/20-query development diagnostic now finds
+the correct source for all 12 positives but the correct playable moment for only
+9; sports timing is weakest (1/4). Thus the next implementation experiment is
+bounded query-aware context/boundary localization, measured against those
+labels and live latency before activation. Then complete the source-held-out
+16-video/60-query comparison—not an ANN migration or
+a claim of production accuracy. See [AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md)
+and STATUS. Preserve
+the embedding retriever and frame-range selection format. Compare provider
+billing with Storyroom's conservative reservation. Do not use
+Pexels for indexing. Google unpaid-service data terms and human review mean the
+dataset itself must be suitable for cloud submission; source license alone does
+not establish that. The UI requires explicit indexing and cloud-analysis
+permission; do not submit sensitive, confidential, or personal footage. If no
+suitable human footage is cleared, test the API with non-personal footage and
+defer the human-footage quality claim.
 
-Reserve cost before dispatch, cache by content/model/prompt/settings, reconcile
-reported usage, and include retries in the budget. Keep credentials backend-only.
-The ledger covers this app's requests, not all provider spending. No silent model
-switches or unbounded agent loops. The current pipeline omits audio transcription.
-
-Acceptance: one permissioned clip works with a real provider; timestamps are
-manually checked; costs are compared with billing; timeouts, malformed output,
-rate limits, cache reuse, cancellation, and budget exhaustion behave safely.
+Preserve the no-AI path. Timeouts, malformed vectors, rate/quota limits, cache
+reuse, partial indexing, cancellation, model isolation, and budget exhaustion
+must remain safe. Use the results to decide whether Gemini's direct visual
+retrieval is useful and what alternative, including local open weights, is worth
+benchmarking; do not assume it is the best model.
 
 ## 4. Complete the story workspace
 
@@ -87,10 +109,27 @@ are legitimate. Measure whether organizing helps decisions rather than adding wo
 
 ## 5. Evaluate and prepare an open-source release
 
-Prepare 20 human-reviewed retrieval queries across at least three footage sets.
-Initial engineering target: a relevant candidate in the first five for at least
-16 queries. Report misses, analysis cost/time, and unsupported queries. Compare
-complete manual and AI-assisted workflows on unfamiliar footage.
+The current accuracy investigation supersedes the earlier 20-query / three-set
+pilot target. First run a balanced 16-video/60-query pilot across exercise,
+sport, everyday/object, and animal/nature footage, split by source. Then expand
+to the prepared 50 opaque-name exercise videos and 100 human-reviewed searches
+(50 positives, 25 paraphrases, 25 hard negatives) when rights, quota, and review
+capacity allow. Report top-five recall,
+top-one precision, negative-query false positives, and boundary error separately.
+The working pilot targets are 90% for the first three retrieval measures (with
+negative-query false positives at most 5%) and median boundary error at most one
+second; publish per-action misses instead of averaging them away. These are
+engineering targets, not evidence of product demand or Adobe parity.
+
+Fifty local Mendeley inputs have been prepared, but the answer key is not yet
+human-reviewed and no model-quality evaluation has run. Do not send these
+participant videos to Gemini's unpaid service without documented consent for
+that processing purpose: the dataset page's reuse license is not a privacy
+release, and Google's unpaid terms prohibit submitting personal information.
+Proceed with live model comparison only after that constraint is resolved, or
+with appropriate footage that does not depict identifiable people. Paid model
+calls remain outside the approved scope. Do not alter the result cutoff based
+only on the current red-team examples.
 
 Acceptance: clean-machine setup from README, full relevant automated checks, real
 Resolve evidence, honest demo, license/provenance review, and documented limits.
