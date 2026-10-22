@@ -468,6 +468,8 @@ def localize_visual_matches(query, candidates):
             else:
                 cached[candidate.candidate_id] = validate_cached_localization(candidate, value)
         if not missing:
+            for result in cached.values():
+                result.pop("follow_through_applied", None)
             return cached, None
 
         from google.genai import types
@@ -577,6 +579,7 @@ def localize_visual_matches(query, candidates):
                     validated[candidate.candidate_id] = {
                         "decision": "match", "visible_evidence": item.visible_evidence,
                         "start_frame": start, "end_frame": end,
+                        "follow_through_applied": True,
                     }
                 else:
                     if item.start_seconds != 0 or item.end_seconds != 0:
@@ -596,7 +599,10 @@ def localize_visual_matches(query, candidates):
                 visual_localization_cache_key(query, candidate),
                 validated[candidate.candidate_id],
             )
-        return {**cached, **validated}, None
+        results = {**cached, **validated}
+        for result in results.values():
+            result.pop("follow_through_applied", None)
+        return results, None
     except Exception as exc:  # noqa: BLE001 - no unvalidated model times escape
         safe_message, code, provider_status = _safe_provider_error(exc)
         if code in (400, 401, 403, 404, 429):

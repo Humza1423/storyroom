@@ -14,6 +14,7 @@ CONTEXT_MARGIN_FRAMES = 75  # At most 2.5 seconds on each side.
 MAX_CONTEXT_FRAMES = 240  # At most eight seconds per candidate.
 MAX_ACTION_FRAMES = 180  # Do not turn a short match into a whole-file clip.
 MAX_ANCHOR_GAP_FRAMES = 60  # Allow a nearby onset missed by the original cut.
+FOLLOW_THROUGH_FRAMES = 15  # Preserve up to 0.5 s after the model's action end.
 
 
 @dataclass(frozen=True)
@@ -66,7 +67,16 @@ def localized_frames(candidate, start_seconds, end_seconds):
     gap = max(candidate.anchor_start - end, start - candidate.anchor_end, 0)
     if gap > MAX_ANCHOR_GAP_FRAMES:
         raise ValueError("Localized action is too far from the verified hit")
-    return start, end
+    return start, _include_follow_through(candidate, start, end)
+
+
+def _include_follow_through(candidate, start, end):
+    """Keep a short action's landing/follow-through inside the playable cut."""
+    return min(
+        candidate.context_end,
+        start + MAX_ACTION_FRAMES,
+        end + FOLLOW_THROUGH_FRAMES,
+    )
 
 
 def validate_cached_localization(candidate, value):
@@ -87,8 +97,11 @@ def validate_cached_localization(candidate, value):
         gap = max(candidate.anchor_start - end, start - candidate.anchor_end, 0)
         if gap > MAX_ANCHOR_GAP_FRAMES:
             raise ValueError("Cached action is too far from the verified hit")
+        if value.get("follow_through_applied") is not True:
+            end = _include_follow_through(candidate, start, end)
         return {"decision": decision, "visible_evidence": evidence,
-                "start_frame": start, "end_frame": end}
+                "start_frame": start, "end_frame": end,
+                "follow_through_applied": True}
     if decision in ("uncertain", "no_match") and not value.get("start_frame") and not value.get("end_frame"):
         return {"decision": decision, "visible_evidence": ""}
     raise ValueError("Invalid cached localization decision")

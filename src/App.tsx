@@ -3,6 +3,7 @@ import { ImportPanel } from "./features/library/imports/ImportPanel";
 import { footageSummary } from "./features/library/imports/presentation";
 import { ProcessingPanel } from "./components/ProcessingPanel";
 import { Player } from "./features/preview/Player";
+import { createVisualRange, type VisualRange } from "./features/preview/visualRange";
 import { moveSelection } from "./features/board/changes";
 import { StorySection } from "./features/board/StorySection";
 import { ClipRow } from "./features/board/ClipRow";
@@ -95,6 +96,7 @@ export default function App() {
   const [trimStart, setTrimStart] = useState(0),
     [trimEnd, setTrimEnd] = useState(0),
     [note, setNote] = useState("");
+  const [visualRange, setVisualRange] = useState<VisualRange | null>(null);
   const [brief, setBrief] = useState(""),
     [newProject, setNewProject] = useState(false),
     [projectName, setProjectName] = useState("");
@@ -238,6 +240,7 @@ export default function App() {
     setVisualPagingBusy(false);
     setVisualPagingError("");
     setPreview(null);
+    setVisualRange(null);
     setSelected(null);
     setActiveSection("");
     setSequenceIndex(null);
@@ -424,6 +427,7 @@ export default function App() {
     });
   }
   function selectClip(c: Selection) {
+    setVisualRange(null);
     setSelected(c);
     setPreview(c);
     setTrimStart(c.start_frame);
@@ -433,6 +437,16 @@ export default function App() {
     revealPlayer();
   }
   function playMoment(m: Moment | VisualCandidate) {
+    if ("kind" in m) {
+      const range = createVisualRange(m, assetMap[m.asset_id]?.frames ?? 0);
+      if (!range) {
+        setError("This visual match has an invalid frame range. Try searching again.");
+        return;
+      }
+      setVisualRange(range);
+    } else {
+      setVisualRange(null);
+    }
     setPreview(m);
     setSelected(null);
     setSequenceIndex(null);
@@ -1337,6 +1351,7 @@ export default function App() {
                       onClick={() => {
                         setSequenceIndex(0);
                         setPreview(clips[0]);
+                        setVisualRange(null);
                         setSelected(null);
                         revealPlayer();
                       }}
@@ -1365,6 +1380,8 @@ export default function App() {
                     video={video}
                     advance={advance}
                     assembly={sequenceIndex !== null}
+                    visualRange={visualRange && preview?.id === visualRange.candidate.id ? visualRange : null}
+                    onVisualRangeChange={setVisualRange}
                   />
                   <p className="player-help">
                     Play Assembly shows only the selected ranges, one after
@@ -1393,15 +1410,22 @@ export default function App() {
                         {"description" in preview
                           ? preview.description
                           : "kind" in preview
-                            ? "Visual match candidate · range is approximate and can be trimmed after adding."
+                            ? "AI match range · approximate. Review nearby footage before choosing a cut."
                             : preview.note || "Selected for your story"}
                       </p>
                       <span className="range">
                         {timecode(preview.start_frame)} —{" "}
                         {timecode(preview.end_frame)}
                       </span>
-                      {!selected &&
-                        ("description" in preview || "kind" in preview) && (
+                      {visualRange && "kind" in preview && preview.id === visualRange.candidate.id && (
+                        <button
+                          className="secondary wide"
+                          onClick={() => add({ ...preview, start_frame: visualRange.selectedStart, end_frame: visualRange.selectedEnd })}
+                        >
+                          <Plus size={14} /> Add selected cut to Storybin
+                        </button>
+                      )}
+                      {!selected && "description" in preview && (
                           <button
                             className="secondary wide"
                             onClick={() => add(preview)}

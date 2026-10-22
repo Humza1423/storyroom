@@ -7,13 +7,17 @@ from types import SimpleNamespace
 import pytest
 
 from server import ai, config, db
-from server.localization import candidate_context, localized_frames
+from server.localization import (
+    candidate_context,
+    localized_frames,
+    validate_cached_localization,
+)
 
 
 def test_context_and_frame_conversion_are_bounded(clip):
     candidate = candidate_context("c1", clip, "hash", 60, 90, 180)
     assert (candidate.context_start, candidate.context_end) == (0, 165)
-    assert localized_frames(candidate, 1.1, 3.1) == (33, 93)
+    assert localized_frames(candidate, 1.1, 3.1) == (33, 108)
     edge = candidate_context("c2", clip, "hash", 0, 30, 40)
     assert (edge.context_start, edge.context_end) == (0, 40)
     assert localized_frames(edge, 0, 40 / 30) == (0, 40)
@@ -33,10 +37,25 @@ def test_invalid_or_different_event_times_are_rejected(clip, start, end):
 def test_nearby_missed_onset_allowed_but_distant_repeat_rejected(clip):
     candidate = candidate_context("c1", clip, "hash", 60, 90, 180)
     # The action begins after the old cut, but remains in the bounded context.
-    assert localized_frames(candidate, 4.0, 4.7) == (120, 141)
+    assert localized_frames(candidate, 4.0, 4.7) == (120, 156)
     distant = candidate_context("c2", clip, "hash", 100, 130, 220)
     with pytest.raises(ValueError, match="too far"):
         localized_frames(distant, 0, 0.3)
+
+
+def test_complete_soccer_kick_keeps_the_model_timestamps_follow_through(clip):
+    # The cached Gemini interval maps to frames 70-130 (2.33-4.33 s).
+    # The reviewed kick continues through frame 141 (4.7 s). The clip context
+    # ends there, so the bounded follow-through allowance includes its finish.
+    candidate = candidate_context("soccer", clip, "soccer-hash", 0, 66, 301)
+    assert (candidate.context_start, candidate.context_end) == (0, 141)
+    assert localized_frames(candidate, 70 / 30, 130 / 30) == (70, 141)
+    assert validate_cached_localization(candidate, {
+        "decision": "match",
+        "visible_evidence": "The player strikes the ball around 4.0 seconds.",
+        "start_frame": 70,
+        "end_frame": 130,
+    })["end_frame"] == 141
 
 
 class FakeClient:
@@ -89,7 +108,7 @@ def test_valid_localization_uses_one_extra_request_and_its_own_cache(client, cli
     assert error is None and cached_error is None
     assert first == second == {"c1": {
         "decision": "match", "visible_evidence": "Visible action",
-        "start_frame": 54, "end_frame": 114,
+        "start_frame": 54, "end_frame": 129,
     }}
     assert len(fake.calls) == 1
     assert len(fake.calls[0]["contents"]) == 3
