@@ -2,6 +2,34 @@
 
 Updated: 2026-10-22. Status: local development preview; release gates remain open.
 
+## Ticket 2: diverse held-out visual-search evaluation (2026-10-22)
+
+Prepared an isolated, opaque-named 12-video set across four source collections
+(DVIDS, Wikimedia Commons, NASA, Blender): eight sports/training clips and four
+non-sports clips. All 12 finished indexing (161 visual ranges). The reviewed
+test answer key has 40 searches: 20 positives, 10 paraphrases, and 10 hard
+negatives. Original rights, source, hashes, and conversion details remain in
+ignored local evaluation files; no footage or credentials were committed.
+
+The free `gemini-3.5-flash-lite` verifier returned HTTP 503 `UNAVAILABLE` after
+six completed positive searches; a bounded retry also failed. A one-query
+check with `gemini-3.8-flash` succeeded, but the next request hit the same 503.
+This is a provider-availability failure, not a false search result, and no paid
+fallback was used. The six cached positive results all found the relevant
+source in the top five and ranked it first, but that is not a useful accuracy
+claim without negatives. Their two labeled event ranges had 2.28 s median
+boundary error, missing the 1 s pilot target. The other 34 queries are unscored;
+visual search is not declared production-ready. See
+[the diverse held-out evaluation report](HELDOUT_EVALUATION.md) for source
+credits, exact metrics, and the reproducible command.
+
+Verification for this checkpoint: backend **159 passed** (including the new
+profile validation); production build passed; isolated browser workflow
+**31 passed**; retained A2 media-correctness checks **20 passed**; changed-file
+Ruff and `git diff --check` passed. The complete 40-query live accuracy score
+remains blocked by Gemini HTTP 503 availability errors, as detailed in the
+evaluation report.
+
 ## Visual-result preview and adjustment (2026-10-22)
 
 Visual results now offer **Preview & adjust** beside unchanged Quick add and

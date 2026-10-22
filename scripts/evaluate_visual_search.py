@@ -232,6 +232,7 @@ def validate_dataset(dataset, profile="full"):
         "full": (50, 100, 5, 10, {"positive": 50, "paraphrase": 25, "negative": 25}),
         "pilot": (16, 60, 4, 4, {"positive": 36, "paraphrase": 12, "negative": 12}),
         "smoke": (16, 20, 4, 4, {"positive": 12, "paraphrase": 0, "negative": 8}),
+        "heldout": (12, 40, None, None, {"positive": 20, "paraphrase": 10, "negative": 10}),
     }
     if profile not in shapes:
         raise ValueError(f"Unknown evaluation profile: {profile}")
@@ -241,14 +242,21 @@ def validate_dataset(dataset, profile="full"):
     if len(queries) != query_count:
         raise ValueError(f"Expected exactly {query_count} reviewed searches; found {len(queries)}.")
     categories = {video.get("category") for video in videos}
-    if len(categories) != category_count:
-        raise ValueError(f"Videos must cover exactly {category_count} footage categories.")
-    category_counts = {
-        category: sum(video.get("category") == category for video in videos)
-        for category in categories
-    }
-    if any(count != per_category for count in category_counts.values()):
-        raise ValueError(f"Use {per_category} videos in each footage category.")
+    if profile == "heldout":
+        if None in categories or len(categories) < 4:
+            raise ValueError("Held-out footage must cover at least four named content categories.")
+        collections = {video.get("source_collection") for video in videos}
+        if None in collections or len(collections) < 4:
+            raise ValueError("Held-out footage must name at least four source collections.")
+    else:
+        if len(categories) != category_count:
+            raise ValueError(f"Videos must cover exactly {category_count} footage categories.")
+        category_counts = {
+            category: sum(video.get("category") == category for video in videos)
+            for category in categories
+        }
+        if any(count != per_category for count in category_counts.values()):
+            raise ValueError(f"Use {per_category} videos in each footage category.")
     video_ids = [video.get("asset_id") for video in videos]
     if len(set(video_ids)) != len(video_ids) or None in video_ids:
         raise ValueError("Each video needs a unique indexed asset_id.")
@@ -264,6 +272,8 @@ def validate_dataset(dataset, profile="full"):
             raise ValueError(f"Query {row.get('id')} needs project_id, query, and category.")
         if row.get("split") not in {"development", "test"}:
             raise ValueError(f"Query {row['id']} needs a development/test split.")
+        if profile == "heldout" and row.get("split") != "test":
+            raise ValueError("Held-out profile queries must all use the untouched test split.")
         if row.get("kind") not in {"positive", "paraphrase", "negative"}:
             raise ValueError(f"Invalid query kind in {row.get('id')}.")
         if row.get("kind") == "negative":
@@ -304,8 +314,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("dataset", type=Path, help="Human-reviewed benchmark JSON")
     parser.add_argument(
-        "--profile", choices=("full", "pilot", "smoke"), default="full",
-        help="Strict 50/100 study, 16/60 pilot, or 16/20 diagnostic smoke check",
+        "--profile", choices=("full", "pilot", "smoke", "heldout"), default="full",
+        help=("Strict 50/100 study, 16/60 pilot, 16/20 diagnostic smoke check, "
+              "or 12/40 diverse held-out pilot"),
     )
     parser.add_argument(
         "--data-dir",

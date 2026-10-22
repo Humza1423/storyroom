@@ -204,6 +204,44 @@ def test_smoke_profile_has_explicit_16_video_20_query_shape():
         evaluation.validate_dataset(smoke, "pilot")
 
 
+def test_diverse_heldout_profile_requires_12_videos_40_queries_and_source_diversity():
+    collections = ("dvids", "wikimedia_commons", "nasa", "blender_open_movie")
+    categories = ("sports", "animals", "craft", "animation")
+    videos = [
+        {
+            "asset_id": f"heldout-{index}",
+            "category": categories[index % len(categories)],
+            "source_collection": collections[index % len(collections)],
+        }
+        for index in range(12)
+    ]
+    queries = []
+    for kind, count in (("positive", 20), ("paraphrase", 10), ("negative", 10)):
+        for index in range(count):
+            target = videos[index % len(videos)]
+            queries.append({
+                "id": f"{kind}-{index}", "project_id": "isolated",
+                "query": f"reviewed {kind} query {index}",
+                "category": target["category"], "kind": kind,
+                "split": "test",
+                "relevant": [] if kind == "negative" else [{
+                    "asset_id": target["asset_id"], "start_sec": 1, "end_sec": 2,
+                }],
+            })
+    dataset = {"videos": videos, "queries": queries}
+
+    assert evaluation.validate_dataset(dataset, "heldout") is dataset
+    with pytest.raises(ValueError, match="four source collections"):
+        evaluation.validate_dataset(
+            {**dataset, "videos": [{**video, "source_collection": "commons"}
+                                   for video in videos]},
+            "heldout",
+        )
+    queries[0]["split"] = "development"
+    with pytest.raises(ValueError, match="untouched test split"):
+        evaluation.validate_dataset(dataset, "heldout")
+
+
 def test_actual_normalized_frame_clock_is_used_when_supplied():
     row = {
         "id": "q", "category": "sports", "split": "test", "kind": "positive",
