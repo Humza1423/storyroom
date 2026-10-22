@@ -29,9 +29,14 @@ Pick the search mode before typing a query:
 
 For Visual AI, review the estimate and privacy notice before you confirm
 indexing. This sends permitted proxy samples to Gemini. Once indexing finishes,
-search for visible actions, such as `jumping jacks`. Click a result's picture to
-watch the suggested range in **Player**. Its timestamps are candidates, not
-guaranteed action boundaries; inspect and adjust them before using them.
+search for visible actions, such as `jumping jacks`. **Quick add to Storybin**
+or drag a result to save its approximate AI match range unchanged. Choose
+**Preview & adjust** to inspect up to one second of nearby footage on each
+side. The nearby footage is **not verified**; it may contain another action.
+Scrub it, move the keyboard-accessible in/out sliders, play your selected cut,
+then choose **Add selected cut to Storybin**. Only your chosen frame boundaries
+are saved. The AI match and nearby preview are temporary, and no new AI request
+or video file is made while adjusting.
 
 Keyword results showing an entire clip do **not** prove the app recognized its
 contents. To test visual search, select **Visual AI** explicitly.
@@ -39,7 +44,7 @@ contents. To test visual search, select **Visual AI** explicitly.
 ## 3. Storybins
 
 Click **Add story section** to create a Storybin, such as “Warm-up,” “Technique,”
-or “Best effort.” Click a bin to make it the destination for **Add to section**.
+or “Best effort.” Click a bin to make it the destination for a search result.
 The search panel names the current destination. You can also drag results into
 a bin. A clip can appear more than once with different ranges.
 
@@ -70,7 +75,7 @@ Storyroom's media folder and relink/import again.
 - The 4K Pexels demo project is marked demo/workflow only. Its clips are not
   approved for AI indexing, so use rights-cleared footage in another project
   when testing Visual AI.
-- An inaccurate range: click it, add it to a bin, then trim the placed selection.
+- An inaccurate range: use **Preview & adjust** before adding, or trim the placed selection afterward.
   Record the bad result rather than assuming a similarity score means it is right.
 - A missing project: projects belong to the local server's `STORYROOM_DATA`
   folder. A different or temporary data folder is a different workspace.

@@ -963,6 +963,55 @@ input[type="checkbox"] {
 .preview-info {
   margin-top: 17px;
 }
+.visual-range-editor {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #151b20;
+  color: #dce5e9;
+  font-size: 11px;
+}
+.visual-range-editor p {
+  margin: 10px 0 14px;
+  color: #aab7bd;
+  line-height: 1.5;
+}
+.visual-range-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.visual-range-labels span:last-child { white-space: nowrap; }
+.visual-context-track {
+  position: relative;
+  height: 12px;
+  margin: 12px 0 16px;
+  border-radius: 6px;
+  background: #4c565e;
+  overflow: hidden;
+}
+.visual-match-band, .visual-selected-band {
+  position: absolute;
+  height: 100%;
+}
+.visual-match-band { background: #9a9f72; }
+.visual-selected-band { background: #79b5be; opacity: .75; }
+.visual-range-control {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  color: #c5d0d5;
+  font-variant-numeric: tabular-nums;
+}
+.visual-range-control input {
+  width: 100%;
+  min-height: 28px;
+  accent-color: #8fc6c8;
+  touch-action: pan-y;
+}
 .preview-info strong {
   display: block;
   font-size: 11px;

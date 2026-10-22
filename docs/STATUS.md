@@ -1,6 +1,25 @@
 # Project status and release checklist
 
-Updated: 2026-10-21. Status: local development preview; release gates remain open.
+Updated: 2026-10-22. Status: local development preview; release gates remain open.
+
+## Visual-result preview and adjustment (2026-10-22)
+
+Visual results now offer **Preview & adjust** beside unchanged Quick add and
+drag-and-drop. The player labels the original hit **AI match range ·
+approximate**, shows up to 30 nearby frames on each side as **not verified**,
+and lets the creator scrub and move keyboard-accessible in/out sliders. Playback
+uses the selected cut; adding it saves only the chosen integer-frame range in
+the existing board format. The nearby context and AI match remain temporary.
+No cloud request, media generation, database change, or localization-default
+change was added. The [user guide](USER_GUIDE.md) explains the workflow.
+
+Verification: backend **158 passed**, including media-correctness **20 passed**;
+production build passed; isolated browser workflow **31 passed**. Browser
+coverage checks source-edge clamping, invalid/reversed ranges, labels, narrow
+layout, keyboard adjustment, local scrubbing, selected playback, no write calls
+while adjusting, Quick add and drag saving the original range, and adjusted
+cut boundaries surviving save/reopen. This is an editing UX checkpoint, not
+evidence that AI match timing or search accuracy is now exact.
 
 ## Ticket 1: opt-in query-aware moment timing (2026-10-21)
 

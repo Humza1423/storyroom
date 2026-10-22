@@ -29,7 +29,7 @@ export function VisualCandidateCard({
       <button
         className="thumbnail"
         onClick={onPreview}
-        aria-label={`Preview visual match ${candidate.rank}`}
+        aria-label={`Preview & adjust visual match ${candidate.rank}`}
       >
         <img src={`/api/assets/${candidate.asset_id}/thumbnail`} alt="" />
         <span className="thumb-play">
@@ -51,7 +51,7 @@ export function VisualCandidateCard({
         </button>
       </div>
       <button className="moment-title" onClick={onPreview}>
-        Preview candidate range
+        Preview & adjust
       </button>
       <p className="filename" title={asset?.name}>
         {asset?.name} · {timecode(candidate.start_frame)}–
@@ -59,7 +59,7 @@ export function VisualCandidateCard({
       </p>
       <div className="card-actions">
         <button className="text-button" onClick={onAdd}>
-          <Plus size={13} /> Add to section
+          <Plus size={13} /> Quick add to Storybin
         </button>
       </div>
     </article>
