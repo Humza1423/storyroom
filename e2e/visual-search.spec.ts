@@ -176,6 +176,37 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("VISUAL MATCH · #1")).toBeVisible();
   await page.getByRole("button", { name: "Preview & adjust visual match 1" }).click();
+  for (const width of [1440, 1024, 768, 390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    const layout = await page.evaluate(() => {
+      const player = document.querySelector(".player")!.getBoundingClientRect();
+      const video = document.querySelector(".player video")!.getBoundingClientRect();
+      const controls = document.querySelector(".assembly-controls")!.getBoundingClientRect();
+      const editor = document.querySelector(".visual-range-editor")!.getBoundingClientRect();
+      const mode = document.querySelector(".library-tools label")!.getBoundingClientRect();
+      const analyze = document.querySelector(".library-tools button")!.getBoundingClientRect();
+      return {
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+        videoFits: video.top >= player.top && video.bottom <= player.bottom,
+        controlsFit: controls.top >= player.top && controls.bottom <= player.bottom,
+        controlsVisible: controls.height >= 40,
+        editorFits: editor.left >= 0 && editor.right <= window.innerWidth,
+        searchToolsSeparate: mode.right <= analyze.left || analyze.right <= mode.left ||
+          mode.bottom <= analyze.top || analyze.bottom <= mode.top,
+      };
+    });
+    expect(layout, `player layout at ${width}px`).toMatchObject({
+      pageWidth: width,
+      viewportWidth: width,
+      videoFits: true,
+      controlsFit: true,
+      controlsVisible: true,
+      editorFits: true,
+      searchToolsSeparate: true,
+    });
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
   const writeRequests: string[] = [];
   page.on("request", (request) => {
     if (request.method() !== "GET") writeRequests.push(`${request.method()} ${request.url()}`);

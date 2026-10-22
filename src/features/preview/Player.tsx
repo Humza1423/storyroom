@@ -65,7 +65,7 @@ export function Player({
   }
 
   return <>
-    <div className="player assembly-player">
+    <div className={`player assembly-player${preview ? "" : " empty-player"}`}>
       {preview ? (
         <>
           <video
