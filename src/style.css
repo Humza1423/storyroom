@@ -1409,7 +1409,7 @@ input[type="checkbox"] {
     font-size: 20px;
   }
   .workspace {
-    grid-template-columns: 240px minmax(300px, 1fr);
+    grid-template-columns: minmax(270px, 32%) minmax(0, 1fr);
   }
   .inspector {
     grid-column: 1/-1;
@@ -1487,7 +1487,7 @@ input[type="checkbox"] {
     margin: 0 18px 16px;
   }
   .workspace {
-    grid-template-columns: 215px minmax(270px, 1fr);
+    grid-template-columns: minmax(270px, 32%) minmax(0, 1fr);
   }
   .board-panel {
     padding: 20px 12px 0;
