@@ -1,6 +1,94 @@
 # Project status and release checklist
 
-Updated: 2026-10-22. Status: local development preview; release gates remain open.
+Updated: 2026-10-24. Status: local development preview; release gates remain open.
+
+## Hands-on real-footage and assembly follow-up (2026-10-24)
+
+Used Storyroom's isolated browser app with eleven natural conversational Visual
+AI searches against the 12 opaque-named held-out clips. Nine positive prompts
+returned relevant first results opened and visually checked in the player:
+boxing, tug of war, open-water swimming, sewing, cat play, wheelchair
+basketball, astronaut exercise, painting, and rabbit/butterfly reaction. A
+soccer-shot prompt returned no false match among the first ten candidates
+inspected. An absent-dog prompt
+returned no match among its first five verified candidates. Neither negative
+search exhausted every deeper candidate. The rabbit/butterfly prompt also
+returned a playable 6.0–7.4 second reaction shot, verified by watching it in
+the player. The test project was kept separate from normal user projects and
+no paid Gemini fallback was used. The app-side budget meter changed during the
+search workflow; it is not a billing statement.
+
+During actual use, playing a three-clip Storyroom assembly sometimes skipped
+or stopped before the last placement. A stale `timeupdate`/`ended` event from
+the outgoing HTML video element could advance the range that had just become
+active. The player now advances only when the event comes from the currently
+active media element and range, and only once. The real browser session then
+played the boxing, sewing, and astronaut clips in order. The isolated browser
+test now explicitly waits for **Clip 3 of 3**, so a test can no longer pass
+after checking only the first transition.
+
+Hands-on UX notes: results are playable and can be added to a Storybin; nearby
+fragments of one continuous scene can also appear as separate hits, including
+tug-of-war fragments and a 0.8-second cat clip. I widened the search column's
+minimum from 240 to 270 pixels for compact desktop/tablet windows and added a
+900-pixel browser assertion; it remains a narrow layout and the copy still
+wraps. Result cards now show seconds like the player. Duplicate-event grouping
+needs a focused follow-up.
+See
+[the hands-on results](HELDOUT_EVALUATION.md#manual-storyroom-workflow-smoke-test-2026-10-24).
+
+The full 40-query run is now complete: 29/30 positive/paraphrase searches had a
+relevant source in the top five, 25/30 had a relevant moment in the top five,
+24/30 ranked a relevant moment first, 0/10 hard negatives returned a false
+match, and median maximum boundary error was 3.23 seconds. Some answer-key
+intervals are demonstrably incorrect or too broad (obstacle course, cat,
+sewing, animation), so these are raw pilot scores and should not be used to
+tune the search cutoff. Cold live search p50/p95 was 5.33/7.03 seconds versus
+41.2/44.8 ms for cached replays with zero new Gemini calls. The cold wait is
+model/network round-trip time; local exact-vector search was not the bottleneck.
+Caching already makes repeat searches fast. No quality-risking shortcut was
+introduced just to reduce the cold-call time. Search remains a pilot, not
+production-ready.
+
+Verification for this checkpoint: backend **159 passed** (one existing
+Starlette/httpx deprecation warning); production build passed; full isolated
+browser workflow **32 passed**, including the new full three-clip assembly
+assertion; retained A2 media-correctness checks **20 passed**; `git diff
+--check` passed. See
+[the full held-out evaluation](HELDOUT_EVALUATION.md) for source credits,
+method, manual Storyroom results, limitations, and reproduction command.
+
+## Ticket 2: diverse held-out visual-search evaluation (2026-10-22)
+
+Prepared an isolated, opaque-named 12-video set across four source collections
+(DVIDS, Wikimedia Commons, NASA, Blender): eight sports/training clips and four
+non-sports clips. All 12 finished indexing (161 visual ranges). The reviewed
+test answer key has 40 searches: 20 positives, 10 paraphrases, and 10 hard
+negatives. Original rights, source, hashes, and conversion details remain in
+ignored local evaluation files; no footage or credentials were committed.
+
+The free `gemini-3.5-flash-lite` verifier returned HTTP 503 `UNAVAILABLE` after
+six completed positive searches; a bounded retry also failed. A one-query
+check with `gemini-3.8-flash` succeeded, but the next request hit the same 503.
+This is a provider-availability failure, not a false search result, and no paid
+fallback was used. The six cached positive results all found the relevant
+source in the top five and ranked it first, but that is not a useful accuracy
+claim without negatives. Their two labeled event ranges had 2.28 s median
+boundary error, missing the 1 s pilot target. The other 34 queries are unscored;
+visual search is not declared production-ready. See
+[the diverse held-out evaluation report](HELDOUT_EVALUATION.md) for source
+credits, exact metrics, and the reproducible command.
+
+Completion update (2026-10-24): the full benchmark subsequently completed. See
+the current evaluation summary above and the report for the 40-query results;
+the historical six-query result above reflects the state on 2026-10-22.
+
+Verification for this checkpoint: backend **159 passed** (including the new
+profile validation); production build passed; isolated browser workflow
+**31 passed**; retained A2 media-correctness checks **20 passed**; changed-file
+Ruff and `git diff --check` passed. The complete 40-query live accuracy score
+remains blocked by Gemini HTTP 503 availability errors, as detailed in the
+evaluation report.
 
 ## Visual-result preview and adjustment (2026-10-22)
 
@@ -1075,8 +1163,9 @@ authorized routine feature-branch pushes for verified implementation checkpoints
 
 ### 4. Evaluate usefulness and prepare a release
 
-- [ ] Curate 40 human-reviewed queries across three rights- and privacy-appropriate footage collections.
-- [ ] Measure relevant candidates in the first five; pilot target is at least 32 of 40, with per-collection misses reported.
+- [x] Prepare and run a 40-query held-out pilot across 12 opaque-named videos and four source collections; report raw metrics and label-quality limitations in [HELDOUT_EVALUATION](HELDOUT_EVALUATION.md).
+- [ ] Correct known answer-key label issues, improve actionable distinct-event results where footage confirms it, and rerun the same pilot once.
+- [ ] After the focused rerun, decide whether a larger cross-domain set is needed; do not require 50 videos before improving the current experience.
 - [ ] Test unsupported queries, uncertainty, missing media, and stop/restart recovery.
 - [x] Test installation from a fresh macOS checkout and locked environment.
 - [ ] Review dependency/media licenses for the release and real-footage exercise.

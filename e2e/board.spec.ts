@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { moveSelection } from "../src/features/board/changes";
+import { canAdvancePlaybackRange } from "../src/features/preview/playback";
 import type { Section } from "../src/types";
 
 test("moving duplicate source placements preserves independent ranges and input", () => {
@@ -34,4 +35,43 @@ test("moving duplicate source placements preserves independent ranges and input"
   expect(moved[1].selections[0].start_frame).toBe(20);
   expect(board[0].selections).toHaveLength(2);
   expect(moveSelection(board, "missing", "b", "")).toEqual(board);
+});
+
+test("a stale media event cannot advance a newer playback range", () => {
+  const oldVideo = {};
+  const currentVideo = {};
+  const completion = {
+    eventRangeKey: "assembly:clip-1",
+    activeRangeKey: "assembly:clip-2",
+    eventVideo: oldVideo,
+    activeVideo: currentVideo,
+    alreadyAdvanced: false,
+  };
+
+  expect(canAdvancePlaybackRange(completion)).toBe(false);
+  expect(
+    canAdvancePlaybackRange({
+      ...completion,
+      eventRangeKey: "assembly:clip-2",
+      activeRangeKey: "assembly:clip-2",
+    }),
+  ).toBe(false);
+  expect(
+    canAdvancePlaybackRange({
+      eventRangeKey: "assembly:clip-2",
+      activeRangeKey: "assembly:clip-2",
+      eventVideo: currentVideo,
+      activeVideo: currentVideo,
+      alreadyAdvanced: false,
+    }),
+  ).toBe(true);
+  expect(
+    canAdvancePlaybackRange({
+      eventRangeKey: "assembly:clip-2",
+      activeRangeKey: "assembly:clip-2",
+      eventVideo: currentVideo,
+      activeVideo: currentVideo,
+      alreadyAdvanced: true,
+    }),
+  ).toBe(false);
 });

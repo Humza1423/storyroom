@@ -167,6 +167,9 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   await page.getByLabel("Search footage").fill("person doing a jumping jack");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("VISUAL MATCH · #1")).toBeVisible();
+  await expect(page.locator(".moment-card .filename")).toContainText(
+    "clip-0.mp4 · 0.2–1.2s",
+  );
   await expect(page.getByRole("alert")).toContainText(
     "Only one ranked moment was verified",
   );
