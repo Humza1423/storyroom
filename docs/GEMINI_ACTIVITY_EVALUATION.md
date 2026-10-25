@@ -91,6 +91,15 @@ slate; stirring despite boiling noodles; heavy-bag kicking; bicep curls; dog cha
 a ball; astronaut treadmill; basketball scoring; knitting. This only checks the
 first five candidate locations per query, not an exhaustive library rejection.
 
+Cache-only tracing (network disabled) confirmed the earliest failing stage for
+the three empty duration queries: the correct source occupies the first two
+retrieved anchors, but Gemini's cached duration verdict is `no_match` on both.
+Badminton received 0–6.5s and 2.6–10.6s contexts; horses 0.7–7.5s and 2.5–10.3s;
+Earth 19.3–26.5s and 11.5–18.5s. Thus those misses occur at short-context semantic
+inspection, **not missing raw retrieval or frame conversion**. The saved verdicts
+do not explain their reasoning, so duration/context interpretation is the next
+controlled hypothesis, not a proven account of the model's internal reasoning.
+
 ## Requests and speed
 
 Indexing made 37 SDK embedding calls. The frozen search run made 24 text-embedding
@@ -137,6 +146,12 @@ filenames; section-name presentation was not re-established in this import.
 Also opened the new eight-clip library in the real app and played the push-up
 query's 21.2–23.6s result. It shows a push-up, but the start is already descending:
 the complete-move UX is not yet good enough to claim precise localization.
+In that fresh library, Quick add saved the cooking cut at frames 10–610 and the
+push-up at 636–708 in **Fresh footage handoff**. Its rendered MP4 `a4e62ce3…`
+contains exactly 672 video frames / 22.4s; audio also lasts 22.4s and the first
+19.9s cooking portion is silent (16-bit volume floor −91dB). This fresh two-cut
+export was generated, but the actual Resolve import above uses the separate
+five-cut development assembly; do not conflate those checks.
 
 ## Reproduce
 
