@@ -100,7 +100,7 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   });
   await permissions.click();
   await page
-    .getByLabel("source / full video page", { exact: true })
+    .getByLabel("Source / full video page", { exact: true })
     .fill("https://example.org/footage/original-video");
   await page.getByLabel("author", { exact: true }).fill("Storyroom tests");
   await page
@@ -340,7 +340,7 @@ test("visual search checks more moments without losing earlier matches", async (
     .getByRole("button", { name: /Permissions for clip-0\.mp4/ })
     .click();
   await page
-    .getByLabel("source / full video page", { exact: true })
+    .getByLabel("Source / full video page", { exact: true })
     .fill("Generated fixture");
   await page.getByLabel("author", { exact: true }).fill("Storyroom tests");
   await page

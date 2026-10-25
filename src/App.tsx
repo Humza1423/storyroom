@@ -1749,7 +1749,7 @@ export default function App() {
             <p>{provenance.name}</p>
             {(["source", "author", "license"] as const).map((key) => (
               <label key={key}>
-                {key === "source" ? "source / full video page" : key}
+                {key === "source" ? "Source / full video page" : key}
                 <input
                   value={provenance.provenance[key] || ""}
                   placeholder={
