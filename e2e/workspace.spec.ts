@@ -105,6 +105,8 @@ test("create, import, select, trim, reopen, render, export, undo", async ({
     .toBeGreaterThan(0.3);
   await expect(page.getByText("Clip 2 of 3")).toBeVisible({ timeout: 8000 });
   await expect(page.locator(".assembly-controls span")).toContainText("/ 1.3s");
+  await expect(page.getByText("Clip 3 of 3")).toBeVisible({ timeout: 8000 });
+  await expect(page.locator(".assembly-controls span")).toContainText("/ 2.0s");
   await page
     .getByRole("button", { name: "Render preview", exact: true })
     .click();
@@ -151,6 +153,17 @@ test("responsive workspace has no horizontal overflow", async ({
     ),
   ).toBeTruthy();
   await page.getByRole("button", { name: "Mobile project" }).click();
+  await page.setViewportSize({ width: 900, height: 900 });
+  const searchPanelWidth = await page
+    .locator(".workspace .library")
+    .evaluate((panel) => panel.getBoundingClientRect().width);
+  expect(searchPanelWidth).toBeGreaterThanOrEqual(270);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Add story section" }).click();
   await page.getByLabel("Section title").fill("Mobile section");
   await page.getByRole("button", { name: "Save section", exact: true }).click();

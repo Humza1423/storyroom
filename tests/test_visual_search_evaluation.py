@@ -204,6 +204,44 @@ def test_smoke_profile_has_explicit_16_video_20_query_shape():
         evaluation.validate_dataset(smoke, "pilot")
 
 
+def test_diverse_heldout_profile_requires_12_videos_40_queries_and_source_diversity():
+    collections = ("dvids", "wikimedia_commons", "nasa", "blender_open_movie")
+    categories = ("sports", "animals", "craft", "animation")
+    videos = [
+        {
+            "asset_id": f"heldout-{index}",
+            "category": categories[index % len(categories)],
+            "source_collection": collections[index % len(collections)],
+        }
+        for index in range(12)
+    ]
+    queries = []
+    for kind, count in (("positive", 20), ("paraphrase", 10), ("negative", 10)):
+        for index in range(count):
+            target = videos[index % len(videos)]
+            queries.append({
+                "id": f"{kind}-{index}", "project_id": "isolated",
+                "query": f"reviewed {kind} query {index}",
+                "category": target["category"], "kind": kind,
+                "split": "test",
+                "relevant": [] if kind == "negative" else [{
+                    "asset_id": target["asset_id"], "start_sec": 1, "end_sec": 2,
+                }],
+            })
+    dataset = {"videos": videos, "queries": queries}
+
+    assert evaluation.validate_dataset(dataset, "heldout") is dataset
+    with pytest.raises(ValueError, match="four source collections"):
+        evaluation.validate_dataset(
+            {**dataset, "videos": [{**video, "source_collection": "commons"}
+                                   for video in videos]},
+            "heldout",
+        )
+    queries[0]["split"] = "development"
+    with pytest.raises(ValueError, match="untouched test split"):
+        evaluation.validate_dataset(dataset, "heldout")
+
+
 def test_actual_normalized_frame_clock_is_used_when_supplied():
     row = {
         "id": "q", "category": "sports", "split": "test", "kind": "positive",
@@ -266,7 +304,7 @@ def test_cache_only_guard_checks_every_candidate_in_production_batch(tmp_path):
     )
     search = SimpleNamespace(rank_distinct_events=lambda *args, **kwargs: [])
     db = SimpleNamespace(cache_get=lambda key: cached.get(key))
-    config = SimpleNamespace(EMBED_DIMENSIONS=768)
+    config = SimpleNamespace(EMBED_DIMENSIONS=768, FPS=30)
     traces = {"current": {}}
     evaluation.install_instrumentation(ai, search, db, config, traces, False)
     assert ai.embedding_provider().provider == "gemini"
@@ -305,7 +343,7 @@ def test_batch_trace_preserves_cached_verdict_when_other_candidate_fails(tmp_pat
     )
     search = SimpleNamespace(rank_distinct_events=lambda *args, **kwargs: [])
     db = SimpleNamespace(cache_get=lambda key: cached_verdict if key.endswith(":0:30") else None)
-    config = SimpleNamespace(EMBED_DIMENSIONS=768)
+    config = SimpleNamespace(EMBED_DIMENSIONS=768, FPS=30)
     traces = {"current": {}}
     evaluation.install_instrumentation(ai, search, db, config, traces, True)
     verdicts, error = ai.verify_visual_matches("q", [
@@ -319,3 +357,34 @@ def test_batch_trace_preserves_cached_verdict_when_other_candidate_fails(tmp_pat
     assert traces["current"]["verifier"][0]["accepted"] is True
     assert traces["current"]["verifier"][1]["accepted"] is False
     assert traces["current"]["verifier_error"] == "provider quota"
+
+
+def test_raw_retrieval_evidence_distinguishes_grouping_loss():
+    row = {"kind": "positive", "relevant": [
+        {"asset_id": "a", "start_sec": 1, "end_sec": 2},
+    ]}
+    correct = {"asset_id": "a", "start_frame": 30, "end_frame": 60}
+    assert evaluation.classify_miss(row, [], {
+        "raw_segments": [correct], "ranked_events": [],
+    }, {}) == "grouping_miss"
+    assert evaluation.classify_miss(row, [], {
+        "raw_segments": [correct],
+        "ranked_events": [{**correct, "start_frame": 300, "end_frame": 600}],
+    }, {}) == "grouping_range_miss"
+
+
+def test_report_preserves_explicit_precision_denominators():
+    rows = [{"id": str(i), "category": "sport", "kind": "positive",
+             "split": "development", "relevant": [
+                 {"asset_id": "a", "start_sec": 0, "end_sec": 2},
+             ]} for i in range(3)]
+    result = evaluation.evaluate_rows(rows, {
+        "0": [{"asset_id": "a", "start_frame": 0, "end_frame": 60}],
+        "1": [{"asset_id": "b", "start_frame": 0, "end_frame": 60}],
+        "2": [],
+    })
+    assert result["counts"]["positive_queries"] == 3
+    assert result["counts"]["returned_queries"] == 2
+    assert result["counts"]["relevant_first_results"] == 1
+    assert result["top1_precision_on_returned"] == 0.5
+    assert result["positive_top1_accuracy"] == pytest.approx(1 / 3)

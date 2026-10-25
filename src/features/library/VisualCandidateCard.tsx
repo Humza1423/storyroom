@@ -2,7 +2,6 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Play, Plus } from "lucide-react";
 import type { Asset, VisualCandidate } from "../../types";
-import { timecode } from "../../lib/timecode";
 
 export function VisualCandidateCard({
   candidate,
@@ -54,8 +53,8 @@ export function VisualCandidateCard({
         Preview & adjust
       </button>
       <p className="filename" title={asset?.name}>
-        {asset?.name} · {timecode(candidate.start_frame)}–
-        {timecode(candidate.end_frame)}
+        {asset?.name} · {(candidate.start_frame / 30).toFixed(1)}–
+        {(candidate.end_frame / 30).toFixed(1)}s
       </p>
       <div className="card-actions">
         <button className="text-button" onClick={onAdd}>

@@ -73,16 +73,20 @@ The alternate unpaid project now supports live searches. Page 0 remains
 unchanged; creators can explicitly inspect further verified candidates without
 automatically increasing every query's cost. The Commons exercise check found
 an early burpee that ranks tenth and is too narrowly cut to show a full
-movement. A smaller reviewed 16-video/20-query development diagnostic finds
+movement. A smaller reviewed 16-video/20-query development diagnostic found
 the correct source for all 12 positives but the correct playable moment for only
-9; sports timing is weakest (1/4). Ticket 1 added an **opt-in** bounded,
-query-aware localization pass: it improved the four sports development queries
+9; sports timing was weakest (1/4). Ticket 1 added an **opt-in** bounded,
+query-aware localization pass: it improved four sports development queries
 from 1/4 to 3/4 useful moments, but one cut still misses the requested action
-and the pass adds an API request. It remains off by default. Next, evaluate on
-unfamiliar, source-held-out footage before activation or ranking changes; then
-complete the broader 16-video/60-query comparison—not an ANN migration or
-a claim of production accuracy. See [AI_SEARCH_EVALUATION](AI_SEARCH_EVALUATION.md)
-and STATUS. Preserve
+and the pass adds an API request. It remains off by default. A diverse
+12-video/40-query held-out pilot is now complete: relevant moment in top five
+25/30 positives, first-result precision 24/29 returned searches, zero false
+positives on 10 negatives, and 3.23-second median maximum boundary error.
+Several answer-key intervals need correction; see
+[the evaluation report](HELDOUT_EVALUATION.md) before interpreting these as
+model-quality scores. The next step is one focused answer-key audit and an
+event-fragment fix if confirmed by footage, followed by one rerun—not another
+model or ANN change. Preserve
 the embedding retriever and frame-range selection format. Compare provider
 billing with Storyroom's conservative reservation. Do not use
 Pexels for indexing. Google unpaid-service data terms and human review mean the
@@ -111,20 +115,22 @@ are legitimate. Measure whether organizing helps decisions rather than adding wo
 
 ## 5. Evaluate and prepare an open-source release
 
-The current accuracy investigation supersedes the earlier 20-query / three-set
-pilot target. First run a balanced 16-video/60-query pilot across exercise,
-sport, everyday/object, and animal/nature footage, split by source. Then expand
-to the prepared 50 opaque-name exercise videos and 100 human-reviewed searches
-(50 positives, 25 paraphrases, 25 hard negatives) when rights, quota, and review
-capacity allow. Report top-five recall,
+The diverse 12-video/40-query held-out pilot is complete; its labels and event
+fragmentation limit the conclusions. First audit the few known bad/broad labels,
+make one focused event-grouping improvement if footage confirms it, and rerun
+the same pilot once. Only then decide whether a larger set is necessary; do not
+treat the earlier 50-video/100-query proposal as a prerequisite. Any future
+expansion should add genuinely different scenes and sources, split by source
+group, and include human-reviewed positives, paraphrases, and hard negatives.
+Report top-five recall,
 top-one precision, negative-query false positives, and boundary error separately.
 The working pilot targets are 90% for the first three retrieval measures (with
 negative-query false positives at most 5%) and median boundary error at most one
 second; publish per-action misses instead of averaging them away. These are
 engineering targets, not evidence of product demand or Adobe parity.
 
-Fifty local Mendeley inputs have been prepared, but the answer key is not yet
-human-reviewed and no model-quality evaluation has run. Do not send these
+Fifty local Mendeley inputs have been prepared, but they are not yet part of this
+completed benchmark and are not a prerequisite for the focused next step. Do not send these
 participant videos to Gemini's unpaid service without documented consent for
 that processing purpose: the dataset page's reuse license is not a privacy
 release, and Google's unpaid terms prohibit submitting personal information.

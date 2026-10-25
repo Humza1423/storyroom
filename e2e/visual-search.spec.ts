@@ -167,6 +167,9 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   await page.getByLabel("Search footage").fill("person doing a jumping jack");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("VISUAL MATCH · #1")).toBeVisible();
+  await expect(page.locator(".moment-card .filename")).toContainText(
+    "clip-0.mp4 · 0.2–1.2s",
+  );
   await expect(page.getByRole("alert")).toContainText(
     "Only one ranked moment was verified",
   );
@@ -220,6 +223,22 @@ test("visual candidates can be previewed, selected and independently trimmed", a
     page.getByRole("slider", { name: "Position within selected clip" }),
   ).toBeVisible();
   await expect(page.locator(".assembly-controls span")).toContainText("/ 1.0s");
+  await page.getByRole("button", { name: "View full source video" }).click();
+  await expect(page.getByText(/Full source video · not verified/)).toBeVisible();
+  await expect(
+    page.getByRole("slider", { name: "Position in full source video" }),
+  ).toBeVisible();
+  await expect(page.locator(".assembly-controls span")).toContainText("/ 2.0s");
+  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).currentTime)).toBeLessThan(0.05);
+  await page.getByRole("button", { name: "Play full source video" }).click();
+  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).currentTime)).toBeGreaterThan(1.25);
+  await page.getByRole("button", { name: "Pause full source video" }).click();
+  await page.getByRole("button", { name: "Return to match preview" }).click();
+  await expect(
+    page.getByRole("slider", { name: "Position within selected clip" }),
+  ).toBeVisible();
+  await expect(page.locator(".assembly-controls span")).toContainText("/ 1.0s");
+  expect(writeRequests).toEqual([]);
   expect(
     await page
       .locator("video")

@@ -1380,6 +1380,9 @@ export default function App() {
                     video={video}
                     advance={advance}
                     assembly={sequenceIndex !== null}
+                    sourceFrames={
+                      preview ? (assetMap[preview.asset_id]?.frames ?? 0) : 0
+                    }
                     visualRange={visualRange && preview?.id === visualRange.candidate.id ? visualRange : null}
                     onVisualRangeChange={setVisualRange}
                   />
