@@ -55,6 +55,16 @@ resolution or weaken the verified 1080p and 4K handoff checks.
 
 ## 3. Direct visual search vertical slice
 
+Current Gemini-first milestone: [approved plan](GEMINI_COMPLETION_PLAN.md).
+Ticket 1 corrected the historical labels. Tickets 2–3 now have an opt-in combined
+grounding/activity pipeline and actual app/Resolve handoff, but the frozen fresh
+evaluation misses quality gates (12/16 moment recall; only 1/5 durations).
+See [the checkpoint](GEMINI_ACTIVITY_EVALUATION.md). Next fix duration/context
+interpretation and inspectable validation failures, then run one controlled
+comparison and a fresh small frozen test. Keep exact retrieval and Gemini;
+no default promotion or parallel model integration. The older twelve-video
+numbers below are historical, not the current release decision.
+
 The provider/index/retrieval/UI code is implemented on the feature branch; see
 [STATUS](STATUS.md) for the exact test evidence. It adds a distinct Gemini
 Embedding 2 path over adaptive event/detail ranges of prepared 720p proxies,

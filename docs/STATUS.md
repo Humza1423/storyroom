@@ -2,6 +2,56 @@
 
 Updated: 2026-10-25. Status: local development preview; release gates remain open.
 
+## Gemini-first activity search checkpoint (2026-10-25)
+
+Current work: `codex/gemini-activity-search`, draft [PR #6](https://github.com/Humza1423/storyroom/pull/6)
+stacked on evaluation PR #5. No merge. Ticket 1's corrected baseline is complete;
+Tickets 2–3 have an implemented opt-in preview and live evidence, **not passed
+quality gates**. The earlier rabbit/obstacle-course claims below are superseded
+by [the reviewed baseline](GEMINI_SEARCH_BASELINE.md), with historical keys retained.
+
+Implemented combined Gemini relevance/timing inspection, distinct activity/cut
+ranges, resumable 30-second/4-second-overlap continuation, duration selection,
+per-stage API diagnostics, and player cut/activity/source review. Accepted cuts
+remain independent. Live use exposed a stale duplicate-card bug; completed worker
+snapshots now replace their original proposal batch, with a browser regression.
+No Qwen, ANN, paid fallback, billing change or new infrastructure.
+
+Eight new licensed clips from Commons/DVIDS/NASA completed indexing: 135 segments,
+37 embedding SDK calls. Frozen 24-query run at `2ee6d64`, Embedding 2 + unpaid
+3.5 Flash Lite: **12/16** positive top-five moment recall, **12/13** returned-first
+precision, **0/8** negative false returns, **1/5** requested-duration successes.
+Four continuations failed with partial results retained. Boundary median **0.70s**
+has only **one matched discrete label** and is not a general accuracy claim.
+43 video SDK calls, 24 text-embedding calls; initial p50 **8.61s**, total p50
+**10.94s**. One cached push-up replay took **58ms**, zero inspection requests.
+No direct speed/quality gain claim against the different older test library.
+
+Actual browser workflow: boxing activity 0–20s, suggestion 3.5–10.7s; reviewed
+activity/source, adjusted to frames **106–300**, added to a new Storybin, reopened
+unchanged, assembly reached 5/5, render measured **20.233333s**. Actual Resolve
+import, after native media-folder access, showed all five matching source ranges
+and **00:00:20:07** duration. The new push-up result was also played: relevant,
+but starts during descent, so complete-move lead-in remains imperfect.
+
+Verification: backend **239 passed** (one existing Starlette/httpx warning),
+including the frozen-key hash assertion. Production build
+passed. Full isolated browser suite **34 passed**; after the duplicate-card fix,
+focused activity browser checks **2 passed**. Existing A2 regressions remain in the
+backend suite. Initial Ubuntu CI failed on a script import; portable import fixed
+in `b94dcd1`, subsequent CI recorded on PR #6. No fake-provider result is counted
+as live search accuracy. See [full evidence, limitations and reproduction](GEMINI_ACTIVITY_EVALUATION.md).
+
+Next: fix duration/context interpretation and expose sanitized continuation
+validation reasons in one bounded comparison. Keep the experiment opt-in; no
+default promotion, prompt-tuning loop, model switch or ANN migration yet.
+
+Current demonstration server: `http://127.0.0.1:15176`, API 18767; canonical repo
+`/Users/hamzah_ali/Documents/Codex/2026-10-02/storyroom`; database
+`data/evaluation/gemini-fresh/session/storyroom.sqlite`; project **Gemini fresh
+validation v1**, **8 clips**. The older 12-clip development data remains under
+`data/evaluation/visual-search/heldout-v1/session`; 40 referred to queries, not clips.
+
 ## Full-source review from a Visual AI match (2026-10-25)
 
 Visual AI preview still opens on the selected match. The player now has a

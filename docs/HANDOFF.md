@@ -28,6 +28,23 @@ and [THIRD_PARTY](THIRD_PARTY.md) cover model experiments and licensing boundari
 
 ## Next entry point
 
+Current checkpoint: Gemini-first activity-search preview on
+`codex/gemini-activity-search`, draft PR #6 stacked on evaluation PR #5.
+Read the latest STATUS entry and [GEMINI_ACTIVITY_EVALUATION](GEMINI_ACTIVITY_EVALUATION.md)
+before the historical foundation summary below. The frozen eight-video/24-query
+test is complete but fails recall, precision and duration targets; do not claim
+the AI completion plan passed. Next bounded task: separate requested duration
+from recognition in short contexts and preserve sanitized continuation validation
+reasons. Do not re-audit, integrate Qwen/ANN, or retune the frozen key.
+
+Canonical repository is now `/Users/hamzah_ali/Documents/Codex/2026-10-02/storyroom`;
+the old long path is a compatibility symlink. The demo uses port 15176/API 18767,
+`data/evaluation/gemini-fresh/session`, project **Gemini fresh validation v1**,
+eight clips. Old 12-clip evidence remains separately intact. Check the startup
+banner for code and database identity; do not infer them from the port.
+
+### Historical foundation handoff
+
 The foundation, A1–A3, real-footage checks, and Resolve handoff are merged into
 the public repository's `main` branch. [PR #1](https://github.com/Humza1423/storyroom/pull/1)
 contains the review and CI history. Read [STATUS](STATUS.md),

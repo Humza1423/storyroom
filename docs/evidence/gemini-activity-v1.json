@@ -1,0 +1,956 @@
+{
+  "code_revision": "2ee6d641887a3ff3cc338cbde263b237bdc473d5",
+  "embedding_model": "gemini-embedding-2",
+  "verifier_model": "gemini-3.5-flash-lite",
+  "frozen_key_sha256": "28d46f70d6c21d56aaa95d469616136f8c2d883c9e05aeb1d1b78f65d4ad10b3",
+  "summary": {
+    "queries_completed": 24,
+    "positive_queries": 16,
+    "negative_queries": 8,
+    "top5_relevant": 12,
+    "top1_relevant": 12,
+    "returned_first_precision": {
+      "correct": 12,
+      "returned": 13
+    },
+    "negative_false_returns": 0,
+    "provider_or_validation_errors": 4,
+    "duration_queries": 5,
+    "duration_fulfilled_with_relevant_cut": 1,
+    "median_discrete_boundary_error_sec": 0.6999999999999993,
+    "boundary_labels_matched": 1,
+    "p50_total_seconds": 10.935942125011934
+  },
+  "queries": [
+    {
+      "id": "p01",
+      "query": "Find outdoor football practice with two people passing a ball.",
+      "results": [
+        {
+          "source": "f01.mp4",
+          "start_frame": 457,
+          "end_frame": 537,
+          "activity": {
+            "complete": true,
+            "continues_after": false,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 537,
+            "id": "269145af098a1d38b3d38784",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "start_frame": 457,
+            "suggested_end_frame": 537,
+            "suggested_start_frame": 457,
+            "visible_evidence": "Two people passing a football outdoors over a net."
+          }
+        },
+        {
+          "source": "f01.mp4",
+          "start_frame": 591,
+          "end_frame": 781,
+          "activity": {
+            "complete": false,
+            "continues_after": true,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 781,
+            "id": "5a8b621cfd5c319fb731b00a",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "start_frame": 580,
+            "suggested_end_frame": 781,
+            "suggested_start_frame": 591,
+            "visible_evidence": "Two people passing a football back and forth outdoors over a net."
+          }
+        }
+      ],
+      "initial_seconds": 35.136004250030965,
+      "total_seconds": 95.27002366702072,
+      "embedding_requests": 1,
+      "video_requests": 3,
+      "inspection_status": "failed",
+      "inspection_message": "Activity inspection failed.",
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 33.99999999999999,
+        "input_tokens": 7211,
+        "output_tokens": 485,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 34.437394083011895
+      },
+      "continuation_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 2,
+        "retries": 0,
+        "submitted_video_seconds": 31.666666666666664,
+        "elapsed_seconds": 60.11720974900527,
+        "input_tokens": 6959,
+        "output_tokens": 350,
+        "thinking_tokens": 0,
+        "estimated_usd": 0
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p02",
+      "query": "Show the player in blue kicking the football, including the run-up and finish.",
+      "results": [
+        {
+          "source": "f01.mp4",
+          "start_frame": 642,
+          "end_frame": 738,
+          "activity": {
+            "start_frame": 642,
+            "end_frame": 738,
+            "suggested_start_frame": 642,
+            "suggested_end_frame": 738,
+            "visible_evidence": "The player in blue runs up and kicks the football towards the net.",
+            "continues_before": false,
+            "continues_after": false,
+            "id": "bdc1720d3cc2f66baea8bfff",
+            "intent": "specific_move",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        },
+        {
+          "source": "f01.mp4",
+          "start_frame": 294,
+          "end_frame": 408,
+          "activity": {
+            "start_frame": 294,
+            "end_frame": 408,
+            "suggested_start_frame": 294,
+            "suggested_end_frame": 408,
+            "visible_evidence": "The player in blue runs up and kicks the football.",
+            "continues_before": false,
+            "continues_after": false,
+            "id": "03bd51d0f0bda504a3612f1c",
+            "intent": "specific_move",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        }
+      ],
+      "initial_seconds": 30.52580745803425,
+      "total_seconds": 30.525811333034653,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 37.5,
+        "input_tokens": 7877,
+        "output_tokens": 479,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 30.060994040977675
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p03",
+      "query": "I need 20 seconds of football practice on grass.",
+      "results": [
+        {
+          "source": "f01.mp4",
+          "start_frame": 487,
+          "end_frame": 591,
+          "activity": {
+            "complete": false,
+            "continues_after": true,
+            "continues_before": false,
+            "duration_fulfilled": false,
+            "end_frame": 591,
+            "id": "0e0322b186a95e53e2c25e94",
+            "intent": "duration",
+            "requested_frames": 600,
+            "start_frame": 487,
+            "suggested_end_frame": 591,
+            "suggested_start_frame": 487,
+            "visible_evidence": "Football practice on grass with player kicking the ball."
+          }
+        }
+      ],
+      "initial_seconds": 57.33485395897878,
+      "total_seconds": 61.68268354202155,
+      "embedding_requests": 1,
+      "video_requests": 2,
+      "inspection_status": "failed",
+      "inspection_message": "Activity boundary remains uncertain; completed inspections were retained.",
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 32.1,
+        "input_tokens": 6750,
+        "output_tokens": 473,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 56.85741154203424
+      },
+      "continuation_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 14.3,
+        "elapsed_seconds": 4.332667040987872,
+        "input_tokens": 3183,
+        "output_tokens": 68,
+        "thinking_tokens": 0,
+        "estimated_usd": 0
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p04",
+      "query": "Find an indoor badminton doubles game.",
+      "results": [
+        {
+          "source": "f02.mp4",
+          "start_frame": 459,
+          "end_frame": 609,
+          "activity": {
+            "complete": false,
+            "continues_after": true,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 639,
+            "id": "de9e081c596ead9e37d92f32",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "start_frame": 0,
+            "suggested_end_frame": 609,
+            "suggested_start_frame": 459,
+            "visible_evidence": "An indoor badminton doubles game being played on a blue court with four players actively rallying."
+          }
+        }
+      ],
+      "initial_seconds": 34.41371870803414,
+      "total_seconds": 43.92258850001963,
+      "embedding_requests": 1,
+      "video_requests": 3,
+      "inspection_status": "failed",
+      "inspection_message": "Activity inspection failed.",
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 28.833333333333332,
+        "input_tokens": 6201,
+        "output_tokens": 485,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 33.89860670804046
+      },
+      "continuation_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 2,
+        "retries": 0,
+        "submitted_video_seconds": 31,
+        "elapsed_seconds": 9.487453749985434,
+        "input_tokens": 6820,
+        "output_tokens": 333,
+        "thinking_tokens": 0,
+        "estimated_usd": 0
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p05",
+      "query": "Give me 20 seconds of badminton court action.",
+      "results": [],
+      "initial_seconds": 5.209946959046647,
+      "total_seconds": 5.209950875025243,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 29.233333333333334,
+        "input_tokens": 6271,
+        "output_tokens": 292,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 4.8017983339959756
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p06",
+      "query": "Find someone demonstrating push-ups on artificial grass.",
+      "results": [
+        {
+          "source": "f03.mp4",
+          "start_frame": 681,
+          "end_frame": 831,
+          "activity": {
+            "complete": false,
+            "continues_after": true,
+            "continues_before": true,
+            "duration_fulfilled": true,
+            "end_frame": 871,
+            "id": "9cfe420ca978486ec2718c5d",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "start_frame": 681,
+            "suggested_end_frame": 831,
+            "suggested_start_frame": 681,
+            "visible_evidence": "A person is performing push-ups on artificial grass from the beginning of the video until around 6 seconds."
+          }
+        }
+      ],
+      "initial_seconds": 6.230742249987088,
+      "total_seconds": 12.438565833028406,
+      "embedding_requests": 1,
+      "video_requests": 2,
+      "inspection_status": "failed",
+      "inspection_message": "Activity inspection failed.",
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 29.533333333333335,
+        "input_tokens": 6270,
+        "output_tokens": 492,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 5.806672708014958
+      },
+      "continuation_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 26.7,
+        "elapsed_seconds": 6.192502832971513,
+        "input_tokens": 5625,
+        "output_tokens": 171,
+        "thinking_tokens": 0,
+        "estimated_usd": 0
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p07",
+      "query": "Show one complete push-up, from straight arms down and back up.",
+      "results": [
+        {
+          "source": "f03.mp4",
+          "start_frame": 636,
+          "end_frame": 708,
+          "activity": {
+            "start_frame": 636,
+            "end_frame": 708,
+            "suggested_start_frame": 636,
+            "suggested_end_frame": 708,
+            "visible_evidence": "The person starts in a plank with straight arms, lowers down to the bottom position, and pushes back up to straight arms.",
+            "continues_before": false,
+            "continues_after": false,
+            "id": "0911fe06a74468f2a5601309",
+            "intent": "specific_move",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        }
+      ],
+      "initial_seconds": 6.895778584002983,
+      "total_seconds": 6.895782417035662,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 32.833333333333336,
+        "input_tokens": 6935,
+        "output_tokens": 498,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 6.322786667034961
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p08",
+      "query": "Find the two fitness instructors standing and explaining an exercise.",
+      "results": [
+        {
+          "source": "f03.mp4",
+          "start_frame": 171,
+          "end_frame": 241,
+          "activity": {
+            "start_frame": 171,
+            "end_frame": 241,
+            "suggested_start_frame": 171,
+            "suggested_end_frame": 241,
+            "visible_evidence": "Two fitness instructors standing and explaining an exercise facing the camera.",
+            "continues_before": false,
+            "continues_after": false,
+            "id": "04553b940e4c9108f9059e3c",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        }
+      ],
+      "initial_seconds": 23.78237500000978,
+      "total_seconds": 23.78237629198702,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 33.1,
+        "input_tokens": 7013,
+        "output_tokens": 490,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 23.365381542011164
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p09",
+      "query": "Show horses moving around a sunny green pasture.",
+      "results": [
+        {
+          "source": "f05.mp4",
+          "start_frame": 405,
+          "end_frame": 591,
+          "activity": {
+            "complete": true,
+            "continues_after": false,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 900,
+            "id": "1307f2eb969aad54da577976",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "start_frame": 0,
+            "suggested_end_frame": 591,
+            "suggested_start_frame": 405,
+            "visible_evidence": "Horses are visible moving around in a sunny green pasture throughout the clip."
+          }
+        }
+      ],
+      "initial_seconds": 38.10039187502116,
+      "total_seconds": 94.47212058398873,
+      "embedding_requests": 1,
+      "video_requests": 4,
+      "inspection_status": "done",
+      "inspection_message": "Complete",
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 31.299999999999997,
+        "input_tokens": 6747,
+        "output_tokens": 484,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 37.33805683301762
+      },
+      "continuation_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 3,
+        "retries": 0,
+        "submitted_video_seconds": 61.8,
+        "elapsed_seconds": 56.33129966794513,
+        "input_tokens": 13304,
+        "output_tokens": 502,
+        "thinking_tokens": 0,
+        "estimated_usd": 0
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p10",
+      "query": "I need a 20 second horses-in-a-field cutaway.",
+      "results": [],
+      "initial_seconds": 9.43331670796033,
+      "total_seconds": 9.433318416995462,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 35.7,
+        "input_tokens": 7481,
+        "output_tokens": 292,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 8.934325250040274
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p11",
+      "query": "Find noodles boiling in a pot of water.",
+      "results": [
+        {
+          "source": "f06.mp4",
+          "start_frame": 471,
+          "end_frame": 610,
+          "activity": {
+            "complete": true,
+            "continues_after": false,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 610,
+            "id": "53eb85235b9e2a7592790530",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "start_frame": 0,
+            "suggested_end_frame": 610,
+            "suggested_start_frame": 471,
+            "visible_evidence": "Noodles are boiling in a pot of water throughout the clip."
+          }
+        }
+      ],
+      "initial_seconds": 37.68360579200089,
+      "total_seconds": 59.34810300002573,
+      "embedding_requests": 1,
+      "video_requests": 3,
+      "inspection_status": "done",
+      "inspection_message": "Complete",
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 25.666666666666668,
+        "input_tokens": 5609,
+        "output_tokens": 484,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 37.2025692909956
+      },
+      "continuation_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 2,
+        "retries": 0,
+        "submitted_video_seconds": 38.13333333333333,
+        "elapsed_seconds": 21.641517791955266,
+        "input_tokens": 8210,
+        "output_tokens": 335,
+        "thinking_tokens": 0,
+        "estimated_usd": 0
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p12",
+      "query": "Give me 20 seconds of pasta cooking in boiling water.",
+      "results": [
+        {
+          "source": "f06.mp4",
+          "start_frame": 10,
+          "end_frame": 610,
+          "activity": {
+            "complete": true,
+            "continues_after": false,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 610,
+            "id": "a2c82dc62841962b41f3e190",
+            "intent": "duration",
+            "requested_frames": 600,
+            "start_frame": 0,
+            "suggested_end_frame": 405,
+            "suggested_start_frame": 219,
+            "visible_evidence": "Pasta cooking in boiling water throughout the entire clip."
+          }
+        }
+      ],
+      "initial_seconds": 17.634213458979502,
+      "total_seconds": 50.5339206669596,
+      "embedding_requests": 1,
+      "video_requests": 5,
+      "inspection_status": "done",
+      "inspection_message": "Complete",
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 36.400000000000006,
+        "input_tokens": 7675,
+        "output_tokens": 483,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 17.190135125012603
+      },
+      "continuation_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 4,
+        "retries": 0,
+        "submitted_video_seconds": 43.06666666666666,
+        "elapsed_seconds": 32.85447424906306,
+        "input_tokens": 9900,
+        "output_tokens": 693,
+        "thinking_tokens": 0,
+        "estimated_usd": 0
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p13",
+      "query": "Find a person demonstrating a hand sign indoors.",
+      "results": [
+        {
+          "source": "f07.mp4",
+          "start_frame": 0,
+          "end_frame": 79,
+          "activity": {
+            "start_frame": 0,
+            "end_frame": 79,
+            "suggested_start_frame": 0,
+            "suggested_end_frame": 79,
+            "visible_evidence": "A person indoors making a hand sign gesture.",
+            "continues_before": false,
+            "continues_after": false,
+            "id": "6524ccfe16847deb0f4c5f19",
+            "intent": "specific_move",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        }
+      ],
+      "initial_seconds": 22.864739582990296,
+      "total_seconds": 22.86474312498467,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 31.233333333333334,
+        "input_tokens": 6665,
+        "output_tokens": 381,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 22.329566208005417
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p14",
+      "query": "Find the close shot of a man raising one hand beside his face.",
+      "results": [
+        {
+          "source": "f07.mp4",
+          "start_frame": 0,
+          "end_frame": 79,
+          "activity": {
+            "start_frame": 0,
+            "end_frame": 79,
+            "suggested_start_frame": 0,
+            "suggested_end_frame": 79,
+            "visible_evidence": "A man in a black shirt is shown in a close shot raising his right hand beside his face.",
+            "continues_before": false,
+            "continues_after": false,
+            "id": "50f0058064a605ac12635810",
+            "intent": "specific_move",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        }
+      ],
+      "initial_seconds": 3.9513238749932498,
+      "total_seconds": 3.9513258750084788,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 31.533333333333335,
+        "input_tokens": 6802,
+        "output_tokens": 393,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 3.5180429170140997
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p15",
+      "query": "Find an animated Earth globe rotating against a dark background.",
+      "results": [
+        {
+          "source": "f08.mp4",
+          "start_frame": 579,
+          "end_frame": 729,
+          "activity": {
+            "complete": true,
+            "continues_after": false,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 900,
+            "id": "6ce2f7fa48b676ee04e680e5",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "start_frame": 0,
+            "suggested_end_frame": 729,
+            "suggested_start_frame": 579,
+            "visible_evidence": "An animated Earth globe rotating against a dark background is shown throughout the entire video clip."
+          }
+        }
+      ],
+      "initial_seconds": 16.180201833019964,
+      "total_seconds": 50.04072454100242,
+      "embedding_requests": 1,
+      "video_requests": 5,
+      "inspection_status": "done",
+      "inspection_message": "Complete",
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 28.933333333333334,
+        "input_tokens": 6205,
+        "output_tokens": 487,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 15.808057208021637
+      },
+      "continuation_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 4,
+        "retries": 0,
+        "submitted_video_seconds": 62,
+        "elapsed_seconds": 33.822043999971356,
+        "input_tokens": 13720,
+        "output_tokens": 671,
+        "thinking_tokens": 0,
+        "estimated_usd": 0
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "p16",
+      "query": "I need 20 seconds of the rotating planet Earth.",
+      "results": [],
+      "initial_seconds": 5.256933249998838,
+      "total_seconds": 5.25693416694412,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 30.833333333333332,
+        "input_tokens": 6602,
+        "output_tokens": 282,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 4.66166845796397
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "n01",
+      "query": "Find people playing volleyball and hitting a ball over a net.",
+      "results": [],
+      "initial_seconds": 7.785557875002269,
+      "total_seconds": 7.785560625023209,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 32.9,
+        "input_tokens": 7014,
+        "output_tokens": 282,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 7.381875291990582
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "n02",
+      "query": "Find someone stirring the noodles with a spoon.",
+      "results": [],
+      "initial_seconds": 4.850446375028696,
+      "total_seconds": 4.850447875040118,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 28.566666666666666,
+        "input_tokens": 6137,
+        "output_tokens": 282,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 4.459699291968718
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "n03",
+      "query": "Find a boxer kicking a heavy punching bag.",
+      "results": [],
+      "initial_seconds": 5.217088542005513,
+      "total_seconds": 5.217091124970466,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 30.233333333333334,
+        "input_tokens": 6401,
+        "output_tokens": 282,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 4.706955500005279
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "n04",
+      "query": "Find someone doing bicep curls with dumbbells.",
+      "results": [],
+      "initial_seconds": 6.094863958016504,
+      "total_seconds": 6.094866500003263,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 28.233333333333334,
+        "input_tokens": 6006,
+        "output_tokens": 282,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 5.659845499962103
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "n05",
+      "query": "Find a dog chasing a ball on grass.",
+      "results": [],
+      "initial_seconds": 5.702339291980024,
+      "total_seconds": 5.702341999975033,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 35.4,
+        "input_tokens": 7407,
+        "output_tokens": 282,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 5.2116490000044
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "n06",
+      "query": "Find an astronaut running on a treadmill inside a space station.",
+      "results": [],
+      "initial_seconds": 5.178536457999144,
+      "total_seconds": 5.178538249980193,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 32.4,
+        "input_tokens": 6882,
+        "output_tokens": 282,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 4.780359791999217
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "n07",
+      "query": "Find a basketball player throwing the ball into a hoop.",
+      "results": [],
+      "initial_seconds": 5.10751658398658,
+      "total_seconds": 5.1075178339960985,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 30.633333333333336,
+        "input_tokens": 6535,
+        "output_tokens": 282,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 4.681841915997211
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    },
+    {
+      "id": "n08",
+      "query": "Find someone knitting fabric with two needles.",
+      "results": [],
+      "initial_seconds": 21.921922708977945,
+      "total_seconds": 21.921924124995712,
+      "embedding_requests": 1,
+      "video_requests": 1,
+      "initial_diagnostics": {
+        "cache_hits": 0,
+        "request_attempts": 1,
+        "retries": 0,
+        "submitted_video_seconds": 30.033333333333335,
+        "input_tokens": 6334,
+        "output_tokens": 282,
+        "thinking_tokens": 0,
+        "usage_available": true,
+        "estimated_usd": 0,
+        "elapsed_seconds": 21.586024457996245
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed."
+    }
+  ]
+}
