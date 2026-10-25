@@ -1,6 +1,6 @@
 # Project status and release checklist
 
-Updated: 2026-10-24. Status: local development preview; release gates remain open.
+Updated: 2026-10-25. Status: local development preview; release gates remain open.
 
 ## Search result source links (2026-10-25)
 
