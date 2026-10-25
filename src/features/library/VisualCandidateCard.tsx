@@ -14,6 +14,8 @@ export function VisualCandidateCard({
   onPreview: () => void;
   onAdd: () => void;
 }) {
+  const activity = candidate.activity;
+  const previewLabel = activity ? "Preview suggested cut" : "Preview & adjust";
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: "visual:" + candidate.id,
@@ -28,7 +30,7 @@ export function VisualCandidateCard({
       <button
         className="thumbnail"
         onClick={onPreview}
-        aria-label={`Preview & adjust visual match ${candidate.rank}`}
+        aria-label={`${previewLabel} visual match ${candidate.rank}`}
       >
         <img src={`/api/assets/${candidate.asset_id}/thumbnail`} alt="" />
         <span className="thumb-play">
@@ -50,12 +52,26 @@ export function VisualCandidateCard({
         </button>
       </div>
       <button className="moment-title" onClick={onPreview}>
-        Preview & adjust
+        {previewLabel}
       </button>
       <p className="filename" title={asset?.name}>
         {asset?.name} · {(candidate.start_frame / 30).toFixed(1)}–
         {(candidate.end_frame / 30).toFixed(1)}s
       </p>
+      {activity && (
+        <p className="filename">
+          Activity · {(activity.start_frame / 30).toFixed(1)}–
+          {(activity.end_frame / 30).toFixed(1)}s ·{" "}
+          {((activity.end_frame - activity.start_frame) / 30).toFixed(1)}s
+          {activity.complete ? " · fully inspected" : " · partially inspected"}
+          {activity.requested_frames !== null &&
+            (activity.duration_fulfilled
+              ? ` · ${(activity.requested_frames / 30).toFixed(1)}s requested cut`
+              : activity.complete
+                ? ` · Less than ${(activity.requested_frames / 30).toFixed(1)}s available`
+                : " · Requested duration not yet confirmed")}
+        </p>
+      )}
       <div className="card-actions">
         <button className="text-button" onClick={onAdd}>
           <Plus size={13} /> Quick add to Storybin

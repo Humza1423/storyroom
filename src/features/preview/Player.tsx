@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { Film, Pause, Play } from "lucide-react";
 import type { Moment, Selection, VisualCandidate } from "../../types";
-import { moveVisualHandle, type VisualRange } from "./visualRange";
+import {
+  activityBounds,
+  moveVisualHandle,
+  type VisualRange,
+} from "./visualRange";
 import { canAdvancePlaybackRange } from "./playback";
 
 export function Player({
@@ -28,31 +32,52 @@ export function Player({
   const [elapsed, setElapsed] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
-  const [fullSourcePreviewId, setFullSourcePreviewId] = useState<string | null>(
-    null,
-  );
+  const [review, setReview] = useState<{
+    id: string;
+    mode: "activity" | "source";
+  } | null>(null);
+  const activity = visualRange
+    ? activityBounds(visualRange.candidate, sourceFrames)
+    : null;
   const reviewingFullSource =
-    !!visualRange && fullSourcePreviewId === visualRange.candidate.id;
+    !!visualRange &&
+    review?.id === visualRange.candidate.id &&
+    review.mode === "source";
+  const reviewingActivity =
+    !!activity &&
+    !!visualRange &&
+    review?.id === visualRange.candidate.id &&
+    review.mode === "activity";
+  const reviewing = reviewingFullSource || reviewingActivity;
+  const playbackLabel = reviewingFullSource
+    ? "full source video"
+    : reviewingActivity
+      ? "activity"
+      : "selected range";
   const contextStart = reviewingFullSource
     ? 0
-    : (visualRange?.contextStart ?? 0);
+    : reviewingActivity
+      ? activity!.start
+      : (visualRange?.contextStart ?? 0);
   const contextEnd = reviewingFullSource
     ? sourceFrames
-    : (visualRange?.contextEnd ?? sourceFrames);
-  const startFrame = reviewingFullSource
-    ? 0
+    : reviewingActivity
+      ? activity!.end
+      : (visualRange?.contextEnd ?? sourceFrames);
+  const startFrame = reviewing
+    ? contextStart
     : (visualRange?.selectedStart ?? preview?.start_frame ?? 0);
-  const endFrame = reviewingFullSource
-    ? sourceFrames
+  const endFrame = reviewing
+    ? contextEnd
     : (visualRange?.selectedEnd ?? preview?.end_frame ?? 0);
   const start = startFrame / 30;
   const duration = Math.max(0, (endFrame - startFrame) / 30);
   const rangeKey = preview
-    ? `${assembly ? "assembly" : "preview"}:${preview.asset_id}:${preview.id}:${preview.start_frame}:${preview.end_frame}:${reviewingFullSource ? "full-source" : "selected-range"}`
+    ? `${assembly ? "assembly" : "preview"}:${preview.asset_id}:${preview.id}:${startFrame}:${endFrame}:${reviewingFullSource ? "full-source" : reviewingActivity ? "activity" : "selected-range"}`
     : "";
 
   useEffect(() => {
-    setFullSourcePreviewId(null);
+    setReview(null);
   }, [preview?.asset_id, preview?.id]);
 
   useEffect(() => {
@@ -174,11 +199,13 @@ export function Player({
             <div className="assembly-controls">
               <button
                 type="button"
-                aria-label={playing
-                  ? `Pause ${reviewingFullSource ? "full source video" : "selected range"}`
-                  : elapsed >= duration - 0.05
-                    ? `Replay ${reviewingFullSource ? "full source video" : "selected range"}`
-                    : `Play ${reviewingFullSource ? "full source video" : "selected range"}`}
+                aria-label={
+                  playing
+                    ? `Pause ${playbackLabel}`
+                    : elapsed >= duration - 0.05
+                      ? `Replay ${playbackLabel}`
+                      : `Play ${playbackLabel}`
+                }
                 onClick={() => {
                   const element = video.current;
                   if (!element) return;
@@ -202,9 +229,13 @@ export function Player({
                 {playing ? <Pause size={15} /> : <Play size={15} />}
               </button>
               <input
-                aria-label={reviewingFullSource
-                  ? "Position in full source video"
-                  : "Position within selected clip"}
+                aria-label={
+                  reviewingFullSource
+                    ? "Position in full source video"
+                    : reviewingActivity
+                      ? "Position in activity"
+                      : "Position within selected clip"
+                }
                 type="range"
                 min={0}
                 max={duration}
@@ -251,15 +282,39 @@ export function Player({
           <p>
             {reviewingFullSource
               ? "Full source video · not verified. Review the entire imported clip; the AI match and your selected cut stay marked below."
-              : "Nearby footage · not verified. Scrub to check what happens before and after the match."}
+              : reviewingActivity
+                ? visualRange.candidate.activity?.complete
+                  ? "Activity range · AI identified. Review the activity around the suggested cut."
+                  : "Activity range · partially inspected. Its beginning or end may still be unresolved."
+                : "Nearby footage · not verified. Scrub to check what happens before and after the match."}
           </p>
+          {activity && (
+            <button
+              type="button"
+              className="secondary full-source-toggle"
+              onClick={() => {
+                video.current?.pause();
+                setReview(
+                  reviewingActivity
+                    ? null
+                    : { id: visualRange.candidate.id, mode: "activity" },
+                );
+              }}
+            >
+              {reviewingActivity
+                ? "Return to suggested cut"
+                : "Review activity"}
+            </button>
+          )}
           <button
             type="button"
             className="secondary full-source-toggle"
             onClick={() => {
               video.current?.pause();
-              setFullSourcePreviewId(
-                reviewingFullSource ? null : visualRange.candidate.id,
+              setReview(
+                reviewingFullSource
+                  ? null
+                  : { id: visualRange.candidate.id, mode: "source" },
               );
             }}
           >
@@ -284,19 +339,25 @@ export function Player({
             />
           </div>
           <label className="visual-range-control">
-            {reviewingFullSource ? "Scrub full source video" : "Scrub nearby footage"} · {(playhead / 30).toFixed(1)}s
+            {reviewingFullSource
+              ? "Scrub full source video"
+              : reviewingActivity
+                ? "Scrub activity"
+                : "Scrub nearby footage"}{" "}
+            · {(playhead / 30).toFixed(1)}s
             <input
-              aria-label={reviewingFullSource
-                ? "Scrub full source video"
-                : "Scrub nearby footage"}
+              aria-label={
+                reviewingFullSource
+                  ? "Scrub full source video"
+                  : reviewingActivity
+                    ? "Scrub activity"
+                    : "Scrub nearby footage"
+              }
               type="range"
               min={contextStart}
               max={contextEnd - 1}
               step="1"
-              value={Math.max(
-                contextStart,
-                Math.min(playhead, contextEnd - 1),
-              )}
+              value={Math.max(contextStart, Math.min(playhead, contextEnd - 1))}
               onChange={(event) => {
                 const frame = Number(event.target.value);
                 video.current?.pause();
@@ -312,7 +373,7 @@ export function Player({
               {(visualRange.selectedEnd / 30).toFixed(1)}s
             </span>
           </div>
-          {reviewingFullSource ? (
+          {reviewing ? (
             <p className="full-source-note">
               Viewing only—the selected cut has not changed. Return to match
               preview to adjust its in and out points.

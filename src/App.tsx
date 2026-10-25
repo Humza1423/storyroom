@@ -3,7 +3,10 @@ import { ImportPanel } from "./features/library/imports/ImportPanel";
 import { footageSummary } from "./features/library/imports/presentation";
 import { ProcessingPanel } from "./components/ProcessingPanel";
 import { Player } from "./features/preview/Player";
-import { createVisualRange, type VisualRange } from "./features/preview/visualRange";
+import {
+  createVisualRange,
+  type VisualRange,
+} from "./features/preview/visualRange";
 import { moveSelection } from "./features/board/changes";
 import { StorySection } from "./features/board/StorySection";
 import { ClipRow } from "./features/board/ClipRow";
@@ -97,6 +100,10 @@ export default function App() {
     [trimEnd, setTrimEnd] = useState(0),
     [note, setNote] = useState("");
   const [visualRange, setVisualRange] = useState<VisualRange | null>(null);
+  const [groundedSearch, setGroundedSearch] = useState(false);
+  const activityRequests = useRef(
+    new Map<string, { epoch: number; pid: string; signature: string }>(),
+  );
   const [brief, setBrief] = useState(""),
     [newProject, setNewProject] = useState(false),
     [projectName, setProjectName] = useState("");
@@ -130,6 +137,50 @@ export default function App() {
   activePid.current = pid;
   const boardEpoch = useRef(0);
   const searchEpoch = useRef(0);
+  function trackActivity(response: VisualSearchResponse) {
+    if (response.activity_job_id)
+      activityRequests.current.set(response.activity_job_id, {
+        epoch: searchEpoch.current,
+        pid: activePid.current,
+        signature: "",
+      });
+  }
+  useEffect(() => {
+    for (const job of project?.jobs ?? []) {
+      const request = activityRequests.current.get(job.id);
+      if (
+        !request ||
+        request.epoch !== searchEpoch.current ||
+        request.pid !== activePid.current
+      )
+        continue;
+      const updates = job.result?.visual_results;
+      const signature = JSON.stringify([job.status, updates]);
+      if (!updates || request.signature === signature) continue;
+      request.signature = signature;
+      const ids = new Set(updates.map((candidate) => candidate.id));
+      setResults((current) =>
+        [
+          ...(current ?? []).filter(
+            (candidate) =>
+              !ids.has(candidate.id) &&
+              !(
+                "kind" in candidate &&
+                candidate.activity?.inspection_job_id === job.id
+              ),
+          ),
+          ...updates,
+        ].sort(
+          (a, b) => ("rank" in a ? a.rank : 0) - ("rank" in b ? b.rank : 0),
+        ),
+      );
+      if (["failed", "cancelled"].includes(job.status))
+        setSearchWarning(
+          `Activity inspection ${job.status}: ${job.message}. Completed ranges remain available.`,
+        );
+      else if (job.status === "done") setSearchWarning("");
+    }
+  }, [project?.jobs]);
   const [imports] = useState(
     () =>
       new ImportController({
@@ -318,7 +369,12 @@ export default function App() {
       const response = await api<VisualSearchResponse>(
         `/projects/${submittedPid}/search`,
         "POST",
-        { query: submittedQuery, mode: "visual", page: nextPage },
+        {
+          query: submittedQuery,
+          mode: "visual",
+          page: nextPage,
+          grounded: groundedSearch,
+        },
         120000,
       );
       if (
@@ -348,6 +404,7 @@ export default function App() {
         return [...existing, ...added];
       });
       setVisualPage(response.page);
+      trackActivity(response);
       setVisualHasMore(response.has_more && response.page < 7);
       setSearchWarning(response.warning ?? "");
     } catch (error) {
@@ -440,7 +497,9 @@ export default function App() {
     if ("kind" in m) {
       const range = createVisualRange(m, assetMap[m.asset_id]?.frames ?? 0);
       if (!range) {
-        setError("This visual match has an invalid frame range. Try searching again.");
+        setError(
+          "This visual match has an invalid frame range. Try searching again.",
+        );
         return;
       }
       setVisualRange(range);
@@ -865,6 +924,7 @@ export default function App() {
                                   query: submittedQuery,
                                   mode: submittedMode,
                                   page: 0,
+                                  grounded: groundedSearch,
                                 },
                                 120000,
                               );
@@ -873,6 +933,7 @@ export default function App() {
                                 activePid.current === submittedPid
                               ) {
                                 setResults(response.results);
+                                trackActivity(response);
                                 setSearchWarning(response.warning ?? "");
                                 setVisualPage(response.page);
                                 setVisualHasMore(
@@ -1008,6 +1069,24 @@ export default function App() {
                   )}
                   {searchMode === "visual" && (
                     <div className="visual-index-box">
+                      <label className="search-explainer">
+                        <input
+                          type="checkbox"
+                          checked={groundedSearch}
+                          onChange={(event) => {
+                            setGroundedSearch(event.target.checked);
+                            searchEpoch.current += 1;
+                            setVisualSearchBusy(false);
+                            setVisualPagingBusy(false);
+                            setResults(null);
+                            setVisualPage(null);
+                            setVisualHasMore(false);
+                            setSearchWarning("");
+                          }}
+                        />{" "}
+                        Activity search (preview): find complete moves and
+                        adjustable activity cuts.
+                      </label>
                       <strong>Search what is visible in the video</strong>
                       <p>
                         Index only prepared clips that have cloud-analysis
@@ -1383,7 +1462,11 @@ export default function App() {
                     sourceFrames={
                       preview ? (assetMap[preview.asset_id]?.frames ?? 0) : 0
                     }
-                    visualRange={visualRange && preview?.id === visualRange.candidate.id ? visualRange : null}
+                    visualRange={
+                      visualRange && preview?.id === visualRange.candidate.id
+                        ? visualRange
+                        : null
+                    }
                     onVisualRangeChange={setVisualRange}
                   />
                   <p className="player-help">
@@ -1420,23 +1503,31 @@ export default function App() {
                         {timecode(preview.start_frame)} —{" "}
                         {timecode(preview.end_frame)}
                       </span>
-                      {visualRange && "kind" in preview && preview.id === visualRange.candidate.id && (
-                        <button
-                          className="secondary wide"
-                          onClick={() => add({ ...preview, start_frame: visualRange.selectedStart, end_frame: visualRange.selectedEnd })}
-                        >
-                          <Plus size={14} /> Add selected cut to Storybin
-                        </button>
-                      )}
-                      {!selected && "description" in preview && (
+                      {visualRange &&
+                        "kind" in preview &&
+                        preview.id === visualRange.candidate.id && (
                           <button
                             className="secondary wide"
-                            onClick={() => add(preview)}
+                            onClick={() =>
+                              add({
+                                ...preview,
+                                start_frame: visualRange.selectedStart,
+                                end_frame: visualRange.selectedEnd,
+                              })
+                            }
                           >
-                            <Plus size={14} /> Add to{" "}
-                            {active?.title || "a new section"}
+                            <Plus size={14} /> Add selected cut to Storybin
                           </button>
                         )}
+                      {!selected && "description" in preview && (
+                        <button
+                          className="secondary wide"
+                          onClick={() => add(preview)}
+                        >
+                          <Plus size={14} /> Add to{" "}
+                          {active?.title || "a new section"}
+                        </button>
+                      )}
                     </div>
                   )}
                   {selected && (

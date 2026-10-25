@@ -1,0 +1,336 @@
+"""Query-aware activity inspection, separate from accepted board selections.
+
+Embeddings find anchors. Grounded video evidence supplies activity intervals.
+Continuation is resumable worker work; incomplete bounds remain explicit.
+"""
+
+import copy
+import hashlib
+import json
+import re
+
+from . import config, db, grounding, media
+from .localization import candidate_context
+
+VERSION = "activity-v2-crop-boundaries"
+CHUNK = 30 * config.FPS
+OVERLAP = 4 * config.FPS
+
+
+def requested_frames(query):
+    """Honor explicit numeric duration without asking a second model."""
+    match = re.search(
+        r"(?<![\w.\-])(\d+(?:\.\d+)?|\.\d+)\s*(seconds?|secs?|s|minutes?|mins?)\b",
+        query,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    seconds = float(match[1]) * (60 if match[2].lower().startswith("m") else 1)
+    return max(1, round(seconds * config.FPS)) if seconds > 0 else None
+
+
+def suggested_cut(interval, intent, requested=None):
+    left, right = interval["start_frame"], interval["end_frame"]
+    if intent == "specific_move" and requested is None:
+        return left, right
+    if requested is None:
+        return (
+            max(left, interval.get("suggested_start_frame", left)),
+            min(right, interval.get("suggested_end_frame", min(right, left + 150))),
+        )
+    length = requested or 5 * config.FPS
+    start = max(
+        left,
+        min(
+            interval.get("suggested_start_frame", left),
+            right - min(length, right - left),
+        ),
+    )
+    return start, min(right, start + length)
+
+
+def _refresh(candidate):
+    activity = candidate["activity"]
+    activity["complete"] = not (
+        activity["continues_before"] or activity["continues_after"]
+    )
+    start, end = suggested_cut(
+        activity, activity["intent"], activity["requested_frames"]
+    )
+    candidate.update(start_frame=start, end_frame=end)
+    activity["duration_fulfilled"] = (
+        activity["requested_frames"] is None
+        or end - start == activity["requested_frames"]
+    )
+    return candidate
+
+
+def distinct_activities(candidates):
+    """Suppress duplicate grounded views, never union uninspected gaps."""
+    kept = []
+    for candidate in candidates:
+        a = candidate["activity"]
+        duplicate = None
+        for prior in kept:
+            b = prior["activity"]
+            overlap = min(a["end_frame"], b["end_frame"]) - max(
+                a["start_frame"], b["start_frame"]
+            )
+            shorter = min(
+                a["end_frame"] - a["start_frame"], b["end_frame"] - b["start_frame"]
+            )
+            if (
+                candidate["asset_id"] == prior["asset_id"]
+                and overlap / max(1, shorter) >= 0.8
+            ):
+                duplicate = prior
+                break
+        if duplicate is None:
+            kept.append(candidate)
+        elif a["complete"] and not duplicate["activity"]["complete"]:
+            # Replace a partial view, rather than stretching two ranges together.
+            index = kept.index(duplicate)
+            candidate["id"] = duplicate["id"]
+            candidate["activity"]["id"] = duplicate["activity"]["id"]
+            kept[index] = candidate
+    for rank, candidate in enumerate(kept, 1):
+        candidate["rank"] = rank
+    return kept
+
+
+def _result(query, candidate, interval, verdict, occurrence):
+    requested = requested_frames(query)
+    if requested is None and verdict["requested_duration_seconds"] is not None:
+        requested = max(1, round(verdict["requested_duration_seconds"] * config.FPS))
+    intent = "duration" if requested else verdict["intent"]
+    ident = hashlib.sha256(
+        f"{VERSION}:{query}:{candidate['asset_id']}:{interval['start_frame']}:{occurrence}".encode()
+    ).hexdigest()[:24]
+    activity = {
+        **interval,
+        "id": ident,
+        "intent": intent,
+        "requested_frames": requested,
+    }
+    return _refresh(
+        {
+            **candidate,
+            "id": "activity-" + ident,
+            "kind": "visual",
+            "media_url": f"/api/assets/{candidate['asset_id']}/proxy",
+            "activity": activity,
+        }
+    )
+
+
+def inspect_candidates(project_id, query, shortlist, frames, hashes, status):
+    specs = []
+    for index, hit in enumerate(shortlist):
+        context = candidate_context(
+            f"c{index}",
+            config.asset_dir(hit["asset_id"]) / "proxy.mp4",
+            hashes[hit["asset_id"]],
+            hit["start_frame"],
+            hit["end_frame"],
+            frames[hit["asset_id"]],
+        )
+        specs.append(
+            (
+                context.candidate_id,
+                context.proxy,
+                context.proxy_hash,
+                context.anchor_start,
+                context.anchor_end,
+                context.asset_frames,
+                context.context_start,
+                context.context_end,
+            )
+        )
+    diagnostics = {}
+    verdicts, error = grounding.inspect_ranges(query, specs, diagnostics=diagnostics)
+    status["inspection_diagnostics"] = diagnostics
+    candidates = []
+    for spec, hit in zip(specs, shortlist, strict=True):
+        verdict = verdicts.get(spec[0])
+        if verdict and verdict["decision"] == "match":
+            for index, interval in enumerate(verdict["intervals"]):
+                result = _result(query, hit, interval, verdict, index)
+                result.pop("score", None)
+                candidates.append(result)
+    candidates = distinct_activities(candidates)[:5]
+    status["checked_candidates"] = len(verdicts)
+    status["pipeline"] = VERSION
+    status["incomplete"] = bool(error) or len(verdicts) < len(specs)
+    if error:
+        status["warning"] = "Inspection incomplete: " + getattr(
+            error, "safe_message", "Video inspection failed; retry later."
+        )
+    if status.get("has_more"):
+        status["incomplete"] = True
+        status["warning"] = " ".join(
+            filter(
+                None,
+                [
+                    status.get("warning"),
+                    "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+                ],
+            )
+        )
+    if any(not c["activity"]["complete"] for c in candidates):
+        # Snapshot proposals only. Continuation never edits an accepted cut.
+        payload = {"query": query, "candidates": candidates}
+        previous = db.one(
+            "SELECT result FROM jobs WHERE project_id=? AND kind='activity_inspect' "
+            "AND payload=? AND status='done' ORDER BY created DESC LIMIT 1",
+            (project_id, json.dumps(payload, sort_keys=True)),
+        )
+        if previous and previous["result"]:
+            status["incomplete"] = bool(error)
+            return json.loads(previous["result"])["visual_results"]
+        job_id = db.enqueue(project_id, "activity_inspect", payload)
+        status["activity_job_id"] = job_id
+        status["incomplete"] = True
+        for candidate in candidates:
+            if not candidate["activity"]["complete"]:
+                candidate["activity"]["inspection_job_id"] = job_id
+    return candidates
+
+
+def continue_inspection(job, cancelled, progress):
+    """Inspect adjacent chunks serially; persist after every completed request."""
+    payload = json.loads(job["payload"])
+    saved = json.loads(job["result"]) if job.get("result") else {}
+    candidates = copy.deepcopy(saved.get("visual_results", payload["candidates"]))
+    totals = saved.get("inspection_diagnostics", {})
+
+    def persist():
+        result = {
+            "visual_results": distinct_activities(candidates),
+            "query": payload["query"],
+            "inspection_diagnostics": totals,
+        }
+        db.execute(
+            "UPDATE jobs SET result=? WHERE id=?", (json.dumps(result), job["id"])
+        )
+        return result
+
+    persist()
+    for candidate in candidates:
+        asset = db.one(
+            "SELECT * FROM assets WHERE id=? AND project_id=?",
+            (candidate["asset_id"], job["project_id"]),
+        )
+        if (
+            not asset
+            or asset["status"] != "ready"
+            or not json.loads(asset["provenance"]).get("cloud_analysis")
+        ):
+            raise ValueError(
+                "Activity clip is unavailable or cloud permission was removed."
+            )
+        proxy = config.asset_dir(asset["id"]) / "proxy.mp4"
+        proxy_hash = media.sha256_file(proxy)
+        if proxy_hash != asset["visual_proxy_hash"]:
+            raise ValueError("Playback proxy changed; reindex this clip.")
+        a = candidate["activity"]
+        while not a["complete"]:
+            if cancelled():
+                raise media.Cancelled()
+            progress(
+                0,
+                f"Inspecting activity around {a['start_frame'] / 30:.1f}–{a['end_frame'] / 30:.1f}s",
+            )
+            before = a["continues_before"]
+            if before:
+                right = min(asset["frames"], a["start_frame"] + OVERLAP)
+                left = max(0, right - CHUNK)
+                anchor_left, anchor_right = a["start_frame"], min(a["end_frame"], right)
+            else:
+                left = max(0, a["end_frame"] - OVERLAP)
+                right = min(asset["frames"], left + CHUNK)
+                anchor_left, anchor_right = max(a["start_frame"], left), a["end_frame"]
+            spec = (
+                "c0",
+                proxy,
+                proxy_hash,
+                anchor_left,
+                anchor_right,
+                asset["frames"],
+                left,
+                right,
+            )
+            diagnostics = {}
+            verdicts, error = grounding.inspect_ranges(
+                payload["query"],
+                [spec],
+                job_id=job["id"],
+                cancelled=cancelled,
+                diagnostics=diagnostics,
+            )
+            for key in (
+                "cache_hits",
+                "request_attempts",
+                "retries",
+                "submitted_video_seconds",
+                "elapsed_seconds",
+                "input_tokens",
+                "output_tokens",
+                "thinking_tokens",
+                "estimated_usd",
+            ):
+                totals[key] = totals.get(key, 0) + diagnostics.get(key, 0)
+            persist()
+            verdict = verdicts.get("c0")
+            if not verdict or verdict["decision"] != "match":
+                persist()
+                if error:
+                    raise ValueError(
+                        getattr(error, "safe_message", "Activity inspection failed.")
+                    )
+                raise ValueError(
+                    "Activity boundary remains uncertain; completed inspections were retained."
+                )
+            # Require actual semantic overlap with the already inspected action.
+            overlaps = [
+                i
+                for i in verdict["intervals"]
+                if max(i["start_frame"], anchor_left)
+                < min(i["end_frame"], anchor_right)
+            ]
+            if not overlaps:
+                persist()
+                raise ValueError(
+                    "No verified continuity across this activity boundary."
+                )
+            interval = max(
+                overlaps,
+                key=lambda i: (
+                    min(i["end_frame"], anchor_right)
+                    - max(i["start_frame"], anchor_left)
+                ),
+            )
+            old = (a["start_frame"], a["end_frame"])
+            if before:
+                a["start_frame"] = min(a["start_frame"], interval["start_frame"])
+                a["continues_before"] = interval["continues_before"]
+            else:
+                a["end_frame"] = max(a["end_frame"], interval["end_frame"])
+                a["continues_after"] = interval["continues_after"]
+            _refresh(candidate)
+            persist()
+            if cancelled() or isinstance(error, InterruptedError):
+                raise media.Cancelled()
+            if error:
+                raise ValueError(
+                    getattr(error, "safe_message", "Activity inspection incomplete.")
+                )
+            if (
+                old == (a["start_frame"], a["end_frame"])
+                and not a["complete"]
+                and (a["continues_before"] if before else a["continues_after"])
+            ):
+                raise ValueError(
+                    "Activity inspection made no progress; retained partial activity."
+                )
+    return persist()

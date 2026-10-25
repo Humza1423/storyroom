@@ -1,0 +1,465 @@
+"""Provider-boundary regressions; never call Gemini or prepare real media."""
+
+import copy
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from server import ai, config, grounding
+
+
+def candidate(ident="a", context_start=300, context_end=540, asset_frames=1200):
+    return (
+        ident,
+        Path("/opaque.mp4"),
+        "hash-" + ident,
+        context_start + 30,
+        context_start + 90,
+        asset_frames,
+        context_start,
+        context_end,
+    )
+
+
+def row(ident="a"):
+    return {
+        "candidate_id": ident,
+        "intent": "specific_move",
+        "requested_duration_seconds": None,
+        "decision": "match",
+        "intervals": [
+            {
+                "start_seconds": 0.5,
+                "end_seconds": 3.2,
+                "suggested_start_seconds": 0.5,
+                "suggested_end_seconds": 3.2,
+                "visible_evidence": "The athlete plants a foot, kicks, and lands.",
+                "continues_before": False,
+                "continues_after": False,
+            }
+        ],
+    }
+
+
+@pytest.fixture
+def fake(monkeypatch):
+    state = SimpleNamespace(
+        cache={}, calls=[], ledger=[], closed=0, rows=[row()], failure=None, prepared=[]
+    )
+    state.real_generate = ai._generate_with_unpaid_503_retry
+    monkeypatch.setattr(
+        grounding.db, "cache_get", lambda key: copy.deepcopy(state.cache.get(key))
+    )
+    monkeypatch.setattr(
+        grounding.db,
+        "cache_set",
+        lambda key, value: state.cache.__setitem__(key, copy.deepcopy(value)),
+    )
+    monkeypatch.setattr(
+        grounding.db,
+        "reserve",
+        lambda *args: state.ledger.append(args) or "reservation",
+    )
+    monkeypatch.setattr(
+        grounding.db, "execute", lambda *args: state.ledger.append(args)
+    )
+    monkeypatch.setattr(
+        grounding,
+        "verification_clip",
+        lambda *args: state.prepared.append(args) or b"video",
+    )
+
+    def close():
+        state.closed += 1
+
+    def generate(api, **kwargs):
+        on_attempt = kwargs.pop("on_attempt", None)
+        if on_attempt is not None:
+            on_attempt()
+        state.calls.append(kwargs)
+        if state.failure:
+            raise state.failure
+        return SimpleNamespace(
+            text=json.dumps({"results": state.rows}), usage_metadata=None
+        )
+
+    monkeypatch.setattr(ai, "embedding_client", lambda: SimpleNamespace(close=close))
+    monkeypatch.setattr(ai, "_generate_with_unpaid_503_retry", generate)
+    return state
+
+
+def test_single_combined_request_maps_local_seconds_without_padding(fake):
+    results, error = grounding.inspect_ranges("a kick", [candidate()], job_id="job")
+    assert error is None
+    interval = results["a"]["intervals"][0]
+    assert (interval["start_frame"], interval["end_frame"]) == (315, 396)
+    assert interval["suggested_end_frame"] == 396  # No unconditional follow-through.
+    assert len(fake.calls) == fake.closed == 1
+    assert fake.ledger[0][0] == "job"
+    assert fake.calls[0]["config"].response_schema["properties"]["results"]
+    grounding.inspect_ranges("a kick", [candidate()])
+    assert len(fake.calls) == 1
+
+
+def test_batch_validates_candidates_independently_and_caches_valid_work(fake):
+    fake.rows = [row(), row("b")]
+    fake.rows[1]["intervals"][0]["end_seconds"] = 100
+    results, error = grounding.inspect_ranges("kick", [candidate(), candidate("b")])
+    assert set(results) == {"a"} and error is not None
+    assert len(fake.cache) == 1
+    fake.rows = [row("b")]
+    results, error = grounding.inspect_ranges("kick", [candidate(), candidate("b")])
+    assert set(results) == {"a", "b"} and error is None
+    assert fake.prepared[-1][0] == Path("/opaque.mp4")
+    assert len(fake.calls[-1]["contents"]) == 3  # Only uncached b is sent.
+
+
+@pytest.mark.parametrize(
+    "change", ["query", "proxy", "anchor", "context", "source", "model", "version"]
+)
+def test_cache_identity_isolated(fake, monkeypatch, change):
+    values = list(candidate())
+    original = grounding.cache_key("kick", grounding.InspectionCandidate(*values))
+    query = "kick"
+    if change == "query":
+        query = "punch"
+    elif change == "proxy":
+        values[2] = "new-hash"
+    elif change == "anchor":
+        values[3] += 1
+    elif change == "context":
+        values[6] -= 1
+    elif change == "source":
+        values[5] += 1
+    elif change == "model":
+        monkeypatch.setattr(config, "VISUAL_VERIFIER_MODEL", "different-model")
+    else:
+        monkeypatch.setattr(grounding, "VERSION", "next-version")
+    assert (
+        grounding.cache_key(query, grounding.InspectionCandidate(*values)) != original
+    )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("start_seconds", True),
+        ("start_seconds", "0"),
+        ("start_seconds", -1),
+        ("end_seconds", float("nan")),
+        ("end_seconds", float("inf")),
+        ("end_seconds", 9),
+        ("end_seconds", 0.2),
+        ("suggested_start_seconds", 4),
+        ("suggested_end_seconds", 5),
+        ("visible_evidence", " "),
+        ("continues_after", "false"),
+    ],
+)
+def test_invalid_provider_ranges_fail_closed(fake, field, value):
+    fake.rows[0]["intervals"][0][field] = value
+    results, error = grounding.inspect_ranges("kick", [candidate()])
+    assert results == {} and error is not None
+    assert fake.cache == {}
+
+
+def test_far_away_occurrence_is_rejected(fake):
+    values = list(candidate(context_end=1200))
+    fake.rows[0]["intervals"][0].update(
+        start_seconds=20,
+        end_seconds=23,
+        suggested_start_seconds=20,
+        suggested_end_seconds=23,
+    )
+    results, error = grounding.inspect_ranges("kick", [values])
+    assert results == {} and error is not None
+
+
+def test_missing_id_preserves_independent_match(fake):
+    results, error = grounding.inspect_ranges("kick", [candidate(), candidate("b")])
+    assert set(results) == {"a"} and error is not None
+
+
+def test_duplicate_id_is_not_a_match(fake):
+    fake.rows = [row(), row()]
+    results, error = grounding.inspect_ranges("kick", [candidate()])
+    assert results == {} and error is not None
+
+
+def test_invalid_sibling_id_does_not_discard_valid_work(fake):
+    fake.rows.append({"candidate_id": ["not", "an", "id"]})
+    results, error = grounding.inspect_ranges("kick", [candidate(), candidate("b")])
+    assert set(results) == {"a"} and error is not None
+
+
+def test_continuation_requires_visible_activity_at_context_boundary(fake):
+    fake.rows[0]["intervals"][0]["continues_after"] = True
+    results, error = grounding.inspect_ranges("kick", [candidate()])
+    assert results == {} and error is not None
+
+
+def test_size_limit_prevents_request_and_reservation(fake, monkeypatch):
+    monkeypatch.setattr(grounding, "verification_clip", lambda *args: b"v" * 80_000_001)
+    results, error = grounding.inspect_ranges("kick", [candidate()])
+    assert results == {} and error is not None
+    assert not fake.calls and not fake.ledger
+
+
+def test_cache_validation_cannot_bypass_bounds(fake):
+    grounding.inspect_ranges("kick", [candidate()])
+    key = next(iter(fake.cache))
+    fake.cache[key]["intervals"][0]["end_frame"] = 9000
+    fake.rows = [
+        {
+            "candidate_id": "a",
+            "intent": "specific_move",
+            "requested_duration_seconds": None,
+            "decision": "no_match",
+            "intervals": [],
+        }
+    ]
+    results, error = grounding.inspect_ranges("kick", [candidate()])
+    assert error is None and results["a"]["decision"] == "no_match"
+    assert len(fake.calls) == 2
+
+
+def test_provider_failure_retains_cached_match_and_sanitizes_error(fake):
+    grounding.inspect_ranges("kick", [candidate()])
+
+    class QuotaError(Exception):
+        code = 429
+        message = "api_key=secret /Users/person/private/video.mp4 quota exhausted"
+
+    fake.failure = QuotaError()
+    results, error = grounding.inspect_ranges("kick", [candidate(), candidate("b")])
+    assert set(results) == {"a"}
+    assert error.status_code == 429
+    assert "secret" not in str(error) and "/Users/person" not in str(error)
+    assert "rejected" in fake.ledger[-1][0]
+    assert fake.closed == 2
+
+
+def test_cancel_before_call_retains_cached_work(fake):
+    grounding.inspect_ranges("kick", [candidate()])
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate(), candidate("b")], cancelled=lambda: True
+    )
+    assert set(results) == {"a"} and isinstance(error, InterruptedError)
+    assert len(fake.calls) == 1
+
+
+def test_cancellation_during_call_saves_completed_inspection(fake):
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate()], cancelled=lambda: bool(fake.calls)
+    )
+    assert set(results) == {"a"} and isinstance(error, InterruptedError)
+    assert len(fake.cache) == 1
+
+
+def test_source_bounds_force_continuation_false(fake):
+    fake.rows[0]["intervals"][0].update(
+        start_seconds=0,
+        end_seconds=8,
+        suggested_start_seconds=0,
+        suggested_end_seconds=5,
+        continues_before=True,
+        continues_after=True,
+    )
+    results, error = grounding.inspect_ranges(
+        "boxing", [candidate(context_start=0, context_end=240, asset_frames=240)]
+    )
+    assert error is None
+    interval = results["a"]["intervals"][0]
+    assert not interval["continues_before"] and not interval["continues_after"]
+
+
+@pytest.mark.parametrize("intent", ["broad_activity", "specific_move", "duration"])
+def test_interior_crop_edges_require_inspection_even_when_model_reports_complete(
+    fake, intent
+):
+    fake.rows[0].update(
+        intent=intent, requested_duration_seconds=20 if intent == "duration" else None
+    )
+    fake.rows[0]["intervals"][0].update(
+        start_seconds=0,
+        end_seconds=8,
+        suggested_start_seconds=1,
+        suggested_end_seconds=4,
+        continues_before=False,
+        continues_after=False,
+    )
+    results, error = grounding.inspect_ranges("requested footage", [candidate()])
+    assert error is None
+    span = results["a"]["intervals"][0]
+    assert span["continues_before"] and span["continues_after"]
+    assert (span["start_frame"], span["end_frame"]) == (300, 540)
+    assert "supplied video local seconds 0 to 8.000" in fake.calls[0]["contents"][0]
+    # Cached responses pass the same conservative boundary policy.
+    key = next(iter(fake.cache))
+    fake.cache[key]["intervals"][0].update(
+        continues_before=False, continues_after=False
+    )
+    cached, error = grounding.inspect_ranges("requested footage", [candidate()])
+    assert error is None and cached["a"]["intervals"][0]["continues_after"]
+    assert len(fake.calls) == 1
+
+
+@pytest.mark.parametrize("start,end,expected", [(0.3, 7.7, True), (0.4, 7.6, False)])
+def test_crop_edge_tolerance_matches_one_sampled_frame(fake, start, end, expected):
+    fake.rows[0]["intervals"][0].update(
+        start_seconds=start,
+        end_seconds=end,
+        suggested_start_seconds=1,
+        suggested_end_seconds=4,
+    )
+    results, error = grounding.inspect_ranges("activity", [candidate()])
+    assert error is None
+    span = results["a"]["intervals"][0]
+    assert span["continues_before"] is expected
+    assert span["continues_after"] is expected
+
+
+def test_activity_end_inside_context_does_not_absorb_following_action(fake):
+    fake.rows[0]["intervals"][0].update(
+        start_seconds=1,
+        end_seconds=3,
+        suggested_start_seconds=1,
+        suggested_end_seconds=3,
+    )
+    results, error = grounding.inspect_ranges("activity", [candidate()])
+    assert error is None
+    span = results["a"]["intervals"][0]
+    assert not span["continues_before"] and not span["continues_after"]
+    assert span["end_frame"] == 390
+
+
+def test_duration_and_separate_occurrences(fake):
+    first = fake.rows[0]
+    first.update(intent="duration", requested_duration_seconds=20)
+    first["intervals"][0].update(
+        start_seconds=0,
+        end_seconds=2,
+        suggested_start_seconds=0,
+        suggested_end_seconds=2,
+    )
+    other = copy.deepcopy(first["intervals"][0])
+    other.update(
+        start_seconds=4,
+        end_seconds=6,
+        suggested_start_seconds=4,
+        suggested_end_seconds=6,
+    )
+    first["intervals"].append(other)
+    results, error = grounding.inspect_ranges("20 seconds of boxing", [candidate()])
+    assert error is None and len(results["a"]["intervals"]) == 2
+    assert results["a"]["requested_duration_seconds"] == 20
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        [],
+        [candidate()] * 6,
+        [candidate(), candidate()],
+        [candidate(context_end=1201)],
+        [("a", Path("/x"), "hash", 0, 900, 901, 0, 901)],
+    ],
+)
+def test_invalid_input_makes_no_provider_call(fake, values):
+    results, error = grounding.inspect_ranges("kick", values)
+    assert results == {} and error is not None and not fake.calls
+
+
+def test_diagnostics_controlled_clock_and_cached_zero_requests(fake, monkeypatch):
+    clock = iter([10.0, 12.5, 20.0, 20.125])
+    monkeypatch.setattr(grounding.time, "perf_counter", lambda: next(clock))
+    monkeypatch.setattr(config, "VISUAL_TIER", "unpaid")
+    metrics = {}
+    _, error = grounding.inspect_ranges("kick", [candidate()], diagnostics=metrics)
+    assert error is None
+    assert metrics["elapsed_seconds"] == 2.5
+    assert metrics["request_attempts"] == 1 and metrics["retries"] == 0
+    assert metrics["submitted_video_seconds"] == 8
+    assert metrics["cache_hits"] == 0
+    assert metrics["estimated_usd"] == 0 and not metrics["usage_available"]
+    _, error = grounding.inspect_ranges("kick", [candidate()], diagnostics=metrics)
+    assert error is None
+    assert metrics["elapsed_seconds"] == 0.125 and metrics["cache_hits"] == 1
+    assert metrics["request_attempts"] == metrics["submitted_video_seconds"] == 0
+
+
+def test_diagnostics_counts_actual_503_retry_and_token_usage(fake, monkeypatch):
+    class CapacityError(Exception):
+        code = 503
+
+    attempts = []
+
+    def generate_content(**kwargs):
+        assert "on_attempt" not in kwargs
+        attempts.append(kwargs)
+        if len(attempts) == 1:
+            raise CapacityError()
+        return SimpleNamespace(
+            text=json.dumps({"results": [row()]}),
+            usage_metadata=SimpleNamespace(
+                prompt_token_count=200,
+                candidates_token_count=30,
+                thoughts_token_count=10,
+            ),
+        )
+
+    monkeypatch.setattr(ai, "_generate_with_unpaid_503_retry", fake.real_generate)
+    monkeypatch.setattr(
+        ai,
+        "embedding_client",
+        lambda: SimpleNamespace(
+            models=SimpleNamespace(generate_content=generate_content),
+            close=lambda: None,
+        ),
+    )
+    monkeypatch.setattr(ai.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(config, "VISUAL_TIER", "unpaid")
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate()], diagnostics=metrics
+    )
+    assert error is None and "a" in results
+    assert metrics["request_attempts"] == 2 and metrics["retries"] == 1
+    assert metrics["submitted_video_seconds"] == 16
+    assert (
+        metrics["input_tokens"],
+        metrics["output_tokens"],
+        metrics["thinking_tokens"],
+    ) == (200, 30, 10)
+    assert metrics["usage_available"] and metrics["estimated_usd"] == 0
+
+
+@pytest.mark.parametrize("exit_mode", ["cancel", "invalid", "quota"])
+def test_diagnostics_always_record_early_exits(fake, monkeypatch, exit_mode):
+    clock = iter([5.0, 6.0])
+    monkeypatch.setattr(grounding.time, "perf_counter", lambda: next(clock))
+    metrics = {}
+
+    class QuotaError(Exception):
+        code = 429
+
+    if exit_mode == "quota":
+        fake.failure = QuotaError("quota")
+    _, error = grounding.inspect_ranges(
+        "kick",
+        [] if exit_mode == "invalid" else [candidate()],
+        cancelled=lambda: exit_mode == "cancel",
+        diagnostics=metrics,
+    )
+    assert error is not None and metrics["elapsed_seconds"] == 1
+    assert metrics["request_attempts"] == (1 if exit_mode == "quota" else 0)
+
+
+def test_paid_diagnostics_report_usage_cost_without_changing_tier(fake, monkeypatch):
+    monkeypatch.setattr(config, "VISUAL_TIER", "paid")
+    metrics = {}
+    grounding.inspect_ranges("kick", [candidate()], diagnostics=metrics)
+    assert metrics["estimated_usd"] > 0
+    assert metrics["request_attempts"] == 1 and config.VISUAL_TIER == "paid"

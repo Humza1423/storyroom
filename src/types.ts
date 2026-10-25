@@ -38,10 +38,24 @@ export type VisualCandidate = {
   end_frame: number;
   rank: number;
   kind: "visual";
+  activity?: {
+    id: string;
+    start_frame: number;
+    end_frame: number;
+    complete: boolean;
+    continues_before: boolean;
+    continues_after: boolean;
+    intent: "broad_activity" | "specific_move" | "duration";
+    requested_frames: number | null;
+    duration_fulfilled: boolean;
+    inspection_job_id?: string;
+  };
 };
 export type SearchResult = Moment | VisualCandidate;
 export type VisualSearchResponse = {
   results: VisualCandidate[];
+  activity_job_id?: string;
+  pipeline?: string;
   page: number;
   has_more: boolean;
   checked_candidates?: number;
@@ -84,6 +98,8 @@ export type Job = {
   progress: number;
   message: string;
   result: null | {
+    visual_results?: VisualCandidate[];
+    query?: string;
     url?: string;
     sections?: ProposalSection[];
     candidate_ids?: string[];

@@ -1,5 +1,28 @@
 # Understand what you are building
 
+## Opt-in activity search (2026-10-25)
+
+`grounded: true` on visual search uses raw embedding anchors rather than replacing
+them with motion-group intervals. `server/grounding.py` makes one bounded Gemini
+request to verify visible meaning, interpret broad/move/duration intent, and locate
+activity plus suggested-cut frames. Initial contexts are at most eight seconds;
+an interior crop edge stays unresolved. No automatic follow-through padding is
+applied. Old search and opt-in legacy localization remain available unchanged.
+
+`server/activities.py` selects cuts and sends unfinished activity boundaries to
+the existing persistent worker as `activity_inspect` jobs. Continuation inspects
+30-second chunks with four-second overlap, requires grounded overlap, and saves
+completed proposals/compact request diagnostics before failure or cancellation.
+Retry preserves that progress. Cache identity includes model, prompt/sampling
+version, proxy hash, anchor and supplied context. Grounded duplicates are
+suppressed without joining uninspected gaps; separate occurrences remain distinct.
+
+Result start/end fields still identify the suggested cut. Optional `activity`
+metadata identifies the longer inspected interval, completeness and duration
+fulfillment. The UI polls its inspection job only for the current project/query;
+it never rewrites accepted Storybin selections. The player switches between cut,
+activity and full source. This path remains a preview until real-footage gates pass.
+
 ## Follow one action through the application
 
 Suppose you import a clip and add two seconds of it to “Show the work.”

@@ -49,6 +49,7 @@ class SearchInput(Strict):
     mode: Literal["keyword", "description", "visual"] | None = None
     page: int = Field(default=0, ge=0, le=7, strict=True)
     experimental_localization: bool = False
+    grounded: bool = False
 
 
 class FeedbackInput(Strict):
