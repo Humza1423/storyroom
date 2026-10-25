@@ -102,7 +102,15 @@ export default function App() {
   const [visualRange, setVisualRange] = useState<VisualRange | null>(null);
   const [groundedSearch, setGroundedSearch] = useState(false);
   const activityRequests = useRef(
-    new Map<string, { epoch: number; pid: string; signature: string }>(),
+    new Map<
+      string,
+      {
+        epoch: number;
+        pid: string;
+        signature: string;
+        candidateIds: Set<string>;
+      }
+    >(),
   );
   const [brief, setBrief] = useState(""),
     [newProject, setNewProject] = useState(false),
@@ -143,6 +151,9 @@ export default function App() {
         epoch: searchEpoch.current,
         pid: activePid.current,
         signature: "",
+        candidateIds: new Set(
+          response.results.map((candidate) => candidate.id),
+        ),
       });
   }
   useEffect(() => {
@@ -164,6 +175,7 @@ export default function App() {
           ...(current ?? []).filter(
             (candidate) =>
               !ids.has(candidate.id) &&
+              !request.candidateIds.has(candidate.id) &&
               !(
                 "kind" in candidate &&
                 candidate.activity?.inspection_job_id === job.id

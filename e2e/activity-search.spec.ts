@@ -130,7 +130,9 @@ test("suggested cut, activity and source previews preserve independent saved cut
               complete: activityComplete,
               start_frame:
                 body.query === "kick" ? 0 : candidate.activity!.start_frame,
-              inspection_job_id: body.grounded ? "activity-job" : undefined,
+              // A completed/duplicate candidate may have no job marker. The
+              // worker snapshot still replaces the entire original proposal batch.
+              inspection_job_id: undefined,
             },
           },
         ],
@@ -307,6 +309,7 @@ test("suggested cut, activity and source previews preserve independent saved cut
     "6.0–11.0s",
     { timeout: 10000 },
   );
+  await expect(page.locator(".moment-card")).toHaveCount(1);
   const unchanged = await (
     await request.get(`/api/projects/${projectId}`)
   ).json();

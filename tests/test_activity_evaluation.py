@@ -1,4 +1,21 @@
-from scripts.evaluate_activity_search import hit, score
+import hashlib
+import importlib.util
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location(
+    "evaluate_activity_search",
+    Path(__file__).resolve().parents[1] / "scripts/evaluate_activity_search.py",
+)
+evaluation = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(evaluation)
+hit, score = evaluation.hit, evaluation.score
+
+
+def test_frozen_queries_preserve_the_pre_search_answer_key():
+    key = Path(__file__).parent / "fixtures/gemini-fresh-answer-key-v1.json"
+    assert hashlib.sha256(key.read_bytes()).hexdigest() == (
+        "28d46f70d6c21d56aaa95d469616136f8c2d883c9e05aeb1d1b78f65d4ad10b3"
+    )
 
 
 def test_presence_does_not_allow_unrelated_padding_and_discrete_needs_overlap():

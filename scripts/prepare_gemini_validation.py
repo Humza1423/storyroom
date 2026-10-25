@@ -153,6 +153,14 @@ def main():
     root = args.root.resolve()
     for name in ("raw", "inputs", "contact"):
         (root / name).mkdir(parents=True, exist_ok=True)
+    frozen = root / "answer-key-frozen-v1.json"
+    if not frozen.exists():
+        frozen.write_bytes(
+            (
+                Path(__file__).resolve().parents[1]
+                / "tests/fixtures/gemini-fresh-answer-key-v1.json"
+            ).read_bytes()
+        )
     manifest = root / "provenance.json"
     records = (
         {row["id"]: row for row in json.loads(manifest.read_text())}
