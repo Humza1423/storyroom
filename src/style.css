@@ -679,27 +679,6 @@ input[type="checkbox"] {
   text-overflow: ellipsis;
   margin: 4px 8px 8px;
 }
-.asset-source-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  width: fit-content;
-  max-width: calc(100% - 16px);
-  margin: -2px 8px 8px;
-  color: #b8c99e;
-  font-size: 10px;
-  line-height: 1.4;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.asset-source-link:hover {
-  color: #d3e6b7;
-}
-.asset-source-link:focus-visible {
-  outline: 2px solid #b8c99e;
-  outline-offset: 2px;
-  border-radius: 2px;
-}
 .card-actions {
   display: flex;
   align-items: center;

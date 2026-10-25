@@ -1749,14 +1749,9 @@ export default function App() {
             <p>{provenance.name}</p>
             {(["source", "author", "license"] as const).map((key) => (
               <label key={key}>
-                {key === "source" ? "Source / full video page" : key}
+                {key}
                 <input
                   value={provenance.provenance[key] || ""}
-                  placeholder={
-                    key === "source"
-                      ? "Optional: paste the original video page URL"
-                      : undefined
-                  }
                   onChange={(e) =>
                     setProvenance({
                       ...provenance,

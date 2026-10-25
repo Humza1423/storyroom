@@ -1,13 +1,6 @@
 # Project status and release checklist
 
-Updated: 2026-10-25. Status: local development preview; release gates remain open.
-
-## Search result source links (2026-10-25)
-
-Search results now show an **Open full video source** link when the clip's
-existing provenance `source` value is an HTTP(S) URL. The link opens separately;
-plain-text source notes remain valid and are not treated as links. No search,
-indexing, or persistence behavior changed.
+Updated: 2026-10-24. Status: local development preview; release gates remain open.
 
 ## Hands-on real-footage and assembly follow-up (2026-10-24)
 

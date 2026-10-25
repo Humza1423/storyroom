@@ -2,7 +2,6 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Play, Plus } from "lucide-react";
 import type { Asset, VisualCandidate } from "../../types";
-import { SourcePageLink } from "./SourcePageLink";
 
 export function VisualCandidateCard({
   candidate,
@@ -57,10 +56,6 @@ export function VisualCandidateCard({
         {asset?.name} · {(candidate.start_frame / 30).toFixed(1)}–
         {(candidate.end_frame / 30).toFixed(1)}s
       </p>
-      <SourcePageLink
-        source={asset?.provenance.source}
-        assetName={asset?.name}
-      />
       <div className="card-actions">
         <button className="text-button" onClick={onAdd}>
           <Plus size={13} /> Quick add to Storybin
