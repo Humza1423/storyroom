@@ -55,9 +55,18 @@ def classify_miss(row, returned, trace, fps_by_asset):
         return "success"
     ranked = trace.get("ranked_events", [])
     shortlist = trace.get("shortlist", [])
+    raw = trace.get("raw_segments", ranked)
+    if not any(hit.get("asset_id") == target["asset_id"]
+               for hit in raw for target in expected):
+        return "retrieval_miss"
     if not any(hit.get("asset_id") == target["asset_id"]
                for hit in ranked for target in expected):
-        return "retrieval_miss"
+        return "grouping_miss"
+    if any(candidate_matches(hit, target, fps_by_asset.get(hit.get("asset_id"), 30))
+           for hit in raw for target in expected) and not any(
+               candidate_matches(hit, target, fps_by_asset.get(hit.get("asset_id"), 30))
+               for hit in ranked for target in expected):
+        return "grouping_range_miss"
     if not any(candidate_matches(hit, target, fps_by_asset.get(hit.get("asset_id"), 30))
                for hit in ranked for target in expected):
         return "temporal_candidate_miss"
@@ -182,6 +191,17 @@ def evaluate_rows(rows, returned_by_id, fps_by_asset=None, diagnose_stages=True)
     }
     return {
         "query_count": len(outcomes),
+        "counts": {
+            "positive_queries": sum(item["kind"] != "negative" for item in outcomes),
+            "negative_queries": sum(item["kind"] == "negative" for item in outcomes),
+            "positive_asset_hits": sum(item["asset_top5_hit"] for item in outcomes),
+            "positive_moment_hits": sum(item["top5_hit"] and item["kind"] != "negative"
+                                        for item in outcomes),
+            "relevant_first_results": sum(item["top1_relevant"] for item in outcomes),
+            "returned_queries": sum(item["returned_any"] for item in outcomes),
+            "negative_false_positives": sum(item["returned_any"] and item["kind"] == "negative"
+                                             for item in outcomes),
+        },
         "positive_asset_top5_recall": rate(
             [item for item in outcomes if item["kind"] != "negative"],
             lambda item: item["asset_top5_hit"],
@@ -233,6 +253,7 @@ def validate_dataset(dataset, profile="full"):
         "pilot": (16, 60, 4, 4, {"positive": 36, "paraphrase": 12, "negative": 12}),
         "smoke": (16, 20, 4, 4, {"positive": 12, "paraphrase": 0, "negative": 8}),
         "heldout": (12, 40, None, None, {"positive": 20, "paraphrase": 10, "negative": 10}),
+        "reviewed-development": (12, 40, None, None, None),
     }
     if profile not in shapes:
         raise ValueError(f"Unknown evaluation profile: {profile}")
@@ -242,7 +263,7 @@ def validate_dataset(dataset, profile="full"):
     if len(queries) != query_count:
         raise ValueError(f"Expected exactly {query_count} reviewed searches; found {len(queries)}.")
     categories = {video.get("category") for video in videos}
-    if profile == "heldout":
+    if profile in {"heldout", "reviewed-development"}:
         if None in categories or len(categories) < 4:
             raise ValueError("Held-out footage must cover at least four named content categories.")
         collections = {video.get("source_collection") for video in videos}
@@ -274,6 +295,8 @@ def validate_dataset(dataset, profile="full"):
             raise ValueError(f"Query {row['id']} needs a development/test split.")
         if profile == "heldout" and row.get("split") != "test":
             raise ValueError("Held-out profile queries must all use the untouched test split.")
+        if profile == "reviewed-development" and row.get("split") != "development":
+            raise ValueError("Reviewed footage used for tuning must be marked development.")
         if row.get("kind") not in {"positive", "paraphrase", "negative"}:
             raise ValueError(f"Invalid query kind in {row.get('id')}.")
         if row.get("kind") == "negative":
@@ -290,7 +313,7 @@ def validate_dataset(dataset, profile="full"):
                 raise ValueError(f"Query {row['id']} has an invalid label type.")
     counts = {kind: sum(row["kind"] == kind for row in queries)
               for kind in ("positive", "paraphrase", "negative")}
-    if counts != required_kinds:
+    if required_kinds is not None and counts != required_kinds:
         raise ValueError(f"Expected {required_kinds}; got {counts}.")
     return dataset
 
@@ -314,9 +337,16 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("dataset", type=Path, help="Human-reviewed benchmark JSON")
     parser.add_argument(
-        "--profile", choices=("full", "pilot", "smoke", "heldout"), default="full",
+        "--profile", choices=("full", "pilot", "smoke", "heldout", "reviewed-development"), default="full",
         help=("Strict 50/100 study, 16/60 pilot, 16/20 diagnostic smoke check, "
               "or 12/40 diverse held-out pilot"),
+    )
+    parser.add_argument(
+        "--output", type=Path, help="Write generated JSON evidence to this path instead of stdout",
+    )
+    parser.add_argument(
+        "--replay-report", type=Path,
+        help="Rescore saved returned ranges/traces; makes no API or database requests",
     )
     parser.add_argument(
         "--data-dir",
@@ -396,6 +426,14 @@ def install_instrumentation(ai, search_module, db, config, traces, allow_free_ge
         ]
         trace["verifier_cache_hits"] = len(candidates) - len(missing)
         trace["verifier_cache_misses"] = len(missing)
+        trace["candidate_video_seconds"] = sum(
+            max(0, item["end_frame"] - item["start_frame"]) / config.FPS
+            for item in verifier
+        )
+        trace["uncached_candidate_video_seconds"] = sum(
+            max(0, item["end_frame"] - item["start_frame"]) / config.FPS
+            for item in missing
+        )
         trace["verifier_batch_invocations"] = 1
         trace["verifier_request_attempts"] = int(bool(missing) and allow_free_gemini)
         if missing and not allow_free_gemini:
@@ -429,7 +467,7 @@ def install_instrumentation(ai, search_module, db, config, traces, allow_free_ge
             trace["raw_segments"] = [
                 {"asset_id": row["asset_id"], "start_frame": row["start_frame"],
                  "end_frame": row["end_frame"], "score": score}
-                for score, row in scored[:20]
+                for score, row in scored
             ]
             return scored
 
@@ -460,6 +498,22 @@ def main():
         dataset = validate_dataset(json.loads(args.dataset.read_text()), args.profile)
     except (OSError, json.JSONDecodeError, ValueError) as error:
         raise SystemExit(f"Invalid benchmark: {error}") from error
+
+    if args.replay_report:
+        prior = json.loads(args.replay_report.read_text())
+        by_id = {row["id"]: row for row in prior["queries"]}
+        for row in dataset["queries"]:
+            if by_id[row["id"]]["query"] != row["query"]:
+                raise SystemExit("Cannot reuse provider evidence for a changed query.")
+            row["trace"] = by_id[row["id"]].get("trace", {})
+        report = evaluate_rows(dataset["queries"], {
+            row["id"]: by_id[row["id"]]["returned"] for row in dataset["queries"]
+        }, {video["asset_id"]: video.get("normalized_fps", 30)
+            for video in dataset["videos"]})
+        report.update(queries=prior["queries"], replayed_from=str(args.replay_report),
+                      provider_requests_this_run=0, profile=args.profile)
+        emit_report(report, args.output)
+        return
 
     os.environ["STORYROOM_DATA"] = str(data_dir)
     # This runner never enables paid-tier requests or paid fallback.
@@ -522,6 +576,7 @@ def main():
             "query_embedding_cache_hits", "query_embedding_request_attempts",
             "verifier_cache_hits", "verifier_cache_misses", "verifier_batch_invocations",
             "verifier_request_attempts",
+            "candidate_video_seconds", "uncached_candidate_video_seconds",
         )
     }
     report["model"] = config.EMBED_MODEL
@@ -529,7 +584,15 @@ def main():
     report["retrieval"] = "exact cosine over locally stored visual vectors"
     report["gemini_calls_allowed"] = bool(args.allow_free_gemini)
     report["note"] = "Scores are ranking signals, not confidence probabilities."
-    print(json.dumps(report, indent=2))
+    emit_report(report, args.output)
+
+
+def emit_report(report, output):
+    encoded = json.dumps(report, indent=2) + "\n"
+    if output:
+        output.write_text(encoded)
+    else:
+        print(encoded, end="")
 
 
 if __name__ == "__main__":
