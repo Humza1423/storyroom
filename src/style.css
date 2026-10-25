@@ -987,6 +987,14 @@ input[type="checkbox"] {
   color: #aab7bd;
   line-height: 1.5;
 }
+.full-source-toggle {
+  min-height: 32px;
+  margin: 0 0 4px;
+  padding: 6px 9px;
+}
+.visual-range-editor .full-source-note {
+  margin-bottom: 0;
+}
 .visual-range-labels {
   display: flex;
   justify-content: space-between;

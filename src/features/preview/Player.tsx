@@ -10,6 +10,7 @@ export function Player({
   advance,
   assembly,
   visualRange,
+  sourceFrames,
   onVisualRangeChange,
 }: {
   preview: Moment | Selection | VisualCandidate | null;
@@ -17,6 +18,7 @@ export function Player({
   advance: () => void;
   assembly: boolean;
   visualRange?: VisualRange | null;
+  sourceFrames: number;
   onVisualRangeChange?: (range: VisualRange) => void;
 }) {
   const advanced = useRef(false);
@@ -26,13 +28,32 @@ export function Player({
   const [elapsed, setElapsed] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
-  const startFrame = visualRange?.selectedStart ?? preview?.start_frame ?? 0;
-  const endFrame = visualRange?.selectedEnd ?? preview?.end_frame ?? 0;
+  const [fullSourcePreviewId, setFullSourcePreviewId] = useState<string | null>(
+    null,
+  );
+  const reviewingFullSource =
+    !!visualRange && fullSourcePreviewId === visualRange.candidate.id;
+  const contextStart = reviewingFullSource
+    ? 0
+    : (visualRange?.contextStart ?? 0);
+  const contextEnd = reviewingFullSource
+    ? sourceFrames
+    : (visualRange?.contextEnd ?? sourceFrames);
+  const startFrame = reviewingFullSource
+    ? 0
+    : (visualRange?.selectedStart ?? preview?.start_frame ?? 0);
+  const endFrame = reviewingFullSource
+    ? sourceFrames
+    : (visualRange?.selectedEnd ?? preview?.end_frame ?? 0);
   const start = startFrame / 30;
   const duration = Math.max(0, (endFrame - startFrame) / 30);
   const rangeKey = preview
-    ? `${assembly ? "assembly" : "preview"}:${preview.asset_id}:${preview.id}:${preview.start_frame}:${preview.end_frame}`
+    ? `${assembly ? "assembly" : "preview"}:${preview.asset_id}:${preview.id}:${preview.start_frame}:${preview.end_frame}:${reviewingFullSource ? "full-source" : "selected-range"}`
     : "";
+
+  useEffect(() => {
+    setFullSourcePreviewId(null);
+  }, [preview?.asset_id, preview?.id]);
 
   useEffect(() => {
     activeRangeKey.current = rangeKey;
@@ -153,13 +174,11 @@ export function Player({
             <div className="assembly-controls">
               <button
                 type="button"
-                aria-label={
-                  playing
-                    ? "Pause selected range"
-                    : elapsed >= duration - 0.05
-                      ? "Replay selected range"
-                      : "Play selected range"
-                }
+                aria-label={playing
+                  ? `Pause ${reviewingFullSource ? "full source video" : "selected range"}`
+                  : elapsed >= duration - 0.05
+                    ? `Replay ${reviewingFullSource ? "full source video" : "selected range"}`
+                    : `Play ${reviewingFullSource ? "full source video" : "selected range"}`}
                 onClick={() => {
                   const element = video.current;
                   if (!element) return;
@@ -183,7 +202,9 @@ export function Player({
                 {playing ? <Pause size={15} /> : <Play size={15} />}
               </button>
               <input
-                aria-label="Position within selected clip"
+                aria-label={reviewingFullSource
+                  ? "Position in full source video"
+                  : "Position within selected clip"}
                 type="range"
                 min={0}
                 max={duration}
@@ -228,36 +249,53 @@ export function Player({
             </span>
           </div>
           <p>
-            Nearby footage · not verified. Scrub to check what happens before
-            and after the match.
+            {reviewingFullSource
+              ? "Full source video · not verified. Review the entire imported clip; the AI match and your selected cut stay marked below."
+              : "Nearby footage · not verified. Scrub to check what happens before and after the match."}
           </p>
+          <button
+            type="button"
+            className="secondary full-source-toggle"
+            onClick={() => {
+              video.current?.pause();
+              setFullSourcePreviewId(
+                reviewingFullSource ? null : visualRange.candidate.id,
+              );
+            }}
+          >
+            {reviewingFullSource
+              ? "Return to match preview"
+              : "View full source video"}
+          </button>
           <div className="visual-context-track" aria-hidden="true">
             <div
               className="visual-match-band"
               style={{
-                left: `${(100 * (visualRange.candidate.start_frame - visualRange.contextStart)) / (visualRange.contextEnd - visualRange.contextStart)}%`,
-                width: `${(100 * (visualRange.candidate.end_frame - visualRange.candidate.start_frame)) / (visualRange.contextEnd - visualRange.contextStart)}%`,
+                left: `${(100 * (visualRange.candidate.start_frame - contextStart)) / (contextEnd - contextStart)}%`,
+                width: `${(100 * (visualRange.candidate.end_frame - visualRange.candidate.start_frame)) / (contextEnd - contextStart)}%`,
               }}
             />
             <div
               className="visual-selected-band"
               style={{
-                left: `${(100 * (visualRange.selectedStart - visualRange.contextStart)) / (visualRange.contextEnd - visualRange.contextStart)}%`,
-                width: `${(100 * (visualRange.selectedEnd - visualRange.selectedStart)) / (visualRange.contextEnd - visualRange.contextStart)}%`,
+                left: `${(100 * (visualRange.selectedStart - contextStart)) / (contextEnd - contextStart)}%`,
+                width: `${(100 * (visualRange.selectedEnd - visualRange.selectedStart)) / (contextEnd - contextStart)}%`,
               }}
             />
           </div>
           <label className="visual-range-control">
-            Scrub nearby footage · {(playhead / 30).toFixed(1)}s
+            {reviewingFullSource ? "Scrub full source video" : "Scrub nearby footage"} · {(playhead / 30).toFixed(1)}s
             <input
-              aria-label="Scrub nearby footage"
+              aria-label={reviewingFullSource
+                ? "Scrub full source video"
+                : "Scrub nearby footage"}
               type="range"
-              min={visualRange.contextStart}
-              max={visualRange.contextEnd - 1}
+              min={contextStart}
+              max={contextEnd - 1}
               step="1"
               value={Math.max(
-                visualRange.contextStart,
-                Math.min(playhead, visualRange.contextEnd - 1),
+                contextStart,
+                Math.min(playhead, contextEnd - 1),
               )}
               onChange={(event) => {
                 const frame = Number(event.target.value);
@@ -274,48 +312,57 @@ export function Player({
               {(visualRange.selectedEnd / 30).toFixed(1)}s
             </span>
           </div>
-          <label className="visual-range-control">
-            In · frame {visualRange.selectedStart}
-            <input
-              aria-label="Selected cut in frame"
-              type="range"
-              min={visualRange.contextStart}
-              max={visualRange.selectedEnd - 1}
-              step="1"
-              value={visualRange.selectedStart}
-              onChange={(event) => {
-                video.current?.pause();
-                onVisualRangeChange(
-                  moveVisualHandle(
-                    visualRange,
-                    "in",
-                    Number(event.target.value),
-                  ),
-                );
-              }}
-            />
-          </label>
-          <label className="visual-range-control">
-            Out · frame {visualRange.selectedEnd} (exclusive)
-            <input
-              aria-label="Selected cut out frame"
-              type="range"
-              min={visualRange.selectedStart + 1}
-              max={visualRange.contextEnd}
-              step="1"
-              value={visualRange.selectedEnd}
-              onChange={(event) => {
-                video.current?.pause();
-                onVisualRangeChange(
-                  moveVisualHandle(
-                    visualRange,
-                    "out",
-                    Number(event.target.value),
-                  ),
-                );
-              }}
-            />
-          </label>
+          {reviewingFullSource ? (
+            <p className="full-source-note">
+              Viewing only—the selected cut has not changed. Return to match
+              preview to adjust its in and out points.
+            </p>
+          ) : (
+            <>
+              <label className="visual-range-control">
+                In · frame {visualRange.selectedStart}
+                <input
+                  aria-label="Selected cut in frame"
+                  type="range"
+                  min={visualRange.contextStart}
+                  max={visualRange.selectedEnd - 1}
+                  step="1"
+                  value={visualRange.selectedStart}
+                  onChange={(event) => {
+                    video.current?.pause();
+                    onVisualRangeChange(
+                      moveVisualHandle(
+                        visualRange,
+                        "in",
+                        Number(event.target.value),
+                      ),
+                    );
+                  }}
+                />
+              </label>
+              <label className="visual-range-control">
+                Out · frame {visualRange.selectedEnd} (exclusive)
+                <input
+                  aria-label="Selected cut out frame"
+                  type="range"
+                  min={visualRange.selectedStart + 1}
+                  max={visualRange.contextEnd}
+                  step="1"
+                  value={visualRange.selectedEnd}
+                  onChange={(event) => {
+                    video.current?.pause();
+                    onVisualRangeChange(
+                      moveVisualHandle(
+                        visualRange,
+                        "out",
+                        Number(event.target.value),
+                      ),
+                    );
+                  }}
+                />
+              </label>
+            </>
+          )}
         </div>
       )}
     </>

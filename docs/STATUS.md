@@ -1,6 +1,14 @@
 # Project status and release checklist
 
-Updated: 2026-10-24. Status: local development preview; release gates remain open.
+Updated: 2026-10-25. Status: local development preview; release gates remain open.
+
+## Full-source review from a Visual AI match (2026-10-25)
+
+Visual AI preview still opens on the selected match. The player now has a
+**View full source video** mode to play and scrub the entire imported clip,
+then return to the match preview. Full-source viewing is explicitly unverified;
+it does not change the selected cut or make another AI request. The focused
+browser test checks the full-source duration and return to the selected range.
 
 ## Hands-on real-footage and assembly follow-up (2026-10-24)
 
