@@ -3,6 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Play, GripVertical, Plus, Settings2 } from "lucide-react";
 import type { Asset, Moment, Selection, Section } from "../../types";
 import { timecode } from "../../lib/timecode";
+import { SourcePageLink } from "./SourcePageLink";
 
 export function MomentCard({
   moment,
@@ -57,6 +58,10 @@ export function MomentCard({
       <p className="filename" title={asset?.name}>
         {asset?.name} · {timecode(moment.start_frame)}
       </p>
+      <SourcePageLink
+        source={asset?.provenance.source}
+        assetName={asset?.name}
+      />
       {moment.uncertainty && (
         <p className="uncertainty">{moment.uncertainty}</p>
       )}

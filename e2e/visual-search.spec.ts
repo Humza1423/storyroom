@@ -1,5 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { createVisualRange, moveVisualHandle } from "../src/features/preview/visualRange";
+import { sourcePageHref } from "../src/features/library/SourcePageLink";
+
+test("source links accept only public HTTP(S) URLs", () => {
+  expect(sourcePageHref(" https://example.org/full-video ")).toBe(
+    "https://example.org/full-video",
+  );
+  expect(sourcePageHref("javascript:alert(1)")).toBeNull();
+  expect(sourcePageHref("Generated fixture")).toBeNull();
+  expect(sourcePageHref("https://user:secret@example.org/video")).toBeNull();
+});
 
 test("visual context and handles clamp to source frames", () => {
   const candidate = { id: "a", asset_id: "a", start_frame: 6, end_frame: 36, rank: 1, kind: "visual" as const };
@@ -90,8 +100,8 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   });
   await permissions.click();
   await page
-    .getByLabel("source", { exact: true })
-    .fill("Generated browser fixture");
+    .getByLabel("source / full video page", { exact: true })
+    .fill("https://example.org/footage/original-video");
   await page.getByLabel("author", { exact: true }).fill("Storyroom tests");
   await page
     .getByLabel("license", { exact: true })
@@ -167,6 +177,15 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   await page.getByLabel("Search footage").fill("person doing a jumping jack");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("VISUAL MATCH · #1")).toBeVisible();
+  const sourceLink = page.getByRole("link", {
+    name: "Open full video source for clip-0.mp4",
+  });
+  await expect(sourceLink).toHaveAttribute(
+    "href",
+    "https://example.org/footage/original-video",
+  );
+  await expect(sourceLink).toHaveAttribute("target", "_blank");
+  await expect(sourceLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator(".moment-card .filename")).toContainText(
     "clip-0.mp4 · 0.2–1.2s",
   );
@@ -320,7 +339,9 @@ test("visual search checks more moments without losing earlier matches", async (
   await page
     .getByRole("button", { name: /Permissions for clip-0\.mp4/ })
     .click();
-  await page.getByLabel("source", { exact: true }).fill("Generated fixture");
+  await page
+    .getByLabel("source / full video page", { exact: true })
+    .fill("Generated fixture");
   await page.getByLabel("author", { exact: true }).fill("Storyroom tests");
   await page
     .getByLabel("license", { exact: true })
