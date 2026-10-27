@@ -77,6 +77,25 @@ app play sufficient-duration, shortfall, incomplete and absent-action cases; adj
 save/reopen, render and inspect export. Report exact frames, recognition, duration,
 rejection, latency, calls and remaining limitations separately. Commit/push/CI.
 
+## S1c — Retain recognition without pretending a conflicting boundary is known
+
+The unchanged S1b trial exposed a dependency: p01 and p05 contain model `match`
+intervals passing numeric bounds/order/frame/anchor checks, but a conflicting
+continuation boolean vetoes the entire candidate. p04 separately fails numeric
+timestamp bounds; that rejection must stay. Do not treat these as one failure.
+
+Keep an otherwise valid local match as partial evidence, explicitly mark the
+conflicting boundary unresolved, and retain bounded numeric/boolean diagnostics.
+Never simply drop the veto and mark the span complete. Further inspection must
+semantically establish any extension across the unresolved area; no gap filling
+or automatic padding. Preserve prior work on failure/no progress. Change only this
+validation/partial-state policy, not the S1b prompt, model, sampling or retrieval.
+Version caches, retain historical evidence, and test both conflicting edges,
+legitimate interior stops, invalid timestamps, interrupted continuation and honest
+duration messages. After the unchanged S1b trial ends, compare affected examples
+plus a negative in a separate trial capped at eight generation dispatches and 300
+supplied video seconds. State any incomplete comparison; no paid fallback.
+
 ## S2 — Complete movements and honest boundaries
 
 Independently watch and label at least ten moves with preparation/execution/finish,

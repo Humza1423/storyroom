@@ -87,6 +87,57 @@ test("duration presentation separates supported length, incomplete inspection an
   );
 });
 
+test("boundary conflicts keep recognized activity available without claiming a duration shortfall", () => {
+  for (const conflict of [
+    "boundary_conflict_before",
+    "boundary_conflict_after",
+  ] as const) {
+    const conflicted: VisualCandidate = {
+      ...candidate,
+      start_frame: 0,
+      end_frame: 240,
+      activity: {
+        ...candidate.activity!,
+        start_frame: 0,
+        end_frame: 240,
+        // A conflict always remains unresolved, including a stale completion flag.
+        complete: true,
+        [conflict]: true,
+        requested_frames: 600,
+        duration_fulfilled: false,
+      },
+    };
+    for (const status of ["running", "failed", "cancelled"]) {
+      const presentation = activityPresentation(conflicted, {
+        id: "job",
+        status,
+        message: "Boundary unresolved.",
+      })!;
+      expect(
+        presentation.inspection.startsWith(
+          "Action found; its beginning or end needs another look.",
+        ),
+      ).toBe(true);
+      expect(presentation.inspection).toContain(
+        status === "running" ? "Checking more footage" : "Inspection stopped",
+      );
+      expect(presentation.duration).toContain("8 seconds selected");
+      expect(presentation.duration).toContain(
+        "Requested duration is not yet confirmed",
+      );
+      expect(presentation.duration).not.toContain(
+        "Found 8 seconds of this activity",
+      );
+      expect(presentation.inspection).not.toContain(
+        "Activity extent inspected",
+      );
+    }
+  }
+  expect(activityPresentation(candidate)?.inspection).not.toContain(
+    "needs another look",
+  );
+});
+
 test("updated activity evidence preserves manual draft frames and rejects unrelated updates", () => {
   const initial = createVisualRange(candidate, 900)!;
   const draft = { ...initial, selectedStart: 160, selectedEnd: 290 };

@@ -13,10 +13,13 @@ export function activityPresentation(
   const activity = candidate.activity;
   if (!activity) return null;
   const available = activity.end_frame - activity.start_frame;
+  const boundaryConflict =
+    activity.boundary_conflict_before || activity.boundary_conflict_after;
+  const complete = activity.complete && !boundaryConflict;
   const stopped =
-    !activity.complete && !!job && ["failed", "cancelled"].includes(job.status);
+    !complete && !!job && ["failed", "cancelled"].includes(job.status);
   const checking =
-    !activity.complete && !!job && ["queued", "running"].includes(job.status);
+    !complete && !!job && ["queued", "running"].includes(job.status);
   let duration: string | null = null;
   if (activity.requested_frames !== null) {
     const requested = seconds(activity.requested_frames);
@@ -27,20 +30,21 @@ export function activityPresentation(
         selectedFrames === activity.requested_frames
           ? `Requested ${requested} seconds. ${selected} seconds selected.`
           : `Requested ${requested} seconds. ${requested} seconds supported. ${selected} seconds selected.`;
-    } else if (activity.complete) {
+    } else if (complete) {
       duration = `Requested ${requested} seconds. Found ${found} seconds of this activity. ${selectedFrames === available ? `The full ${found} seconds are selected.` : `${selected} seconds selected.`}`;
     } else {
       duration = `Requested ${requested} seconds. ${found} seconds confirmed${stopped ? "" : " so far"}. ${selected} seconds selected. Requested duration is not yet confirmed.`;
     }
   }
+  const inspection = complete
+    ? "Activity extent inspected. Review the movement’s beginning and finish."
+    : stopped
+      ? `Inspection stopped${job?.status === "cancelled" ? " (cancelled)" : ""}. Confirmed footage remains available; the activity’s beginning or end is unresolved.${job?.message ? ` ${job.message}` : ""}`
+      : checking
+        ? "Checking more footage. The activity’s beginning or end is still unresolved."
+        : "Activity partially inspected. Its beginning or end is unresolved.";
   return {
     duration,
-    inspection: activity.complete
-      ? "Activity extent inspected. Review the movement’s beginning and finish."
-      : stopped
-        ? `Inspection stopped${job?.status === "cancelled" ? " (cancelled)" : ""}. Confirmed footage remains available; the activity’s beginning or end is unresolved.${job?.message ? ` ${job.message}` : ""}`
-        : checking
-          ? "Checking more footage. The activity’s beginning or end is still unresolved."
-          : "Activity partially inspected. Its beginning or end is unresolved.",
+    inspection: `${boundaryConflict ? "Action found; its beginning or end needs another look. " : ""}${inspection}`,
   };
 }

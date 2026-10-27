@@ -11,7 +11,7 @@ import json
 from . import config, db, grounding, media
 from .localization import candidate_context
 
-VERSION = "activity-v3-independent-edit-duration"
+VERSION = "activity-v4-unresolved-boundary-conflicts"
 CHUNK = 30 * config.FPS
 OVERLAP = 4 * config.FPS
 
@@ -70,7 +70,10 @@ def suggested_cut(interval, intent, requested=None):
 def _refresh(candidate):
     activity = candidate["activity"]
     activity["complete"] = not (
-        activity["continues_before"] or activity["continues_after"]
+        activity["continues_before"]
+        or activity["continues_after"]
+        or activity.get("boundary_conflict_before", False)
+        or activity.get("boundary_conflict_after", False)
     )
     start, end = suggested_cut(
         activity, activity["intent"], activity["requested_frames"]
@@ -345,9 +348,15 @@ def continue_inspection(job, cancelled, progress):
             if before:
                 a["start_frame"] = min(a["start_frame"], interval["start_frame"])
                 a["continues_before"] = interval["continues_before"]
+                a["boundary_conflict_before"] = interval.get(
+                    "boundary_conflict_before", False
+                )
             else:
                 a["end_frame"] = max(a["end_frame"], interval["end_frame"])
                 a["continues_after"] = interval["continues_after"]
+                a["boundary_conflict_after"] = interval.get(
+                    "boundary_conflict_after", False
+                )
             _refresh(candidate)
             persist()
             if cancelled() or isinstance(error, InterruptedError):

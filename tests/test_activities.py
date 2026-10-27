@@ -108,6 +108,14 @@ def test_duration_support_and_boundary_completion_are_independent():
     assert (entire["start_frame"], entire["end_frame"]) == (0, 240)
 
 
+def test_conflicting_boundary_is_not_a_complete_shortfall():
+    span = {**interval(30, 240), "boundary_conflict_after": True}
+    cut = result(span, requested=20)
+    assert not cut["activity"]["complete"]
+    assert not cut["activity"]["duration_fulfilled"]
+    assert (cut["start_frame"], cut["end_frame"]) == (30, 240)
+
+
 def test_shortfall_does_not_join_separate_actions():
     cuts = [
         result(interval(0, 240), query="20 seconds of boxing", requested=20),
@@ -211,6 +219,28 @@ def test_continuation_uses_30_seconds_and_four_seconds_overlap(worker):
     assert (spec[3], spec[4]) == (120, 240)
     assert output["visual_results"][0]["activity"]["end_frame"] == 420
     assert output["visual_results"][0]["activity"]["complete"]
+
+
+def test_continuation_clears_only_the_reinspected_boundary_conflict(worker):
+    payload = json.loads(worker.job["payload"])
+    payload["candidates"][0]["activity"]["boundary_conflict_after"] = True
+    worker.job["payload"] = json.dumps(payload)
+    output = activities.continue_inspection(
+        worker.job, lambda: False, lambda *args: None
+    )
+    activity = output["visual_results"][0]["activity"]
+    assert activity["complete"]
+    assert not activity["boundary_conflict_after"]
+    assert activity["end_frame"] == 420
+
+
+def test_conflicting_reinspection_cannot_invent_progress_or_completion(worker):
+    worker.rows = [{**interval(0, 240, after=True), "boundary_conflict_after": True}]
+    with pytest.raises(ValueError, match="no progress"):
+        activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
+    activity = worker.stored["visual_results"][0]["activity"]
+    assert activity["end_frame"] == 240
+    assert activity["boundary_conflict_after"] and not activity["complete"]
 
 
 @pytest.mark.parametrize("version", [None, "older-contract"])

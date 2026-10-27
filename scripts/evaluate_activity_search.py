@@ -20,6 +20,21 @@ class EvaluationLimitReached(RuntimeError):
     """A dispatch was prevented; completed model work remains usable."""
 
 
+def runtime_sources(root):
+    """A commit alone cannot identify a run made with uncommitted source edits."""
+    paths = (
+        "server/activities.py",
+        "server/grounding.py",
+        "server/search.py",
+        "server/ai.py",
+        "server/media.py",
+        "scripts/evaluate_activity_search.py",
+    )
+    return {
+        name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in paths
+    }
+
+
 def save_report(output, report):
     """Replace atomically so interruption cannot erase reserved dispatches."""
     with tempfile.NamedTemporaryFile(
@@ -58,19 +73,32 @@ class EvaluationBudget:
         state = report.get("evaluation_budget")
         if state is None:
             if output.exists():
-                raise ValueError("Historical report has no dispatch ledger; choose a new output file")
+                raise ValueError(
+                    "Historical report has no dispatch ledger; choose a new output file"
+                )
             state = report["evaluation_budget"] = {
-                **limits, "generation_attempts": 0, "supplied_video_seconds": 0.0,
+                **limits,
+                "generation_attempts": 0,
+                "supplied_video_seconds": 0.0,
             }
         if any(state.get(k) != value for k, value in limits.items()):
             raise ValueError("Evaluation limits changed; choose a new output file")
-        attempts, seconds = state.get("generation_attempts"), state.get("supplied_video_seconds")
+        attempts, seconds = (
+            state.get("generation_attempts"),
+            state.get("supplied_video_seconds"),
+        )
         if (
-            type(attempts) is not int or attempts < 0 or attempts > max_attempts
-            or type(seconds) not in (int, float) or not math.isfinite(seconds)
-            or seconds < 0 or seconds > max_seconds
+            type(attempts) is not int
+            or attempts < 0
+            or attempts > max_attempts
+            or type(seconds) not in (int, float)
+            or not math.isfinite(seconds)
+            or seconds < 0
+            or seconds > max_seconds
         ):
-            raise ValueError("Invalid persisted dispatch ledger; choose a new output file")
+            raise ValueError(
+                "Invalid persisted dispatch ledger; choose a new output file"
+            )
         self.state = state
         self.stopped = None
 
@@ -84,7 +112,10 @@ class EvaluationBudget:
             raise ValueError("Cannot account for supplied video")
         if self.state["generation_attempts"] >= self.state["max_generation_attempts"]:
             self.stopped = "max_generation_attempts"
-        elif self.state["supplied_video_seconds"] + seconds > self.state["max_video_seconds"]:
+        elif (
+            self.state["supplied_video_seconds"] + seconds
+            > self.state["max_video_seconds"]
+        ):
             self.stopped = "max_video_seconds"
         if self.stopped:
             self.report["evaluation_stop"] = {
@@ -123,18 +154,25 @@ def observe_dispatches(ai, grounding, budget, counts, fps):
             if blob and str(getattr(blob, "mime_type", "")).startswith("video/"):
                 digest = hashlib.sha256(blob.data).digest()
                 if digest not in durations:
-                    raise ValueError("Unaccounted video part; evaluation dispatch refused")
+                    raise ValueError(
+                        "Unaccounted video part; evaluation dispatch refused"
+                    )
                 total += durations[digest]
             elif getattr(part, "file_data", None):
                 raise ValueError("Unaccounted file part; evaluation dispatch refused")
             elif blob or not isinstance(getattr(part, "text", None), str):
-                raise ValueError("Unaccounted content part; evaluation dispatch refused")
+                raise ValueError(
+                    "Unaccounted content part; evaluation dispatch refused"
+                )
         return total
 
     def observed_client():
         client = original_client()
         # Capture bound SDK methods once: wrappers must never invoke themselves.
-        embed_content, generate_content = client.models.embed_content, client.models.generate_content
+        embed_content, generate_content = (
+            client.models.embed_content,
+            client.models.generate_content,
+        )
 
         def embed(**kwargs):
             counts["embedding_requests"] += 1
@@ -154,7 +192,10 @@ def observe_dispatches(ai, grounding, budget, counts, fps):
     try:
         yield
     finally:
-        grounding.verification_clip, ai.embedding_client = original_clip, original_client
+        grounding.verification_clip, ai.embedding_client = (
+            original_clip,
+            original_client,
+        )
 
 
 def hit(candidate, target):
@@ -265,6 +306,8 @@ def main():
         "verifier_model": config.VISUAL_VERIFIER_MODEL,
         "frozen_key_sha256": hashlib.sha256(key_bytes).hexdigest(),
         "data_dir": str(config.DATA),
+        "grounding_contract": grounding.VERSION,
+        "runtime_sources": runtime_sources(Path(__file__).resolve().parents[1]),
     }
     selected = set(args.ids.split(",")) if args.ids else None
     counts = {}
@@ -286,19 +329,50 @@ def main():
         except ValueError as exc:
             parser.error(str(exc))
         done = {q["id"] for q in report["queries"]}
-        run_queries(app, TestClient, ai, config, db, grounding, worker,
-                    output, report, budget, counts, done, selected, key)
+        run_queries(
+            app,
+            TestClient,
+            ai,
+            config,
+            db,
+            grounding,
+            worker,
+            output,
+            report,
+            budget,
+            counts,
+            done,
+            selected,
+            key,
+        )
 
 
-def run_queries(app, TestClient, ai, config, db, grounding, worker,
-                output, report, budget, counts, done, selected, key):
+def run_queries(
+    app,
+    TestClient,
+    ai,
+    config,
+    db,
+    grounding,
+    worker,
+    output,
+    report,
+    budget,
+    counts,
+    done,
+    selected,
+    key,
+):
     if prior := report.pop("in_progress_query", None):
         report.setdefault("interrupted_queries", []).append(prior)
     report.pop("evaluation_stop", None)
-    intended = [row["id"] for row in key["queries"] if selected is None or row["id"] in selected]
-    with observe_dispatches(ai, grounding, budget, counts, config.FPS), TestClient(
-        app, headers={"X-Storyroom": "local"}
-    ) as client:
+    intended = [
+        row["id"] for row in key["queries"] if selected is None or row["id"] in selected
+    ]
+    with (
+        observe_dispatches(ai, grounding, budget, counts, config.FPS),
+        TestClient(app, headers={"X-Storyroom": "local"}) as client,
+    ):
         for row in key["queries"]:
             if row["id"] in done or selected is not None and row["id"] not in selected:
                 continue
@@ -348,8 +422,12 @@ def run_queries(app, TestClient, ai, config, db, grounding, worker,
                 item["evaluation_stopped"] = budget.stopped
             report["queries"].append(item)
             report.pop("in_progress_query", None)
-            finished = {q["id"] for q in report["queries"] if not q.get("evaluation_stopped")}
-            report["unfinished_query_ids"] = [ident for ident in intended if ident not in finished]
+            finished = {
+                q["id"] for q in report["queries"] if not q.get("evaluation_stopped")
+            }
+            report["unfinished_query_ids"] = [
+                ident for ident in intended if ident not in finished
+            ]
             report["evaluation_complete"] = not report["unfinished_query_ids"]
             report["summary"] = score(report["queries"], key)
             save_report(output, report)

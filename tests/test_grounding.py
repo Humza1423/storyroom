@@ -194,10 +194,39 @@ def test_invalid_sibling_id_does_not_discard_valid_work(fake):
     assert set(results) == {"a"} and error is not None
 
 
-def test_continuation_requires_visible_activity_at_context_boundary(fake):
-    fake.rows[0]["intervals"][0]["continues_after"] = True
-    results, error = grounding.inspect_ranges("kick", [candidate()])
-    assert results == {} and error is not None
+@pytest.mark.parametrize("before,after", [(True, False), (False, True), (True, True)])
+def test_conflicting_continuation_retains_local_match_as_unresolved(
+    fake, before, after
+):
+    fake.rows[0]["intervals"][0].update(continues_before=before, continues_after=after)
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate()], diagnostics=metrics
+    )
+    assert error is None and metrics["error_code"] is None
+    interval = results["a"]["intervals"][0]
+    assert (interval["start_frame"], interval["end_frame"]) == (315, 396)
+    assert interval["boundary_conflict_before"] is before
+    assert interval["boundary_conflict_after"] is after
+    assert interval["continues_before"] is before
+    assert interval["continues_after"] is after
+    assert metrics["candidates"][0]["status"] == "validated"
+    assert metrics["errors"][0]["code"] == "boundary_conflict"
+    assert metrics["errors"][0]["fatal"] is False
+    assert metrics["errors"][0]["proposed_interval"] == {
+        "start_seconds": 0.5,
+        "end_seconds": 3.2,
+        "suggested_start_seconds": 0.5,
+        "suggested_end_seconds": 3.2,
+        "continues_before": before,
+        "continues_after": after,
+        "boundary_conflict_before": before,
+        "boundary_conflict_after": after,
+    }
+    cached, error = grounding.inspect_ranges("kick", [candidate()], diagnostics=metrics)
+    assert error is None and cached == results and len(fake.calls) == 1
+    assert metrics["cache_hits"] == 1 and metrics["error_code"] is None
+    assert metrics["errors"][0]["proposed_interval"]["start_frame"] == 315
 
 
 def test_size_limit_prevents_request_and_reservation(fake, monkeypatch):
@@ -471,7 +500,6 @@ def test_paid_diagnostics_report_usage_cost_without_changing_tier(fake, monkeypa
         ("end_seconds", float("nan"), "timestamp_out_of_context"),
         ("end_seconds", 0.2, "interval_invalid"),
         ("visible_evidence", " ", "evidence_invalid"),
-        ("continues_after", True, "continuity_unsupported"),
     ],
 )
 def test_validation_codes_preserve_safe_reason_and_valid_sibling(
@@ -487,9 +515,12 @@ def test_validation_codes_preserve_safe_reason_and_valid_sibling(
     assert isinstance(error, ValueError) and error.code == code
     assert error.safe_message == str(error)
     assert metrics["error_code"] == code
-    assert metrics["errors"] == [
-        {"candidate_id": "b", "stage": "range_validation", "code": code}
-    ]
+    event = dict(metrics["errors"][0])
+    snapshot = event.pop("proposed_interval")
+    assert event == {"candidate_id": "b", "stage": "range_validation", "code": code}
+    assert snapshot["suggested_start_seconds"] == 0.5
+    assert "visible_evidence" not in snapshot
+    json.dumps(metrics, allow_nan=False)
     assert metrics["candidates"][0]["status"] == "validated"
     assert metrics["candidates"][1]["error_code"] == code
 
@@ -597,9 +628,14 @@ def test_recovered_cache_failure_is_observable_without_changing_acceptance(fake)
         "kick", [candidate()], diagnostics=metrics
     )
     assert error is None and "a" in results and len(fake.calls) == 2
-    assert metrics["errors"] == [
-        {"candidate_id": "a", "stage": "cache_validation", "code": "interval_invalid"}
-    ]
+    event = dict(metrics["errors"][0])
+    snapshot = event.pop("proposed_interval")
+    assert event == {
+        "candidate_id": "a",
+        "stage": "cache_validation",
+        "code": "interval_invalid",
+    }
+    assert snapshot["end_frame"] == 9000
     assert metrics["error_code"] is None
     assert metrics["candidates"][0]["status"] == "validated"
     assert "error_code" not in metrics["candidates"][0]
@@ -775,7 +811,7 @@ def test_action_duration_or_ambiguous_condition_remains_semantic_requirement(
     assert len(fake.calls) == 1
 
 
-def test_v3_cache_retains_historical_entries_without_reusing_old_decisions(
+def test_versioned_cache_retains_historical_entries_without_reusing_old_decisions(
     fake, monkeypatch
 ):
     original_version = grounding.VERSION
@@ -790,7 +826,7 @@ def test_v3_cache_retains_historical_entries_without_reusing_old_decisions(
     }
     fake.cache[old_key] = copy.deepcopy(historical)
     monkeypatch.setattr(grounding, "VERSION", original_version)
-    assert original_version.startswith("grounded-ranges-v3-")
+    assert original_version.startswith("grounded-ranges-v4-")
     assert grounding.cache_key("20 seconds of boxing", spec) != old_key
     fake.rows[0].update(intent="broad_activity", requested_duration_seconds=20)
     results, error = grounding.inspect_ranges("20 seconds of boxing", [candidate()])
@@ -805,3 +841,144 @@ def test_obsolete_duration_intent_is_rejected_by_v3_contract(fake):
     fake.rows[0].update(intent="duration", requested_duration_seconds=20)
     results, error = grounding.inspect_ranges("20 seconds of boxing", [candidate()])
     assert not results and error.inspection_code == "intent_invalid"
+
+
+def test_legitimate_interior_stop_needs_no_boundary_conflict(fake):
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate()], diagnostics=metrics
+    )
+    interval = results["a"]["intervals"][0]
+    assert error is None and not metrics["errors"]
+    assert (
+        not interval["boundary_conflict_before"]
+        and not interval["boundary_conflict_after"]
+    )
+    assert not interval["continues_before"] and not interval["continues_after"]
+    # This resolves inspected bounds, not evidence of complete-move quality.
+    assert (interval["start_frame"], interval["end_frame"]) == (315, 396)
+
+
+@pytest.mark.parametrize("value", [9, float("nan"), float("inf"), True, "secret"])
+def test_boundary_claim_cannot_bypass_invalid_timestamp(fake, value):
+    fake.rows[0]["intervals"][0].update(end_seconds=value, continues_after=True)
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate()], diagnostics=metrics
+    )
+    assert not results and error.inspection_code == "timestamp_out_of_context"
+    assert not fake.cache and metrics["error_code"] == "timestamp_out_of_context"
+    snapshot = metrics["errors"][0]["proposed_interval"]
+    assert snapshot["continues_after"] is True
+    if value == 9:
+        assert snapshot["end_seconds"] == 9
+    else:
+        assert "end_seconds" not in snapshot
+    assert "secret" not in json.dumps(metrics, allow_nan=False)
+
+
+def test_cached_conflict_cannot_become_completed_from_continuation_flag_alone(fake):
+    fake.rows[0]["intervals"][0]["continues_after"] = True
+    original, error = grounding.inspect_ranges("kick", [candidate()])
+    assert error is None
+    key = next(iter(fake.cache))
+    fake.cache[key]["intervals"][0]["continues_after"] = False
+    cached, error = grounding.inspect_ranges("kick", [candidate()])
+    assert error is None and cached == original and len(fake.calls) == 1
+    assert cached["a"]["intervals"][0]["boundary_conflict_after"]
+    assert cached["a"]["intervals"][0]["continues_after"]
+
+
+@pytest.mark.parametrize("value", [None, "true", 1])
+def test_invalid_cached_conflict_flag_is_recomputed(fake, value):
+    grounding.inspect_ranges("kick", [candidate()])
+    key = next(iter(fake.cache))
+    fake.cache[key]["intervals"][0]["boundary_conflict_after"] = value
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate()], diagnostics=metrics
+    )
+    assert error is None and "a" in results and len(fake.calls) == 2
+    assert metrics["errors"][0]["code"] == "cached_boundary_invalid"
+    assert not results["a"]["intervals"][0]["boundary_conflict_after"]
+
+
+def test_conflict_diagnostics_stay_bounded_numeric_and_nonfatal(fake):
+    fake.rows = [row(str(index)) for index in range(5)]
+    for entry in fake.rows:
+        first = entry["intervals"][0]
+        first.update(
+            end_seconds=2,
+            suggested_end_seconds=2,
+            continues_before=True,
+            continues_after=True,
+        )
+        second = copy.deepcopy(first)
+        second.update(
+            start_seconds=4,
+            end_seconds=6,
+            suggested_start_seconds=4,
+            suggested_end_seconds=6,
+        )
+        entry["intervals"].append(second)
+        first["visible_evidence"] = second["visible_evidence"] = (
+            "private evidence secret"
+        )
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "private query",
+        [candidate(str(index)) for index in range(5)],
+        diagnostics=metrics,
+    )
+    assert error is None and len(results) == 5 and metrics["error_code"] is None
+    assert metrics["error_count"] == 10 and len(metrics["errors"]) == 5
+    assert all(item["status"] == "validated" for item in metrics["candidates"])
+    for event in metrics["errors"]:
+        assert event["code"] == "boundary_conflict" and event["fatal"] is False
+        snapshot = event["proposed_interval"]
+        assert sum(type(value) in (int, float) for value in snapshot.values()) == 4
+        assert all(type(value) in (int, float, bool) for value in snapshot.values())
+    serialized = json.dumps(metrics, allow_nan=False)
+    assert "private" not in serialized and "secret" not in serialized
+
+
+def test_second_invalid_occurrence_reports_its_own_proposed_times(fake):
+    second = copy.deepcopy(fake.rows[0]["intervals"][0])
+    second.update(
+        start_seconds=4,
+        end_seconds=9,
+        suggested_start_seconds=4,
+        suggested_end_seconds=6,
+    )
+    fake.rows[0]["intervals"].append(second)
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate()], diagnostics=metrics
+    )
+    assert not results and error.inspection_code == "timestamp_out_of_context"
+    snapshot = metrics["errors"][0]["proposed_interval"]
+    assert snapshot["start_seconds"] == 4 and snapshot["end_seconds"] == 9
+
+
+def test_v4_retains_v3_cache_without_silently_reusing_its_boundary_policy(
+    fake, monkeypatch
+):
+    current = grounding.VERSION
+    spec = grounding.InspectionCandidate(*candidate())
+    monkeypatch.setattr(
+        grounding, "VERSION", "grounded-ranges-v3-independent-edit-duration-3fps"
+    )
+    old_key = grounding.cache_key("kick", spec)
+    historical = {
+        "intent": "specific_move",
+        "requested_duration_seconds": None,
+        "decision": "no_match",
+        "intervals": [],
+    }
+    fake.cache[old_key] = copy.deepcopy(historical)
+    monkeypatch.setattr(grounding, "VERSION", current)
+    fake.rows[0]["intervals"][0]["continues_after"] = True
+    results, error = grounding.inspect_ranges("kick", [candidate()])
+    assert error is None and results["a"]["intervals"][0]["boundary_conflict_after"]
+    assert len(fake.calls) == 1 and len(fake.cache) == 2
+    assert fake.cache[old_key] == historical

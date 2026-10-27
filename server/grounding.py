@@ -15,7 +15,7 @@ from pathlib import Path
 from . import ai, config, db
 from .media import verification_clip
 
-VERSION = "grounded-ranges-v3-independent-edit-duration-3fps"
+VERSION = "grounded-ranges-v4-boundary-conflict-3fps"
 MAX_CONTEXT_FRAMES = 900
 MAX_ANCHOR_GAP_FRAMES = 60
 INTENTS = ("broad_activity", "specific_move")
@@ -40,7 +40,15 @@ def _safe_identity(value):
 
 
 def _record_error(
-    metrics, code, stage, candidate=None, *, status_code=None, provider_status=None
+    metrics,
+    code,
+    stage,
+    candidate=None,
+    *,
+    status_code=None,
+    provider_status=None,
+    proposed_interval=None,
+    fatal=True,
 ):
     metrics["error_count"] += 1
     entry = {"code": code, "stage": stage}
@@ -50,11 +58,65 @@ def _record_error(
         entry["status_code"] = status_code
     if provider_status is not None:
         entry["provider_status"] = provider_status
+    if proposed_interval is not None:
+        entry["proposed_interval"] = proposed_interval
+    if not fatal:
+        entry["fatal"] = False
     metrics["errors"] = (metrics["errors"] + [entry])[-MAX_DIAGNOSTIC_ENTRIES:]
-    if candidate is not None:
+    if candidate is not None and fatal:
         for entry in metrics["candidates"]:
             if entry["candidate_id"] == _safe_identity(candidate.candidate_id):
                 entry.update(status="invalid", error_code=code)
+
+
+def _interval_snapshot(interval, cached=False):
+    """Allow only four finite timestamps and known boolean boundary fields."""
+    if not isinstance(interval, dict):
+        return {}
+    suffix = "_frame" if cached else "_seconds"
+    values = {
+        name + suffix: interval[name + suffix]
+        for name in ("start", "end", "suggested_start", "suggested_end")
+        if _number(interval.get(name + suffix))
+    }
+    for name in (
+        "continues_before",
+        "continues_after",
+        "boundary_conflict_before",
+        "boundary_conflict_after",
+    ):
+        if type(interval.get(name)) is bool:
+            values[name] = interval[name]
+    return values
+
+
+def _interval_error(code, message, interval, cached):
+    error = InspectionError(code, message)
+    error.proposed_interval = _interval_snapshot(interval, cached)
+    return error
+
+
+def _record_boundary_conflicts(metrics, candidate, value, original, cached=False):
+    suffix = "_frame" if cached else "_seconds"
+    originals = sorted(original["intervals"], key=lambda item: item["start" + suffix])
+    for interval, proposed in zip(value["intervals"], originals, strict=True):
+        before, after = (
+            interval["boundary_conflict_before"],
+            interval["boundary_conflict_after"],
+        )
+        if before or after:
+            snapshot = _interval_snapshot(proposed, cached)
+            snapshot.update(
+                boundary_conflict_before=before, boundary_conflict_after=after
+            )
+            _record_error(
+                metrics,
+                "boundary_conflict",
+                "boundary_validation",
+                candidate,
+                proposed_interval=snapshot,
+                fatal=False,
+            )
 
 
 def _candidate_status(metrics, candidate, status):
@@ -157,7 +219,9 @@ def _validated(candidate, value, *, cached=False):
     normalized = []
     for interval in intervals:
         if not isinstance(interval, dict):
-            raise InspectionError("interval_invalid", "Invalid inspection interval")
+            raise _interval_error(
+                "interval_invalid", "Invalid inspection interval", interval, cached
+            )
         evidence = interval.get("visible_evidence")
         if (
             not isinstance(evidence, str)
@@ -166,30 +230,49 @@ def _validated(candidate, value, *, cached=False):
             or type(interval.get("continues_before")) is not bool
             or type(interval.get("continues_after")) is not bool
         ):
-            raise InspectionError(
+            raise _interval_error(
                 "evidence_invalid",
                 "Inspection requires visible evidence and continuity flags",
+                interval,
+                cached,
+            )
+        if cached and any(
+            type(interval.get("boundary_conflict_" + side)) is not bool
+            for side in ("before", "after")
+        ):
+            raise _interval_error(
+                "cached_boundary_invalid",
+                "Invalid cached boundary conflict flags",
+                interval,
+                cached,
             )
         names = ("start", "end", "suggested_start", "suggested_end")
         suffix = "_frame" if cached else "_seconds"
         values = [interval.get(name + suffix) for name in names]
         if cached:
             if any(type(item) is not int for item in values):
-                raise InspectionError(
-                    "cached_frames_invalid", "Invalid cached inspection frames"
+                raise _interval_error(
+                    "cached_frames_invalid",
+                    "Invalid cached inspection frames",
+                    interval,
+                    cached,
                 )
             start, end, cut_start, cut_end = values
         else:
             duration = (candidate.context_end - candidate.context_start) / config.FPS
             if any(not _number(item) or not 0 <= item <= duration for item in values):
-                raise InspectionError(
+                raise _interval_error(
                     "timestamp_out_of_context",
                     "Inspection seconds outside supplied video",
+                    interval,
+                    cached,
                 )
             if not (values[0] <= values[2] < values[3] <= values[1]):
-                raise InspectionError(
+                raise _interval_error(
                     "interval_invalid",
                     "Inspection seconds are reversed or outside the activity",
+                    interval,
+                    cached,
                 )
             start, end, cut_start, cut_end = [
                 candidate.context_start + math.floor(item * config.FPS + 0.5)
@@ -203,31 +286,34 @@ def _validated(candidate, value, *, cached=False):
             <= end
             <= candidate.context_end
         ):
-            raise InspectionError(
-                "interval_invalid", "Inspection does not map to playable bounded frames"
+            raise _interval_error(
+                "interval_invalid",
+                "Inspection does not map to playable bounded frames",
+                interval,
+                cached,
             )
         if (
             max(candidate.anchor_start - end, start - candidate.anchor_end, 0)
             > MAX_ANCHOR_GAP_FRAMES
         ):
-            raise InspectionError(
-                "anchor_unrelated", "Inspection is unrelated to its retrieved anchor"
+            raise _interval_error(
+                "anchor_unrelated",
+                "Inspection is unrelated to its retrieved anchor",
+                interval,
+                cached,
             )
-        # A 3-fps sample has ten editing frames between observations. A model
-        # must not request expansion across an already observed action boundary.
-        if (
+        # Conflicting boundary claims leave recognition intact, but cannot prove
+        # a stop or unseen continuity. The worker must inspect before extending.
+        conflict_before = (
             interval["continues_before"]
             and start > 0
             and start - candidate.context_start > 10
-        ) or (
+        ) or (cached and interval["boundary_conflict_before"])
+        conflict_after = (
             interval["continues_after"]
             and end < candidate.asset_frames
             and candidate.context_end - end > 10
-        ):
-            raise InspectionError(
-                "continuity_unsupported",
-                "Continuation does not reach the inspected boundary",
-            )
+        ) or (cached and interval["boundary_conflict_after"])
         normalized.append(
             {
                 "start_frame": start,
@@ -237,10 +323,18 @@ def _validated(candidate, value, *, cached=False):
                 "visible_evidence": evidence.strip(),
                 # An interior crop edge cannot prove where the activity ends.
                 # This marks unresolved inspection, not continuity in unseen video.
-                "continues_before": candidate.context_start > 0
-                and start - candidate.context_start <= 10,
-                "continues_after": candidate.context_end < candidate.asset_frames
-                and candidate.context_end - end <= 10,
+                "continues_before": conflict_before
+                or (
+                    candidate.context_start > 0
+                    and start - candidate.context_start <= 10
+                ),
+                "continues_after": conflict_after
+                or (
+                    candidate.context_end < candidate.asset_frames
+                    and candidate.context_end - end <= 10
+                ),
+                "boundary_conflict_before": conflict_before,
+                "boundary_conflict_after": conflict_after,
             }
         )
     normalized.sort(key=lambda item: item["start_frame"])
@@ -248,7 +342,12 @@ def _validated(candidate, value, *, cached=False):
         len(normalized) == 2
         and normalized[0]["end_frame"] > normalized[1]["start_frame"]
     ):
-        raise InspectionError("occurrences_overlap", "Inspection occurrences overlap")
+        raise _interval_error(
+            "occurrences_overlap",
+            "Inspection occurrences overlap",
+            intervals[1],
+            cached,
+        )
     return {
         "intent": intent,
         "requested_duration_seconds": requested,
@@ -378,6 +477,13 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
                     )
                     metrics["cache_hits"] += 1
                     _candidate_status(metrics, candidate, "cached")
+                    _record_boundary_conflicts(
+                        metrics,
+                        candidate,
+                        results[candidate.candidate_id],
+                        value,
+                        cached=True,
+                    )
                     continue
                 except (ValueError, TypeError) as exc:
                     _record_error(
@@ -385,6 +491,7 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
                         getattr(exc, "inspection_code", "cache_invalid"),
                         stage,
                         candidate,
+                        proposed_interval=getattr(exc, "proposed_interval", None),
                     )
                     # Damaged cache is recomputed, never trusted.
             missing.append(candidate)
@@ -587,6 +694,7 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
                 db.cache_set(cache_key(query, item), value)
                 results[item.candidate_id] = value
                 _candidate_status(metrics, item, "validated")
+                _record_boundary_conflicts(metrics, item, value, matching[0])
             except (ValueError, TypeError) as exc:
                 error = (
                     exc
@@ -596,7 +704,13 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
                         "Inspection returned invalid candidate ranges",
                     )
                 )
-                _record_error(metrics, error.inspection_code, "range_validation", item)
+                _record_error(
+                    metrics,
+                    error.inspection_code,
+                    "range_validation",
+                    item,
+                    proposed_interval=getattr(error, "proposed_interval", None),
+                )
         return results, _cancelled_error(metrics) if cancelled() else error
     except Exception as exc:  # noqa: BLE001 - provider boundary always returns sanitized failures
         _, code, status = ai._safe_provider_error(exc)

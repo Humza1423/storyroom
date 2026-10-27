@@ -45,6 +45,8 @@ export type VisualCandidate = {
     complete: boolean;
     continues_before: boolean;
     continues_after: boolean;
+    boundary_conflict_before?: boolean;
+    boundary_conflict_after?: boolean;
     intent: "broad_activity" | "specific_move" | "duration";
     requested_frames: number | null;
     duration_fulfilled: boolean;

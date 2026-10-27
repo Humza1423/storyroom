@@ -5,6 +5,30 @@ from types import SimpleNamespace
 
 import pytest
 
+
+def test_runtime_source_identity_detects_uncommitted_edits(tmp_path):
+
+    names = (
+        "server/activities.py",
+        "server/grounding.py",
+        "server/search.py",
+        "server/ai.py",
+        "server/media.py",
+        "scripts/evaluate_activity_search.py",
+    )
+    for name in names:
+        target = tmp_path / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("original source")
+    before = evaluation.runtime_sources(tmp_path)
+    (tmp_path / "server/grounding.py").write_text("changed contract")
+    after = evaluation.runtime_sources(tmp_path)
+    assert before["server/grounding.py"] != after["server/grounding.py"]
+    assert all(
+        before[name] == after[name] for name in names if name != "server/grounding.py"
+    )
+
+
 spec = importlib.util.spec_from_file_location(
     "activity_evaluation_limits",
     Path(__file__).resolve().parents[1] / "scripts/evaluate_activity_search.py",
@@ -16,21 +40,31 @@ spec.loader.exec_module(evaluation)
 def budget_at(tmp_path, attempts=40, seconds=1500):
     output = tmp_path / "report.json"
     report = {"queries": []}
-    return output, report, evaluation.EvaluationBudget(output, report, attempts, seconds)
+    return (
+        output,
+        report,
+        evaluation.EvaluationBudget(output, report, attempts, seconds),
+    )
 
 
 def fake_modules(dispatch):
     sdk = SimpleNamespace(
-        models=SimpleNamespace(embed_content=lambda **_: "embedding", generate_content=dispatch),
+        models=SimpleNamespace(
+            embed_content=lambda **_: "embedding", generate_content=dispatch
+        ),
         close=lambda: None,
     )
     ai = SimpleNamespace(embedding_client=lambda: sdk)
-    grounding = SimpleNamespace(verification_clip=lambda _proxy, start, end: f"{start}:{end}".encode())
+    grounding = SimpleNamespace(
+        verification_clip=lambda _proxy, start, end: f"{start}:{end}".encode()
+    )
     return ai, grounding
 
 
 def video_part(video):
-    return SimpleNamespace(inline_data=SimpleNamespace(data=video, mime_type="video/mp4"))
+    return SimpleNamespace(
+        inline_data=SimpleNamespace(data=video, mime_type="video/mp4")
+    )
 
 
 def test_defaults_allow_exact_cap_and_block_next_dispatch(tmp_path):
@@ -63,7 +97,9 @@ def test_defaults_allow_exact_cap_and_block_next_dispatch(tmp_path):
 
 
 @pytest.mark.parametrize("limit,expected_calls", [(31, 1), (32, 2)])
-def test_batch_video_seconds_and_retry_are_charged_before_sdk(tmp_path, monkeypatch, limit, expected_calls):
+def test_batch_video_seconds_and_retry_are_charged_before_sdk(
+    tmp_path, monkeypatch, limit, expected_calls
+):
     from server import ai as real_ai
     from server import config
 
@@ -84,18 +120,30 @@ def test_batch_video_seconds_and_retry_are_charged_before_sdk(tmp_path, monkeypa
     ai, grounding = fake_modules(dispatch)
     counts = {"embedding_requests": 0, "video_requests": 0}
     with evaluation.observe_dispatches(ai, grounding, budget, counts, 30):
-        parts = [video_part(grounding.verification_clip(None, 0, 240)),
-                 video_part(grounding.verification_clip(None, 240, 480))]
+        parts = [
+            video_part(grounding.verification_clip(None, 0, 240)),
+            video_part(grounding.verification_clip(None, 240, 480)),
+        ]
         if expected_calls == 1:
             with pytest.raises(evaluation.EvaluationLimitReached):
-                real_ai._generate_with_unpaid_503_retry(ai.embedding_client(), contents=parts)
+                real_ai._generate_with_unpaid_503_retry(
+                    ai.embedding_client(), contents=parts
+                )
         else:
-            assert real_ai._generate_with_unpaid_503_retry(ai.embedding_client(), contents=parts) == "success"
+            assert (
+                real_ai._generate_with_unpaid_503_retry(
+                    ai.embedding_client(), contents=parts
+                )
+                == "success"
+            )
     assert len(calls) == expected_calls
     assert report["evaluation_budget"]["generation_attempts"] == expected_calls
     assert report["evaluation_budget"]["supplied_video_seconds"] == 16 * expected_calls
     if expected_calls == 1:
-        assert json.loads(output.read_text())["evaluation_stop"]["reason"] == "max_video_seconds"
+        assert (
+            json.loads(output.read_text())["evaluation_stop"]["reason"]
+            == "max_video_seconds"
+        )
     else:
         assert "evaluation_stop" not in report
 
@@ -128,7 +176,9 @@ def test_rejects_changed_limits_and_historical_report_without_writing(tmp_path):
     assert output.read_bytes() == original
 
 
-@pytest.mark.parametrize("attempts,seconds", [(-1, 1500), (40, -1), (40, float("nan")), (40, float("inf"))])
+@pytest.mark.parametrize(
+    "attempts,seconds", [(-1, 1500), (40, -1), (40, float("nan")), (40, float("inf"))]
+)
 def test_rejects_invalid_limits(tmp_path, attempts, seconds):
     with pytest.raises(ValueError):
         budget_at(tmp_path, attempts, seconds)
@@ -136,7 +186,9 @@ def test_rejects_invalid_limits(tmp_path, attempts, seconds):
 
 def test_unknown_video_refuses_dispatch(tmp_path):
     _, report, budget = budget_at(tmp_path)
-    ai, grounding = fake_modules(lambda **_: pytest.fail("Unaccounted video reached SDK"))
+    ai, grounding = fake_modules(
+        lambda **_: pytest.fail("Unaccounted video reached SDK")
+    )
     with (
         evaluation.observe_dispatches(ai, grounding, budget, {"video_requests": 0}, 30),
         pytest.raises(ValueError, match="Unaccounted video"),
@@ -168,7 +220,11 @@ def test_stop_retains_partial_result_and_does_not_start_next_query(tmp_path):
                 json=lambda: {"results": [hit], "activity_job_id": "job"},
             )
 
-    job = {"status": "queued", "result": json.dumps({"visual_results": [hit]}), "message": ""}
+    job = {
+        "status": "queued",
+        "result": json.dumps({"visual_results": [hit]}),
+        "message": "",
+    }
 
     def work():
         video = grounding.verification_clip(None, 0, 240)
@@ -178,11 +234,33 @@ def test_stop_retains_partial_result_and_does_not_start_next_query(tmp_path):
             job.update(status="failed", message="inspection stopped")
         return True
 
-    key = {"queries": [{"id": ident, "query": ident, "project_id": "p", "kind": "positive", "relevant": []}
-                       for ident in ("one", "two")]}
+    key = {
+        "queries": [
+            {
+                "id": ident,
+                "query": ident,
+                "project_id": "p",
+                "kind": "positive",
+                "relevant": [],
+            }
+            for ident in ("one", "two")
+        ]
+    }
     evaluation.run_queries(
-        None, Client, ai, SimpleNamespace(FPS=30), SimpleNamespace(one=lambda *args: job),
-        grounding, SimpleNamespace(once=work), output, report, budget, counts, set(), None, key,
+        None,
+        Client,
+        ai,
+        SimpleNamespace(FPS=30),
+        SimpleNamespace(one=lambda *args: job),
+        grounding,
+        SimpleNamespace(once=work),
+        output,
+        report,
+        budget,
+        counts,
+        set(),
+        None,
+        key,
     )
     saved = json.loads(output.read_text())
     assert len(requests) == 1
