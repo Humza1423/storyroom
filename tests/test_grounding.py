@@ -463,3 +463,230 @@ def test_paid_diagnostics_report_usage_cost_without_changing_tier(fake, monkeypa
     grounding.inspect_ranges("kick", [candidate()], diagnostics=metrics)
     assert metrics["estimated_usd"] > 0
     assert metrics["request_attempts"] == 1 and config.VISUAL_TIER == "paid"
+
+
+@pytest.mark.parametrize(
+    "field,value,code",
+    [
+        ("start_seconds", -1, "timestamp_out_of_context"),
+        ("end_seconds", float("nan"), "timestamp_out_of_context"),
+        ("end_seconds", 0.2, "interval_invalid"),
+        ("visible_evidence", " ", "evidence_invalid"),
+        ("continues_after", True, "continuity_unsupported"),
+    ],
+)
+def test_validation_codes_preserve_safe_reason_and_valid_sibling(
+    fake, field, value, code
+):
+    fake.rows = [row(), row("b")]
+    fake.rows[1]["intervals"][0][field] = value
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate(), candidate("b")], diagnostics=metrics
+    )
+    assert set(results) == {"a"} and len(fake.cache) == 1
+    assert isinstance(error, ValueError) and error.code == code
+    assert error.safe_message == str(error)
+    assert metrics["error_code"] == code
+    assert metrics["errors"] == [
+        {"candidate_id": "b", "stage": "range_validation", "code": code}
+    ]
+    assert metrics["candidates"][0]["status"] == "validated"
+    assert metrics["candidates"][1]["error_code"] == code
+
+
+def test_manifest_is_bounded_private_and_stable_for_cached_work(fake):
+    specs = [candidate(str(index)) for index in range(5)]
+    fake.rows = [row(str(index)) for index in range(5)]
+    metrics = {}
+    _, error = grounding.inspect_ranges("private query", specs, diagnostics=metrics)
+    assert error is None and len(metrics["candidates"]) == 5
+    assert metrics["candidates"][0] == {
+        "candidate_id": "0",
+        "proxy_fingerprint": grounding.hashlib.sha256(b"hash-0").hexdigest(),
+        "anchor_start_frame": 330,
+        "anchor_end_frame": 390,
+        "context_start_frame": 300,
+        "context_end_frame": 540,
+        "asset_frames": 1200,
+        "sample_fps": 3,
+        "status": "validated",
+    }
+    serialized = json.dumps(metrics)
+    assert "private query" not in serialized and "/opaque.mp4" not in serialized
+    assert "hash-0" not in serialized and "plants a foot" not in serialized
+    assert len(metrics["batch_fingerprint"]) == 64
+    original_fingerprint = metrics["batch_fingerprint"]
+    _, error = grounding.inspect_ranges("private query", specs, diagnostics=metrics)
+    assert error is None and metrics["cache_hits"] == 5
+    assert all(item["status"] == "cached" for item in metrics["candidates"])
+    assert metrics["batch_fingerprint"] is None  # No actual dispatch batch.
+    fake.cache.clear()
+    grounding.inspect_ranges("private query", specs, diagnostics=metrics)
+    assert metrics["batch_fingerprint"] == original_fingerprint
+    fake.cache.clear()
+    grounding.inspect_ranges(
+        "private query", list(reversed(specs)), diagnostics=metrics
+    )
+    assert metrics["batch_fingerprint"] != original_fingerprint
+
+
+def test_five_invalid_siblings_each_keep_code_with_bounded_errors(fake):
+    fake.rows = [row(str(index)) for index in range(5)]
+    for entry in fake.rows:
+        entry["intervals"][0]["end_seconds"] = 999
+    # An unknown provider ID is never copied into diagnostics.
+    fake.rows.append({"candidate_id": "/Users/private/api_key=secret"})
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate(str(index)) for index in range(5)], diagnostics=metrics
+    )
+    assert not results and error is not None
+    assert metrics["error_count"] == 6 and len(metrics["errors"]) == 5
+    assert all(
+        item["error_code"] == "timestamp_out_of_context"
+        for item in metrics["candidates"]
+    )
+    assert "secret" not in json.dumps(metrics)
+
+
+@pytest.mark.parametrize("kind", ["missing", "duplicate", "unknown", "malformed"])
+def test_response_structure_has_stable_codes_and_retains_siblings(fake, kind):
+    fake.rows = [row()]
+    expected = "candidate_missing"
+    if kind == "duplicate":
+        fake.rows.extend([row("b"), row("b")])
+        expected = "candidate_duplicate"
+    elif kind == "unknown":
+        fake.rows.extend([row("b"), row("/private/secret")])
+        expected = "candidate_set_invalid"
+    elif kind == "malformed":
+        fake.rows = None
+        expected = "response_malformed"
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate(), candidate("b")], diagnostics=metrics
+    )
+    assert error.inspection_code == metrics["error_code"] == expected
+    assert ("a" in results) is (kind != "malformed")
+    assert "secret" not in json.dumps(metrics)
+
+
+def test_provider_error_diagnostics_and_message_exclude_raw_text(fake):
+    class QuotaError(Exception):
+        code = 429
+        message = "arbitrary_secret api_key=secret /Users/private/video.mp4"
+
+    fake.failure = QuotaError()
+    metrics = {}
+    _, error = grounding.inspect_ranges("kick", [candidate()], diagnostics=metrics)
+    assert error.status_code == error.code == 429
+    assert error.inspection_code == metrics["error_code"] == "provider_failure"
+    assert metrics["errors"] == [
+        {"code": "provider_failure", "stage": "provider_request", "status_code": 429}
+    ]
+    assert "quota or rate limit" in error.safe_message
+    assert "secret" not in str(error) + json.dumps(metrics)
+
+
+def test_recovered_cache_failure_is_observable_without_changing_acceptance(fake):
+    grounding.inspect_ranges("kick", [candidate()])
+    key = next(iter(fake.cache))
+    fake.cache[key]["intervals"][0]["end_frame"] = 9000
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate()], diagnostics=metrics
+    )
+    assert error is None and "a" in results and len(fake.calls) == 2
+    assert metrics["errors"] == [
+        {"candidate_id": "a", "stage": "cache_validation", "code": "interval_invalid"}
+    ]
+    assert metrics["error_code"] is None
+    assert metrics["candidates"][0]["status"] == "validated"
+    assert "error_code" not in metrics["candidates"][0]
+
+
+def test_cancel_retains_type_and_stable_diagnostics(fake):
+    metrics = {}
+    _, error = grounding.inspect_ranges(
+        "kick", [candidate()], cancelled=lambda: True, diagnostics=metrics
+    )
+    assert isinstance(error, InterruptedError)
+    assert error.inspection_code == metrics["error_code"] == "cancelled"
+    assert metrics["request_attempts"] == 0
+
+
+def test_malformed_json_and_returned_model_are_observable_without_raw_text(
+    fake, monkeypatch
+):
+    def generate(api, **kwargs):
+        kwargs["on_attempt"]()
+        return SimpleNamespace(
+            text="malformed private response api_key=secret",
+            model_version="gemini-test-version",
+            usage_metadata=None,
+        )
+
+    monkeypatch.setattr(ai, "_generate_with_unpaid_503_retry", generate)
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "private query", [candidate()], diagnostics=metrics
+    )
+    assert not results and error.inspection_code == "response_malformed"
+    assert metrics["returned_model_version"] == "gemini-test-version"
+    assert "private" not in json.dumps(metrics) and "secret" not in str(error)
+    assert fake.closed == 1
+
+
+def test_untrusted_request_identity_is_fingerprinted_in_diagnostics(fake):
+    ident = "/Users/private/api_key=secret"
+    fake.rows = [row(ident)]
+    metrics = {}
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate(ident)], diagnostics=metrics
+    )
+    assert error is None and ident in results
+    assert metrics["candidates"][0]["candidate_id"].startswith("sha256:")
+    assert "secret" not in json.dumps(metrics)
+
+
+@pytest.mark.parametrize(
+    "problem,expected",
+    [
+        ("intent", "intent_invalid"),
+        ("overlap", "occurrences_overlap"),
+        ("anchor", "anchor_unrelated"),
+    ],
+)
+def test_remaining_validation_reasons_are_stable(fake, problem, expected):
+    specs = [candidate()]
+    if problem == "intent":
+        fake.rows[0]["intent"] = "unknown"
+    elif problem == "overlap":
+        fake.rows[0]["intervals"].append(copy.deepcopy(fake.rows[0]["intervals"][0]))
+    else:
+        specs = [candidate(context_end=1200)]
+        fake.rows[0]["intervals"][0].update(
+            start_seconds=20,
+            end_seconds=23,
+            suggested_start_seconds=20,
+            suggested_end_seconds=23,
+        )
+    metrics = {}
+    results, error = grounding.inspect_ranges("kick", specs, diagnostics=metrics)
+    assert not results and error.inspection_code == metrics["error_code"] == expected
+
+
+@pytest.mark.parametrize("status", ["RESOURCE_EXHAUSTED", "secret_provider_status"])
+def test_provider_status_uses_fixed_category_allowlist(fake, status):
+    class QuotaError(Exception):
+        code = 429
+
+    fake.failure = QuotaError("secret raw message")
+    fake.failure.status = status
+    metrics = {}
+    _, error = grounding.inspect_ranges("kick", [candidate()], diagnostics=metrics)
+    expected = status if status == "RESOURCE_EXHAUSTED" else None
+    assert error.provider_status == expected
+    assert metrics["errors"][-1].get("provider_status") == expected
+    assert "secret" not in json.dumps(metrics) + str(error)

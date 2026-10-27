@@ -224,3 +224,55 @@ def test_project_permission_and_proxy_isolation_prevent_calls(worker, problem):
         activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
     assert worker.lookups[0] == ("asset", "project")
     assert not worker.calls
+
+
+def test_inspection_diagnostics_are_bounded_and_survive_resume():
+    totals = {"request_attempts": 2, "errors": [{"code": "older"}]}
+    for index in range(12):
+        activities._merge_diagnostics(
+            totals,
+            {
+                "request_attempts": 1,
+                "submitted_video_seconds": 30,
+                "error_count": 1,
+                "error_code": "timestamp_out_of_context",
+                "errors": [{"code": "timestamp_out_of_context"}],
+                "candidates": [{"context_start_frame": index * 30}],
+            },
+        )
+        totals = json.loads(json.dumps(totals))  # Existing job result round-trip.
+    assert totals["request_attempts"] == 14
+    assert totals["submitted_video_seconds"] == 360
+    assert totals["error_count"] == 12
+    assert len(totals["errors"]) == len(totals["candidates"]) == 5
+    assert totals["candidates"][0]["context_start_frame"] == 7 * 30
+
+
+def test_safe_validation_reason_and_partial_work_are_persisted(worker, monkeypatch):
+    class SafeFailure(ValueError):
+        safe_message = "Returned times fall outside the supplied video."
+
+    def inspect(*args, diagnostics, **kwargs):
+        diagnostics.update(
+            error_code="timestamp_out_of_context",
+            error_count=1,
+            errors=[{"stage": "validation", "code": "timestamp_out_of_context"}],
+            candidates=[{"context_start_frame": 120, "context_end_frame": 1020}],
+        )
+        return {}, SafeFailure("private provider content must not be stored")
+
+    monkeypatch.setattr(activities.grounding, "inspect_ranges", inspect)
+    with pytest.raises(ValueError, match="Returned times fall outside"):
+        activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
+    assert worker.stored["visual_results"][0]["activity"]["end_frame"] == 240
+    diagnostics = worker.stored["inspection_diagnostics"]
+    assert diagnostics["error_code"] == "timestamp_out_of_context"
+    assert diagnostics["error_count"] == 1
+    assert "private provider" not in json.dumps(worker.stored)
+
+
+def test_cancel_records_safe_reason_with_existing_partial_results(worker):
+    with pytest.raises(media.Cancelled):
+        activities.continue_inspection(worker.job, lambda: True, lambda *args: None)
+    assert worker.stored["inspection_diagnostics"]["error_code"] == "cancelled"
+    assert worker.stored["visual_results"][0]["activity"]["end_frame"] == 240

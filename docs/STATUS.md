@@ -1,6 +1,24 @@
 # Project status and release checklist
 
-Updated: 2026-10-25. Status: local development preview; release gates remain open.
+Updated: 2026-10-27. Status: local development preview; release gates remain open.
+
+## Search S1a — visible inspection failures (2026-10-27)
+
+Research and independent critic/editor/solution reviews are recorded in
+[the focused delivery tickets](AI_SEARCH_TICKETS.md). The first runtime checkpoint
+adds stable, safe validation/provider failure reasons and bounded candidate/crop
+diagnostics. Continuation jobs retain the last five diagnostic records and summed
+usage in their existing result, including cancellation and partial work. No prompt,
+model, sampling, retrieval, cache identity, acceptance rule or frame math changed.
+
+Verification: full backend suite **273 passed**; selected Ruff checks and whitespace
+check passed. One existing Starlette/httpx deprecation warning remains. No live
+provider calls in this diagnostics checkpoint; it makes no accuracy claim.
+The eight-clip **Gemini fresh validation v1** database is intact and a local,
+ignored SQLite recovery backup passed its integrity check. No source media,
+historical evaluation or accepted cut was replaced. Next: S1b separates recognition
+from requested edit duration and compares the unchanged model/crops on development
+examples. Browser and live evidence belong to that next checkpoint.
 
 ## Gemini-first activity search checkpoint (2026-10-25)
 

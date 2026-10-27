@@ -7,6 +7,7 @@ they enter the normalized editing frame clock; no automatic padding is applied.
 import hashlib
 import json
 import math
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,56 @@ MAX_CONTEXT_FRAMES = 900
 MAX_ANCHOR_GAP_FRAMES = 60
 INTENTS = ("broad_activity", "specific_move", "duration")
 DECISIONS = ("match", "no_match", "uncertain")
+MAX_DIAGNOSTIC_ENTRIES = 5
+
+
+class InspectionError(ValueError):
+    """A stable inspection failure whose message contains no response data."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+        self.inspection_code = code
+        self.safe_message = message
+
+
+def _safe_identity(value):
+    if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", value):
+        return value
+    return "sha256:" + hashlib.sha256(json.dumps(value).encode()).hexdigest()
+
+
+def _record_error(
+    metrics, code, stage, candidate=None, *, status_code=None, provider_status=None
+):
+    metrics["error_count"] += 1
+    entry = {"code": code, "stage": stage}
+    if candidate is not None:
+        entry["candidate_id"] = _safe_identity(candidate.candidate_id)
+    if status_code is not None:
+        entry["status_code"] = status_code
+    if provider_status is not None:
+        entry["provider_status"] = provider_status
+    metrics["errors"] = (metrics["errors"] + [entry])[-MAX_DIAGNOSTIC_ENTRIES:]
+    if candidate is not None:
+        for entry in metrics["candidates"]:
+            if entry["candidate_id"] == _safe_identity(candidate.candidate_id):
+                entry.update(status="invalid", error_code=code)
+
+
+def _candidate_status(metrics, candidate, status):
+    for entry in metrics["candidates"]:
+        if entry["candidate_id"] == _safe_identity(candidate.candidate_id):
+            entry["status"] = status
+            entry.pop("error_code", None)
+
+
+def _cancelled_error(metrics):
+    error = InterruptedError("Visual inspection cancelled")
+    error.inspection_code = "cancelled"
+    error.safe_message = str(error)
+    _record_error(metrics, "cancelled", "cancellation")
+    return error
 
 
 @dataclass(frozen=True)
@@ -56,7 +107,9 @@ class InspectionCandidate:
             )
             or self.context_end - self.context_start > MAX_CONTEXT_FRAMES
         ):
-            raise ValueError("Invalid bounded inspection candidate")
+            raise InspectionError(
+                "candidate_invalid", "Invalid bounded inspection candidate"
+            )
 
 
 def cache_key(query, candidate):
@@ -85,7 +138,7 @@ def _number(value):
 
 def _validated(candidate, value, *, cached=False):
     if not isinstance(value, dict):
-        raise TypeError("Invalid inspection result")
+        raise InspectionError("response_malformed", "Invalid inspection result")
     intent, decision = value.get("intent"), value.get("decision")
     requested = value.get("requested_duration_seconds")
     if (
@@ -94,18 +147,18 @@ def _validated(candidate, value, *, cached=False):
         or (intent == "duration" and (not _number(requested) or requested <= 0))
         or (intent != "duration" and requested is not None)
     ):
-        raise ValueError("Invalid inspection intent or decision")
+        raise InspectionError("intent_invalid", "Invalid inspection intent or decision")
     intervals = value.get("intervals")
     if (
         not isinstance(intervals, list)
         or len(intervals) > 2
         or (decision == "match") != bool(intervals)
     ):
-        raise ValueError("Invalid inspection intervals")
+        raise InspectionError("interval_invalid", "Invalid inspection intervals")
     normalized = []
     for interval in intervals:
         if not isinstance(interval, dict):
-            raise TypeError("Invalid inspection interval")
+            raise InspectionError("interval_invalid", "Invalid inspection interval")
         evidence = interval.get("visible_evidence")
         if (
             not isinstance(evidence, str)
@@ -114,23 +167,30 @@ def _validated(candidate, value, *, cached=False):
             or type(interval.get("continues_before")) is not bool
             or type(interval.get("continues_after")) is not bool
         ):
-            raise ValueError(
-                "Inspection requires visible evidence and continuity flags"
+            raise InspectionError(
+                "evidence_invalid",
+                "Inspection requires visible evidence and continuity flags",
             )
         names = ("start", "end", "suggested_start", "suggested_end")
         suffix = "_frame" if cached else "_seconds"
         values = [interval.get(name + suffix) for name in names]
         if cached:
             if any(type(item) is not int for item in values):
-                raise ValueError("Invalid cached inspection frames")
+                raise InspectionError(
+                    "cached_frames_invalid", "Invalid cached inspection frames"
+                )
             start, end, cut_start, cut_end = values
         else:
             duration = (candidate.context_end - candidate.context_start) / config.FPS
             if any(not _number(item) or not 0 <= item <= duration for item in values):
-                raise ValueError("Inspection seconds outside supplied video")
+                raise InspectionError(
+                    "timestamp_out_of_context",
+                    "Inspection seconds outside supplied video",
+                )
             if not (values[0] <= values[2] < values[3] <= values[1]):
-                raise ValueError(
-                    "Inspection seconds are reversed or outside the activity"
+                raise InspectionError(
+                    "interval_invalid",
+                    "Inspection seconds are reversed or outside the activity",
                 )
             start, end, cut_start, cut_end = [
                 candidate.context_start + math.floor(item * config.FPS + 0.5)
@@ -144,12 +204,16 @@ def _validated(candidate, value, *, cached=False):
             <= end
             <= candidate.context_end
         ):
-            raise ValueError("Inspection does not map to playable bounded frames")
+            raise InspectionError(
+                "interval_invalid", "Inspection does not map to playable bounded frames"
+            )
         if (
             max(candidate.anchor_start - end, start - candidate.anchor_end, 0)
             > MAX_ANCHOR_GAP_FRAMES
         ):
-            raise ValueError("Inspection is unrelated to its retrieved anchor")
+            raise InspectionError(
+                "anchor_unrelated", "Inspection is unrelated to its retrieved anchor"
+            )
         # A 3-fps sample has ten editing frames between observations. A model
         # must not request expansion across an already observed action boundary.
         if (
@@ -161,7 +225,10 @@ def _validated(candidate, value, *, cached=False):
             and end < candidate.asset_frames
             and candidate.context_end - end > 10
         ):
-            raise ValueError("Continuation does not reach the inspected boundary")
+            raise InspectionError(
+                "continuity_unsupported",
+                "Continuation does not reach the inspected boundary",
+            )
         normalized.append(
             {
                 "start_frame": start,
@@ -182,7 +249,7 @@ def _validated(candidate, value, *, cached=False):
         len(normalized) == 2
         and normalized[0]["end_frame"] > normalized[1]["start_frame"]
     ):
-        raise ValueError("Inspection occurrences overlap")
+        raise InspectionError("occurrences_overlap", "Inspection occurrences overlap")
     return {
         "intent": intent,
         "requested_duration_seconds": requested,
@@ -242,10 +309,23 @@ def inspect_ranges(
         thinking_tokens=0,
         usage_available=False,
         estimated_usd=0.0,
+        candidates=[],
+        errors=[],
+        error_count=0,
+        error_code=None,
+        contract_version=VERSION,
+        model=_safe_identity(config.VISUAL_VERIFIER_MODEL),
+        returned_model_version=None,
+        batch_fingerprint=None,
     )
     started = time.perf_counter()
     try:
-        return _inspect_ranges(query, candidates, job_id, cancelled, metrics)
+        results, error = _inspect_ranges(query, candidates, job_id, cancelled, metrics)
+        if error is not None:
+            metrics["error_code"] = getattr(
+                error, "inspection_code", "inspection_failed"
+            )
+        return results, error
     finally:
         metrics["elapsed_seconds"] = max(0.0, time.perf_counter() - started)
 
@@ -257,16 +337,39 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
     Returns (results by ID, error or None); incomplete work never becomes a match.
     """
     results, missing = {}, []
+    stage = "input_validation"
     try:
         if (
             not isinstance(query, str)
             or not query.strip()
             or not 1 <= len(candidates) <= 5
         ):
-            raise ValueError("Inspection requires a query and one to five candidates")
+            raise InspectionError(
+                "request_invalid",
+                "Inspection requires a query and one to five candidates",
+            )
         prepared = [InspectionCandidate(*row) for row in candidates]
         if len({item.candidate_id for item in prepared}) != len(prepared):
-            raise ValueError("Inspection requires unique candidate IDs")
+            raise InspectionError(
+                "candidate_duplicate", "Inspection requires unique candidate IDs"
+            )
+        metrics["candidates"] = [
+            {
+                "candidate_id": _safe_identity(item.candidate_id),
+                "proxy_fingerprint": hashlib.sha256(
+                    item.proxy_hash.encode(errors="backslashreplace")
+                ).hexdigest(),
+                "anchor_start_frame": item.anchor_start,
+                "anchor_end_frame": item.anchor_end,
+                "context_start_frame": item.context_start,
+                "context_end_frame": item.context_end,
+                "asset_frames": item.asset_frames,
+                "sample_fps": 3,
+                "status": "pending",
+            }
+            for item in prepared
+        ]
+        stage = "cache_validation"
         for candidate in prepared:
             value = db.cache_get(cache_key(query, candidate))
             if value is not None:
@@ -275,14 +378,27 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
                         candidate, value, cached=True
                     )
                     metrics["cache_hits"] += 1
+                    _candidate_status(metrics, candidate, "cached")
                     continue
-                except (ValueError, TypeError):
-                    pass  # Damaged cache is recomputed, never trusted.
+                except (ValueError, TypeError) as exc:
+                    _record_error(
+                        metrics,
+                        getattr(exc, "inspection_code", "cache_invalid"),
+                        stage,
+                        candidate,
+                    )
+                    # Damaged cache is recomputed, never trusted.
             missing.append(candidate)
         if not missing:
             return results, None
         if cancelled():
-            return results, InterruptedError("Visual inspection cancelled")
+            return results, _cancelled_error(metrics)
+        metrics["batch_fingerprint"] = hashlib.sha256(
+            json.dumps(
+                [cache_key(query, item) for item in missing], separators=(",", ":")
+            ).encode()
+        ).hexdigest()
+        stage = "media_preparation"
         from google.genai import types
 
         prompt = (
@@ -311,11 +427,14 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
         contents, total_bytes, seconds = [], 0, 0
         for item in missing:
             if cancelled():
-                return results, InterruptedError("Visual inspection cancelled")
+                return results, _cancelled_error(metrics)
             video = verification_clip(item.proxy, item.context_start, item.context_end)
             total_bytes += len(video)
             if total_bytes > 80_000_000:
-                raise ValueError("Inspection videos exceed the bounded inline request")
+                raise InspectionError(
+                    "request_size_exceeded",
+                    "Inspection videos exceed the bounded inline request",
+                )
             contents.append(
                 f"Candidate {item.candidate_id}; supplied video local seconds 0 to "
                 f"{(item.context_end - item.context_start) / config.FPS:.3f}; anchor local seconds "
@@ -331,19 +450,28 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
             seconds += (item.context_end - item.context_start) / config.FPS
         contents.append(prompt)
         if cancelled():
-            return results, InterruptedError("Visual inspection cancelled")
+            return results, _cancelled_error(metrics)
         token_reserve = math.ceil(seconds * 3 * 350 + len(prompt) + 2500)
         amount = (
             token_reserve * config.VISUAL_VERIFIER_INPUT_RATE
             + 4096 * config.VISUAL_VERIFIER_OUTPUT_RATE
         ) / 1e6
+        stage = "budget_reservation"
         reservation = db.reserve(
             job_id,
             config.VISUAL_VERIFIER_MODEL,
             amount * (2 if config.VISUAL_TIER == "unpaid" else 1),
         )
-    except Exception:  # noqa: BLE001 - setup failure must preserve cached independent work
-        return results, ValueError("Could not prepare bounded visual inspection")
+    except Exception as exc:  # noqa: BLE001 - setup failure preserves cached independent work
+        error = (
+            exc
+            if isinstance(exc, InspectionError)
+            else InspectionError(
+                "setup_failed", "Could not prepare bounded visual inspection"
+            )
+        )
+        _record_error(metrics, error.inspection_code, stage)
+        return results, error
 
     api = None
     try:
@@ -368,6 +496,9 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
                 temperature=0,
             ),
         )
+        returned_version = getattr(response, "model_version", None)
+        if isinstance(returned_version, str):
+            metrics["returned_model_version"] = _safe_identity(returned_version)
         usage = response.usage_metadata
         if usage:
             metrics.update(
@@ -394,10 +525,15 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
             db.execute(
                 "UPDATE usage SET status='unconfirmed' WHERE id=?", (reservation,)
             )
-        parsed = json.loads(response.text or "")
+        try:
+            parsed = json.loads(response.text or "")
+        except (ValueError, TypeError) as exc:
+            raise InspectionError(
+                "response_malformed", "Malformed inspection response"
+            ) from exc
         rows = parsed.get("results") if isinstance(parsed, dict) else None
         if not isinstance(rows, list):
-            raise TypeError("Malformed inspection response")
+            raise InspectionError("response_malformed", "Malformed inspection response")
         expected = {item.candidate_id for item in missing}
         observed = [
             row.get("candidate_id")
@@ -410,7 +546,11 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
             or len(observed) != len(rows)
             or set(observed) != expected
         ):
-            error = ValueError("Inspection returned missing or unknown candidate IDs")
+            error = InspectionError(
+                "candidate_set_invalid",
+                "Inspection returned missing or unknown candidate IDs",
+            )
+            _record_error(metrics, error.inspection_code, "response_validation")
         for item in missing:
             matching = [
                 row
@@ -419,21 +559,32 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
                 and row.get("candidate_id") == item.candidate_id
             ]
             if len(matching) != 1:
-                error = ValueError(
-                    "Inspection returned missing or duplicate candidate IDs"
+                error = InspectionError(
+                    "candidate_missing" if not matching else "candidate_duplicate",
+                    "Inspection returned missing or duplicate candidate IDs",
+                )
+                _record_error(
+                    metrics, error.inspection_code, "response_validation", item
                 )
                 continue
             try:
                 value = _validated(item, matching[0])
                 db.cache_set(cache_key(query, item), value)
                 results[item.candidate_id] = value
-            except (ValueError, TypeError):
-                error = ValueError("Inspection returned invalid candidate ranges")
-        return results, InterruptedError(
-            "Visual inspection cancelled"
-        ) if cancelled() else error
+                _candidate_status(metrics, item, "validated")
+            except (ValueError, TypeError) as exc:
+                error = (
+                    exc
+                    if isinstance(exc, InspectionError)
+                    else InspectionError(
+                        "interval_invalid",
+                        "Inspection returned invalid candidate ranges",
+                    )
+                )
+                _record_error(metrics, error.inspection_code, "range_validation", item)
+        return results, _cancelled_error(metrics) if cancelled() else error
     except Exception as exc:  # noqa: BLE001 - provider boundary always returns sanitized failures
-        message, code, status = ai._safe_provider_error(exc)
+        _, code, status = ai._safe_provider_error(exc)
         if code in (400, 401, 403, 404, 429):
             metrics["estimated_usd"] = 0.0
             db.execute(
@@ -444,7 +595,47 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics):
                 "UPDATE usage SET status='unconfirmed' WHERE id=? AND actual IS NULL",
                 (reservation,),
             )
-        return results, ai.VisualProviderError(message, code, status)
+        if isinstance(exc, InspectionError):
+            _record_error(metrics, exc.inspection_code, "response_validation")
+            return results, exc
+        # Fixed categories retain actionable causes without provider message text.
+        status = (
+            status
+            if status
+            in {
+                "INVALID_ARGUMENT",
+                "UNAUTHENTICATED",
+                "PERMISSION_DENIED",
+                "NOT_FOUND",
+                "RESOURCE_EXHAUSTED",
+                "UNAVAILABLE",
+                "INTERNAL",
+                "DEADLINE_EXCEEDED",
+                "CANCELLED",
+                "UNKNOWN",
+            }
+            else None
+        )
+        message = {
+            400: "Gemini video verifier rejected the request",
+            401: "Gemini video verifier credentials were rejected",
+            403: "Gemini video verifier access was denied",
+            404: "Gemini video verifier model or resource was unavailable",
+            429: "Gemini video verifier quota or rate limit was reached",
+            503: "Gemini video verifier was temporarily unavailable",
+        }.get(code, "Gemini video verifier request failed")
+        if code is not None:
+            message += f" (HTTP {code})"
+        error = ai.VisualProviderError(message + ".", code, status)
+        error.inspection_code = "provider_failure"
+        _record_error(
+            metrics,
+            "provider_failure",
+            "provider_request",
+            status_code=code,
+            provider_status=status,
+        )
+        return results, error
     finally:
         if api is not None:
             api.close()

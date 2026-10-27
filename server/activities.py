@@ -17,6 +17,37 @@ CHUNK = 30 * config.FPS
 OVERLAP = 4 * config.FPS
 
 
+def _merge_diagnostics(totals, current):
+    """Keep usage totals, but only the five most recent inspection details."""
+    for key in (
+        "cache_hits",
+        "request_attempts",
+        "retries",
+        "submitted_video_seconds",
+        "elapsed_seconds",
+        "input_tokens",
+        "output_tokens",
+        "thinking_tokens",
+        "estimated_usd",
+        "error_count",
+    ):
+        totals[key] = totals.get(key, 0) + current.get(key, 0)
+    for key in ("candidates", "errors"):
+        totals[key] = (totals.get(key, []) + current.get(key, []))[-5:]
+    for key in (
+        "error_code",
+        "contract_version",
+        "model",
+        "returned_model_version",
+        "batch_fingerprint",
+    ):
+        if current.get(key) is not None:
+            totals[key] = current[key]
+    totals["usage_available"] = totals.get("usage_available", False) or current.get(
+        "usage_available", False
+    )
+
+
 def requested_frames(query):
     """Honor explicit numeric duration without asking a second model."""
     match = re.search(
@@ -215,6 +246,20 @@ def continue_inspection(job, cancelled, progress):
         )
         return result
 
+    def stop(code, message, *, cancelled=False):
+        _merge_diagnostics(
+            totals,
+            {
+                "error_code": code,
+                "error_count": 1,
+                "errors": [{"stage": "continuation", "code": code}],
+            },
+        )
+        persist()
+        if cancelled:
+            raise media.Cancelled()
+        raise ValueError(message)
+
     persist()
     for candidate in candidates:
         asset = db.one(
@@ -236,7 +281,7 @@ def continue_inspection(job, cancelled, progress):
         a = candidate["activity"]
         while not a["complete"]:
             if cancelled():
-                raise media.Cancelled()
+                stop("cancelled", "Activity inspection cancelled.", cancelled=True)
             progress(
                 0,
                 f"Inspecting activity around {a['start_frame'] / 30:.1f}–{a['end_frame'] / 30:.1f}s",
@@ -268,18 +313,7 @@ def continue_inspection(job, cancelled, progress):
                 cancelled=cancelled,
                 diagnostics=diagnostics,
             )
-            for key in (
-                "cache_hits",
-                "request_attempts",
-                "retries",
-                "submitted_video_seconds",
-                "elapsed_seconds",
-                "input_tokens",
-                "output_tokens",
-                "thinking_tokens",
-                "estimated_usd",
-            ):
-                totals[key] = totals.get(key, 0) + diagnostics.get(key, 0)
+            _merge_diagnostics(totals, diagnostics)
             persist()
             verdict = verdicts.get("c0")
             if not verdict or verdict["decision"] != "match":
@@ -288,8 +322,9 @@ def continue_inspection(job, cancelled, progress):
                     raise ValueError(
                         getattr(error, "safe_message", "Activity inspection failed.")
                     )
-                raise ValueError(
-                    "Activity boundary remains uncertain; completed inspections were retained."
+                stop(
+                    "boundary_uncertain",
+                    "Activity boundary remains uncertain; completed inspections were retained.",
                 )
             # Require actual semantic overlap with the already inspected action.
             overlaps = [
@@ -299,9 +334,9 @@ def continue_inspection(job, cancelled, progress):
                 < min(i["end_frame"], anchor_right)
             ]
             if not overlaps:
-                persist()
-                raise ValueError(
-                    "No verified continuity across this activity boundary."
+                stop(
+                    "continuity_unsupported",
+                    "No verified continuity across this activity boundary.",
                 )
             interval = max(
                 overlaps,
@@ -320,7 +355,7 @@ def continue_inspection(job, cancelled, progress):
             _refresh(candidate)
             persist()
             if cancelled() or isinstance(error, InterruptedError):
-                raise media.Cancelled()
+                stop("cancelled", "Activity inspection cancelled.", cancelled=True)
             if error:
                 raise ValueError(
                     getattr(error, "safe_message", "Activity inspection incomplete.")
@@ -330,7 +365,8 @@ def continue_inspection(job, cancelled, progress):
                 and not a["complete"]
                 and (a["continues_before"] if before else a["continues_after"])
             ):
-                raise ValueError(
-                    "Activity inspection made no progress; retained partial activity."
+                stop(
+                    "no_progress",
+                    "Activity inspection made no progress; retained partial activity.",
                 )
     return persist()
