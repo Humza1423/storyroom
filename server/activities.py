@@ -7,12 +7,11 @@ Continuation is resumable worker work; incomplete bounds remain explicit.
 import copy
 import hashlib
 import json
-import re
 
 from . import config, db, grounding, media
 from .localization import candidate_context
 
-VERSION = "activity-v2-crop-boundaries"
+VERSION = "activity-v3-independent-edit-duration"
 CHUNK = 30 * config.FPS
 OVERLAP = 4 * config.FPS
 
@@ -46,19 +45,6 @@ def _merge_diagnostics(totals, current):
     totals["usage_available"] = totals.get("usage_available", False) or current.get(
         "usage_available", False
     )
-
-
-def requested_frames(query):
-    """Honor explicit numeric duration without asking a second model."""
-    match = re.search(
-        r"(?<![\w.\-])(\d+(?:\.\d+)?|\.\d+)\s*(seconds?|secs?|s|minutes?|mins?)\b",
-        query,
-        re.IGNORECASE,
-    )
-    if not match:
-        return None
-    seconds = float(match[1]) * (60 if match[2].lower().startswith("m") else 1)
-    return max(1, round(seconds * config.FPS)) if seconds > 0 else None
 
 
 def suggested_cut(interval, intent, requested=None):
@@ -131,10 +117,11 @@ def distinct_activities(candidates):
 
 
 def _result(query, candidate, interval, verdict, occurrence):
-    requested = requested_frames(query)
-    if requested is None and verdict["requested_duration_seconds"] is not None:
-        requested = max(1, round(verdict["requested_duration_seconds"] * config.FPS))
-    intent = "duration" if requested else verdict["intent"]
+    # The combined inspection interprets the query once. A numeric phrase may
+    # describe the action itself; a regex must not override its explicit null.
+    seconds = verdict["requested_duration_seconds"]
+    requested = max(1, round(seconds * config.FPS)) if seconds is not None else None
+    intent = verdict["intent"]
     ident = hashlib.sha256(
         f"{VERSION}:{query}:{candidate['asset_id']}:{interval['start_frame']}:{occurrence}".encode()
     ).hexdigest()[:24]
@@ -210,7 +197,11 @@ def inspect_candidates(project_id, query, shortlist, frames, hashes, status):
         )
     if any(not c["activity"]["complete"] for c in candidates):
         # Snapshot proposals only. Continuation never edits an accepted cut.
-        payload = {"query": query, "candidates": candidates}
+        payload = {
+            "query": query,
+            "candidates": candidates,
+            "contract_version": grounding.VERSION,
+        }
         previous = db.one(
             "SELECT result FROM jobs WHERE project_id=? AND kind='activity_inspect' "
             "AND payload=? AND status='done' ORDER BY created DESC LIMIT 1",
@@ -261,6 +252,11 @@ def continue_inspection(job, cancelled, progress):
         raise ValueError(message)
 
     persist()
+    if payload.get("contract_version") != grounding.VERSION:
+        stop(
+            "contract_changed",
+            "Inspection rules changed. Retained footage is available; run this search again to inspect more.",
+        )
     for candidate in candidates:
         asset = db.one(
             "SELECT * FROM assets WHERE id=? AND project_id=?",

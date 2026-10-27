@@ -275,13 +275,12 @@ def test_source_bounds_force_continuation_false(fake):
     assert not interval["continues_before"] and not interval["continues_after"]
 
 
-@pytest.mark.parametrize("intent", ["broad_activity", "specific_move", "duration"])
+@pytest.mark.parametrize("intent", ["broad_activity", "specific_move"])
+@pytest.mark.parametrize("requested", [None, 20])
 def test_interior_crop_edges_require_inspection_even_when_model_reports_complete(
-    fake, intent
+    fake, intent, requested
 ):
-    fake.rows[0].update(
-        intent=intent, requested_duration_seconds=20 if intent == "duration" else None
-    )
+    fake.rows[0].update(intent=intent, requested_duration_seconds=requested)
     fake.rows[0]["intervals"][0].update(
         start_seconds=0,
         end_seconds=8,
@@ -337,7 +336,7 @@ def test_activity_end_inside_context_does_not_absorb_following_action(fake):
 
 def test_duration_and_separate_occurrences(fake):
     first = fake.rows[0]
-    first.update(intent="duration", requested_duration_seconds=20)
+    first.update(intent="broad_activity", requested_duration_seconds=20)
     first["intervals"][0].update(
         start_seconds=0,
         end_seconds=2,
@@ -690,3 +689,119 @@ def test_provider_status_uses_fixed_category_allowlist(fake, status):
     assert error.provider_status == expected
     assert metrics["errors"][-1].get("provider_status") == expected
     assert "secret" not in json.dumps(metrics) + str(error)
+
+
+@pytest.mark.parametrize("intent", ["broad_activity", "specific_move"])
+@pytest.mark.parametrize("requested", [None, 0.5, 20])
+def test_edit_duration_is_nullable_positive_and_independent_of_action(
+    fake, intent, requested
+):
+    fake.rows[0].update(intent=intent, requested_duration_seconds=requested)
+    results, error = grounding.inspect_ranges("requested footage", [candidate()])
+    assert error is None
+    assert results["a"]["intent"] == intent
+    assert results["a"]["requested_duration_seconds"] == requested
+
+
+@pytest.mark.parametrize("requested", [0, -1, True, "20", float("nan"), float("inf")])
+def test_invalid_independent_edit_duration_keeps_safe_validation(fake, requested):
+    fake.rows[0].update(intent="broad_activity", requested_duration_seconds=requested)
+    results, error = grounding.inspect_ranges("requested footage", [candidate()])
+    assert not results and error.inspection_code == "intent_invalid"
+    assert not fake.cache
+
+
+def test_v3_schema_has_action_intents_and_independent_edit_duration():
+    schema = grounding._schema()["properties"]["results"]["items"]
+    assert schema["properties"]["intent"]["enum"] == ["broad_activity", "specific_move"]
+    assert schema["properties"]["requested_duration_seconds"] == {
+        "type": "NUMBER",
+        "nullable": True,
+    }
+    assert "requested_duration_seconds" in schema["required"]
+
+
+def test_short_crop_duration_pairing_preserves_recognition_plumbing(fake):
+    # This exercises the contract with controlled replies, not Gemini accuracy.
+    fake.rows[0].update(intent="broad_activity")
+    fake.rows[0]["intervals"][0].update(
+        start_seconds=0,
+        end_seconds=8,
+        suggested_start_seconds=0,
+        suggested_end_seconds=5,
+        visible_evidence="The boxer is throwing punches.",
+    )
+    plain, error = grounding.inspect_ranges("boxing", [candidate()])
+    assert error is None
+    fake.rows[0]["requested_duration_seconds"] = 20
+    requested, error = grounding.inspect_ranges("20 seconds of boxing", [candidate()])
+    assert error is None
+    assert plain["a"]["intervals"] == requested["a"]["intervals"]
+    assert requested["a"]["intent"] == "broad_activity"
+    assert requested["a"]["requested_duration_seconds"] == 20
+    assert requested["a"]["intervals"][0]["end_frame"] == 540
+    assert len(fake.calls) == 2  # One existing inspection per distinct query.
+    call = fake.calls[-1]
+    prompt = call["contents"][-1]
+    assert prompt.endswith(json.dumps("20 seconds of boxing"))
+    assert "An eight-second crop visibly showing boxing can match" in prompt
+    assert "Do not invent or extend timestamps" in prompt
+    assert call["contents"][1].video_metadata.fps == 3
+    assert call["config"].temperature == 0
+
+
+@pytest.mark.parametrize(
+    "query", ["a person holds a plank for 20 seconds", "a 20-second plank"]
+)
+def test_action_duration_or_ambiguous_condition_remains_semantic_requirement(
+    fake, query
+):
+    # An eight-second crop cannot prove a twenty-second action condition.
+    fake.rows[0].update(
+        intent="broad_activity",
+        requested_duration_seconds=None,
+        decision="uncertain",
+        intervals=[],
+    )
+    results, error = grounding.inspect_ranges(query, [candidate()])
+    assert error is None
+    assert results["a"]["decision"] == "uncertain"
+    assert results["a"]["requested_duration_seconds"] is None
+    assert results["a"]["intervals"] == []
+    prompt = fake.calls[0]["contents"][-1]
+    assert prompt.endswith(json.dumps(query))
+    assert "eight seconds of a plank does not establish the condition" in prompt
+    assert "edit-length versus action-condition meaning is ambiguous" in prompt
+    assert len(fake.calls) == 1
+
+
+def test_v3_cache_retains_historical_entries_without_reusing_old_decisions(
+    fake, monkeypatch
+):
+    original_version = grounding.VERSION
+    spec = grounding.InspectionCandidate(*candidate())
+    monkeypatch.setattr(grounding, "VERSION", "grounded-ranges-v2-crop-boundaries-3fps")
+    old_key = grounding.cache_key("20 seconds of boxing", spec)
+    historical = {
+        "intent": "duration",
+        "requested_duration_seconds": 20,
+        "decision": "no_match",
+        "intervals": [],
+    }
+    fake.cache[old_key] = copy.deepcopy(historical)
+    monkeypatch.setattr(grounding, "VERSION", original_version)
+    assert original_version.startswith("grounded-ranges-v3-")
+    assert grounding.cache_key("20 seconds of boxing", spec) != old_key
+    fake.rows[0].update(intent="broad_activity", requested_duration_seconds=20)
+    results, error = grounding.inspect_ranges("20 seconds of boxing", [candidate()])
+    assert error is None and results["a"]["decision"] == "match"
+    assert len(fake.calls) == 1 and len(fake.cache) == 2
+    assert fake.cache[old_key] == historical
+    grounding.inspect_ranges("20 seconds of boxing", [candidate()])
+    assert len(fake.calls) == 1  # New contract reuses validated new work.
+
+
+def test_obsolete_duration_intent_is_rejected_by_v3_contract(fake):
+    fake.rows[0].update(intent="duration", requested_duration_seconds=20)
+    results, error = grounding.inspect_ranges("20 seconds of boxing", [candidate()])
+    assert not results and error.inspection_code == "intent_invalid"

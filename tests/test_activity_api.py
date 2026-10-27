@@ -145,10 +145,12 @@ def test_grounded_search_abstains_and_distinguishes_provider_failure(
 
 def test_grounded_duration_shortfall_is_explicit(client, clip, monkeypatch):
     pid, _aid = ready_index(client, clip, monkeypatch)
+    short_activity = verdict()
+    short_activity["requested_duration_seconds"] = 20
     monkeypatch.setattr(
         grounding,
         "inspect_ranges",
-        lambda query, specs, **kwargs: ({specs[0][0]: verdict()}, None),
+        lambda query, specs, **kwargs: ({specs[0][0]: short_activity}, None),
     )
     response = client.post(
         f"/api/projects/{pid}/search",

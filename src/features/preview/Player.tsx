@@ -7,6 +7,10 @@ import {
   type VisualRange,
 } from "./visualRange";
 import { canAdvancePlaybackRange } from "./playback";
+import {
+  activityPresentation,
+  type ActivityInspectionJob,
+} from "../library/activityPresentation";
 
 export function Player({
   preview,
@@ -16,6 +20,7 @@ export function Player({
   visualRange,
   sourceFrames,
   onVisualRangeChange,
+  inspectionJob,
 }: {
   preview: Moment | Selection | VisualCandidate | null;
   video: RefObject<HTMLVideoElement | null>;
@@ -24,6 +29,7 @@ export function Player({
   visualRange?: VisualRange | null;
   sourceFrames: number;
   onVisualRangeChange?: (range: VisualRange) => void;
+  inspectionJob?: ActivityInspectionJob;
 }) {
   const advanced = useRef(false);
   const prepared = useRef(false);
@@ -38,6 +44,13 @@ export function Player({
   } | null>(null);
   const activity = visualRange
     ? activityBounds(visualRange.candidate, sourceFrames)
+    : null;
+  const presentation = visualRange
+    ? activityPresentation(
+        visualRange.candidate,
+        inspectionJob,
+        visualRange.selectedEnd - visualRange.selectedStart,
+      )
     : null;
   const reviewingFullSource =
     !!visualRange &&
@@ -273,20 +286,35 @@ export function Player({
           aria-label="Preview and adjust visual match"
         >
           <div className="visual-range-labels">
-            <span>AI match range · approximate</span>
+            <span>
+              {activity
+                ? "Suggested cut · AI proposal"
+                : "AI match range · approximate"}
+            </span>
             <span>
               {(visualRange.candidate.start_frame / 30).toFixed(1)}–
               {(visualRange.candidate.end_frame / 30).toFixed(1)}s
             </span>
           </div>
+          {presentation && (
+            <div
+              className="activity-status"
+              aria-label="Activity inspection status"
+            >
+              {presentation.duration && <p>{presentation.duration}</p>}
+              <p>{presentation.inspection}</p>
+            </div>
+          )}
           <p>
             {reviewingFullSource
               ? "Full source video · not verified. Review the entire imported clip; the AI match and your selected cut stay marked below."
               : reviewingActivity
                 ? visualRange.candidate.activity?.complete
-                  ? "Activity range · AI identified. Review the activity around the suggested cut."
+                  ? "Activity range · AI identified. This view does not change your selected cut."
                   : "Activity range · partially inspected. Its beginning or end may still be unresolved."
-                : "Nearby footage · not verified. Scrub to check what happens before and after the match."}
+                : activity
+                  ? "Selected cut preview. Nearby footage is not verified; scrub to check before and after the suggestion."
+                  : "Nearby footage · not verified. Scrub to check what happens before and after the match."}
           </p>
           {activity && (
             <button

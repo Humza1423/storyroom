@@ -2,19 +2,26 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Play, Plus } from "lucide-react";
 import type { Asset, VisualCandidate } from "../../types";
+import {
+  activityPresentation,
+  type ActivityInspectionJob,
+} from "./activityPresentation";
 
 export function VisualCandidateCard({
   candidate,
   asset,
+  inspectionJob,
   onPreview,
   onAdd,
 }: {
   candidate: VisualCandidate;
   asset?: Asset;
+  inspectionJob?: ActivityInspectionJob;
   onPreview: () => void;
   onAdd: () => void;
 }) {
   const activity = candidate.activity;
+  const presentation = activityPresentation(candidate, inspectionJob);
   const previewLabel = activity ? "Preview suggested cut" : "Preview & adjust";
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -55,22 +62,20 @@ export function VisualCandidateCard({
         {previewLabel}
       </button>
       <p className="filename" title={asset?.name}>
-        {asset?.name} · {(candidate.start_frame / 30).toFixed(1)}–
+        {asset?.name} · {activity ? "Suggested cut · " : ""}
+        {(candidate.start_frame / 30).toFixed(1)}–
         {(candidate.end_frame / 30).toFixed(1)}s
       </p>
       {activity && (
-        <p className="filename">
-          Activity · {(activity.start_frame / 30).toFixed(1)}–
-          {(activity.end_frame / 30).toFixed(1)}s ·{" "}
-          {((activity.end_frame - activity.start_frame) / 30).toFixed(1)}s
-          {activity.complete ? " · fully inspected" : " · partially inspected"}
-          {activity.requested_frames !== null &&
-            (activity.duration_fulfilled
-              ? ` · ${(activity.requested_frames / 30).toFixed(1)}s requested cut`
-              : activity.complete
-                ? ` · Less than ${(activity.requested_frames / 30).toFixed(1)}s available`
-                : " · Requested duration not yet confirmed")}
-        </p>
+        <div className="activity-summary">
+          <p>
+            Activity · {(activity.start_frame / 30).toFixed(1)}–
+            {(activity.end_frame / 30).toFixed(1)}s ·{" "}
+            {((activity.end_frame - activity.start_frame) / 30).toFixed(1)}s
+          </p>
+          {presentation?.duration && <p>{presentation.duration}</p>}
+          <p>{presentation?.inspection}</p>
+        </div>
       )}
       <div className="card-actions">
         <button className="text-button" onClick={onAdd}>

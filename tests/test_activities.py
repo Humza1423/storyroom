@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from server import activities, media
+from server import activities, grounding, media
 
 
 def interval(start=0, end=240, before=False, after=False, cut_start=None, cut_end=None):
@@ -21,25 +21,26 @@ def interval(start=0, end=240, before=False, after=False, cut_start=None, cut_en
     }
 
 
-def result(span=None, intent="broad_activity", query="boxing", asset="asset"):
-    verdict = {"intent": intent, "requested_duration_seconds": None}
+def result(
+    span=None, intent="broad_activity", query="boxing", asset="asset", requested=None
+):
+    verdict = {"intent": intent, "requested_duration_seconds": requested}
     return activities._result(
         query, {"asset_id": asset, "rank": 1}, span or interval(), verdict, 0
     )
 
 
 @pytest.mark.parametrize(
-    "query,frames",
+    "seconds,frames",
     [
-        ("20 seconds of boxing", 600),
-        ("0.5 minutes of boxing", 900),
-        ("2.1 secs of boxing", 63),
-        ("boxing", None),
-        ("0 seconds boxing", None),
+        (20, 600),
+        (30, 900),
+        (2.1, 63),
+        (None, None),
     ],
 )
-def test_explicit_duration_frames(query, frames):
-    assert activities.requested_frames(query) == frames
+def test_edit_duration_maps_to_normalized_frames(seconds, frames):
+    assert result(requested=seconds)["activity"]["requested_frames"] == frames
 
 
 def test_specific_move_returns_complete_interval_without_padding():
@@ -54,16 +55,63 @@ def test_broad_cut_honors_coherent_provider_end():
 
 def test_twenty_seconds_overrides_short_recommendation():
     cut = result(
-        interval(0, 900, cut_start=30, cut_end=180), query="20 seconds of boxing"
+        interval(0, 900, cut_start=30, cut_end=180),
+        query="20 seconds of boxing",
+        requested=20,
     )
     assert cut["end_frame"] - cut["start_frame"] == 600
     assert cut["activity"]["duration_fulfilled"]
+    assert cut["activity"]["intent"] == "broad_activity"
+
+
+def test_provider_edit_duration_is_independent_of_specific_move():
+    cut = activities._result(
+        "a three-second clip showing a kick",
+        {"asset_id": "asset", "rank": 1},
+        interval(0, 240),
+        {"intent": "specific_move", "requested_duration_seconds": 3},
+        0,
+    )
+    assert cut["activity"]["intent"] == "specific_move"
+    assert cut["activity"]["requested_frames"] == 90
+    assert cut["end_frame"] - cut["start_frame"] == 90
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "someone holds a plank for 20 seconds",
+        "An athlete completes 20 seconds of a plank before standing",
+    ],
+)
+def test_event_duration_condition_is_not_silently_an_edit_length(query):
+    cut = result(interval(0, 900), query=query, intent="specific_move")
+    assert cut["activity"]["requested_frames"] is None
+    assert cut["end_frame"] - cut["start_frame"] == 900
+
+
+def test_duration_support_and_boundary_completion_are_independent():
+    partial = result(
+        interval(120, 960, before=True, after=True),
+        query="20 seconds of boxing",
+        requested=20,
+    )
+    assert partial["activity"]["duration_fulfilled"]
+    assert not partial["activity"]["complete"]
+    short = result(
+        interval(120, 360, after=True), query="20 seconds of boxing", requested=20
+    )
+    assert not short["activity"]["duration_fulfilled"]
+    assert not short["activity"]["complete"]
+    entire = result(interval(0, 240), query="20 seconds of boxing", requested=20)
+    assert entire["activity"]["complete"]
+    assert (entire["start_frame"], entire["end_frame"]) == (0, 240)
 
 
 def test_shortfall_does_not_join_separate_actions():
     cuts = [
-        result(interval(0, 240), query="20 seconds of boxing"),
-        result(interval(600, 840), query="20 seconds of boxing"),
+        result(interval(0, 240), query="20 seconds of boxing", requested=20),
+        result(interval(600, 840), query="20 seconds of boxing", requested=20),
     ]
     kept = activities.distinct_activities(cuts)
     assert len(kept) == 2
@@ -143,7 +191,11 @@ def worker(monkeypatch):
         "id": "job",
         "project_id": "project",
         "payload": json.dumps(
-            {"query": "boxing", "candidates": [result(interval(0, 240, after=True))]}
+            {
+                "query": "boxing",
+                "candidates": [result(interval(0, 240, after=True))],
+                "contract_version": grounding.VERSION,
+            }
         ),
         "result": None,
     }
@@ -159,6 +211,20 @@ def test_continuation_uses_30_seconds_and_four_seconds_overlap(worker):
     assert (spec[3], spec[4]) == (120, 240)
     assert output["visual_results"][0]["activity"]["end_frame"] == 420
     assert output["visual_results"][0]["activity"]["complete"]
+
+
+@pytest.mark.parametrize("version", [None, "older-contract"])
+def test_old_inspection_job_keeps_partial_results_without_mixing_contracts(
+    worker, version
+):
+    payload = json.loads(worker.job["payload"])
+    payload["contract_version"] = version
+    worker.job["payload"] = json.dumps(payload)
+    with pytest.raises(ValueError, match="run this search again"):
+        activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
+    assert not worker.calls
+    assert worker.stored["visual_results"][0]["activity"]["end_frame"] == 240
+    assert worker.stored["inspection_diagnostics"]["error_code"] == "contract_changed"
 
 
 def test_disjoint_action_cannot_bridge_gap(worker):

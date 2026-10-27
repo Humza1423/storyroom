@@ -2,6 +2,9 @@ import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { activityBounds } from "../src/features/preview/visualRange";
 import type { VisualCandidate } from "../src/types";
+import { activityPresentation } from "../src/features/library/activityPresentation";
+import { createVisualRange } from "../src/features/preview/visualRange";
+import { refreshVisualEvidence } from "../src/features/preview/refreshVisualEvidence";
 
 const candidate: VisualCandidate = {
   id: "boxing-activity",
@@ -22,6 +25,92 @@ const candidate: VisualCandidate = {
     duration_fulfilled: true,
   },
 };
+
+test("duration presentation separates supported length, incomplete inspection and stopped work", () => {
+  const durationCandidate = (
+    complete: boolean,
+    end = 240,
+  ): VisualCandidate => ({
+    ...candidate,
+    start_frame: 0,
+    end_frame: Math.min(end, 600),
+    activity: {
+      ...candidate.activity!,
+      start_frame: 0,
+      end_frame: end,
+      complete,
+      requested_frames: 600,
+      duration_fulfilled: end >= 600,
+    },
+  });
+  expect(activityPresentation(durationCandidate(true, 900))?.duration).toBe(
+    "Requested 20 seconds. 20 seconds selected.",
+  );
+  expect(activityPresentation(durationCandidate(true))?.duration).toBe(
+    "Requested 20 seconds. Found 8 seconds of this activity. The full 8 seconds are selected.",
+  );
+  const running = { id: "job", status: "running", message: "Inspecting" };
+  const partial = activityPresentation(durationCandidate(false), running)!;
+  expect(partial.duration).toContain("8 seconds confirmed so far");
+  expect(partial.duration).toContain("Requested duration is not yet confirmed");
+  expect(partial.inspection).toContain("Checking more footage");
+  expect(partial.duration).not.toContain("Found 8 seconds of this activity");
+  for (const status of ["failed", "cancelled"]) {
+    const stopped = activityPresentation(durationCandidate(false), {
+      id: "job",
+      status,
+      message: "Continuity could not be verified.",
+    })!;
+    expect(stopped.inspection).toContain("Inspection stopped");
+    expect(stopped.inspection).toContain("Confirmed footage remains available");
+    expect(stopped.duration).toContain(
+      "Requested duration is not yet confirmed",
+    );
+    expect(stopped.duration).not.toContain("Found 8 seconds of this activity");
+  }
+  const supportedButUnresolved = activityPresentation(
+    durationCandidate(false, 600),
+    running,
+  )!;
+  expect(supportedButUnresolved.duration).toBe(
+    "Requested 20 seconds. 20 seconds selected.",
+  );
+  expect(supportedButUnresolved.inspection).toContain("Checking more footage");
+  expect(
+    activityPresentation(durationCandidate(true, 600), undefined, 150)
+      ?.duration,
+  ).toBe("Requested 20 seconds. 20 seconds supported. 5 seconds selected.");
+  expect(
+    activityPresentation(durationCandidate(true), undefined, 150)?.duration,
+  ).toBe(
+    "Requested 20 seconds. Found 8 seconds of this activity. 5 seconds selected.",
+  );
+});
+
+test("updated activity evidence preserves manual draft frames and rejects unrelated updates", () => {
+  const initial = createVisualRange(candidate, 900)!;
+  const draft = { ...initial, selectedStart: 160, selectedEnd: 290 };
+  const updated = {
+    ...candidate,
+    start_frame: 180,
+    end_frame: 780,
+    activity: { ...candidate.activity!, end_frame: 900, complete: true },
+  };
+  const refreshed = refreshVisualEvidence(draft, [updated], 900);
+  expect(refreshed.candidate).toBe(updated);
+  expect([refreshed.selectedStart, refreshed.selectedEnd]).toEqual([160, 290]);
+  expect(refreshed.contextEnd).toBe(810);
+  expect(draft.candidate).toBe(candidate);
+  expect(refreshVisualEvidence(draft, [{ ...updated, id: "other" }], 900)).toBe(
+    draft,
+  );
+  expect(
+    refreshVisualEvidence(draft, [{ ...updated, asset_id: "other" }], 900),
+  ).toBe(draft);
+  expect(
+    refreshVisualEvidence(draft, [{ ...updated, end_frame: 901 }], 900),
+  ).toBe(draft);
+});
 
 test("activity playback rejects invalid bounds and ranges excluding the selected cut", () => {
   expect(activityBounds(candidate, 720)).toEqual({ start: 60, end: 660 });
@@ -138,6 +227,9 @@ test("suggested cut, activity and source previews preserve independent saved cut
         ],
         page: 0,
         has_more: false,
+        warning: body.grounded
+          ? "Only the first five candidate locations on this page were checked."
+          : undefined,
         activity_job_id:
           body.grounded && body.query !== "kick" ? "activity-job" : undefined,
       },
@@ -168,7 +260,7 @@ test("suggested cut, activity and source previews preserve independent saved cut
   await page.getByLabel("Search footage").fill("boxing");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.locator(".moment-card")).toContainText(
-    "20.0s · fully inspected",
+    "Activity extent inspected",
   );
   const previewWrites: string[] = [];
   const recordPreviewWrite = (request: import("@playwright/test").Request) => {
@@ -257,6 +349,7 @@ test("suggested cut, activity and source previews preserve independent saved cut
   );
   // The same polling path used by real worker jobs must update proposals only.
   let completedJob = false;
+  let failedJob = false;
   let completedJobReads = 0;
   await page.route(`**/api/projects/${projectId}`, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
@@ -272,27 +365,30 @@ test("suggested cut, activity and source previews preserve independent saved cut
           {
             id: "activity-job",
             kind: "activity_inspect",
-            status: completedJob ? "done" : "running",
+            status: failedJob ? "failed" : completedJob ? "done" : "running",
             progress: completedJob ? 1 : 0.5,
-            message: "Fixture activity inspection",
-            result: completedJob
-              ? {
-                  query: "boxing",
-                  visual_results: [
-                    {
-                      ...candidate,
-                      asset_id: details.assets[0].id,
-                      start_frame: 180,
-                      end_frame: 330,
-                      activity: {
-                        ...candidate.activity,
-                        complete: true,
-                        inspection_job_id: "activity-job",
+            message: failedJob
+              ? "Continuity could not be verified."
+              : "Fixture activity inspection",
+            result:
+              completedJob || failedJob
+                ? {
+                    query: "boxing",
+                    visual_results: [
+                      {
+                        ...candidate,
+                        asset_id: details.assets[0].id,
+                        start_frame: 180,
+                        end_frame: 330,
+                        activity: {
+                          ...candidate.activity,
+                          complete: completedJob,
+                          inspection_job_id: "activity-job",
+                        },
                       },
-                    },
-                  ],
-                }
-              : null,
+                    ],
+                  }
+                : null,
           },
         ],
       },
@@ -302,14 +398,35 @@ test("suggested cut, activity and source previews preserve independent saved cut
   await page.getByRole("button", { name: "Search", exact: true }).click();
   expect(submittedGrounding.at(-1)).toBe(true);
   await expect(page.locator(".moment-card")).toContainText(
-    "partially inspected",
+    "Checking more footage",
   );
+  await page
+    .getByRole("button", { name: "Preview suggested cut visual match 1" })
+    .click();
+  await page.getByRole("slider", { name: "Selected cut in frame" }).fill("160");
+  await page
+    .getByRole("slider", { name: "Selected cut out frame" })
+    .fill("290");
   completedJob = true;
   await expect(page.locator(".moment-card .filename").first()).toContainText(
     "6.0–11.0s",
     { timeout: 10000 },
   );
   await expect(page.locator(".moment-card")).toHaveCount(1);
+  await expect(page.getByLabel("Activity inspection status")).toContainText(
+    "Activity extent inspected",
+  );
+  await expect(
+    page.getByRole("slider", { name: "Selected cut in frame" }),
+  ).toHaveValue("160");
+  await expect(
+    page.getByRole("slider", { name: "Selected cut out frame" }),
+  ).toHaveValue("290");
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "Only the first five candidate locations" }),
+  ).toBeVisible();
   const unchanged = await (
     await request.get(`/api/projects/${projectId}`)
   ).json();
@@ -324,11 +441,24 @@ test("suggested cut, activity and source previews preserve independent saved cut
     [150, 300],
     [150, 300],
   ]);
+  // Failed continuation keeps the same confirmed proposal, not a no-match result.
+  completedJob = false;
+  failedJob = true;
+  await expect(page.locator(".moment-card")).toContainText(
+    "Inspection stopped",
+  );
+  await expect(page.getByLabel("Activity inspection status")).toContainText(
+    "Confirmed footage remains available",
+  );
+  await expect(
+    page.getByRole("slider", { name: "Selected cut in frame" }),
+  ).toHaveValue("160");
+  failedJob = false;
   // A previously tracked job must not reinsert boxing results after a new query.
   completedJob = false;
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.locator(".moment-card")).toContainText(
-    "partially inspected",
+    "Checking more footage",
   );
   await page.getByLabel("Search footage").fill("kick");
   await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -351,4 +481,117 @@ test("suggested cut, activity and source previews preserve independent saved cut
     start_frame: 150,
     end_frame: 300,
   });
+
+  // Exercise all duration messages in the browser over the real prepared source.
+  let durationEnd = 660;
+  let durationComplete = true;
+  let durationJobStatus = "done";
+  const durationResult = (): VisualCandidate => ({
+    ...candidate,
+    id: "duration-result",
+    asset_id: details.assets[0].id,
+    start_frame: 0,
+    end_frame: Math.min(600, durationEnd),
+    activity: {
+      ...candidate.activity!,
+      start_frame: 0,
+      end_frame: durationEnd,
+      complete: durationComplete,
+      continues_after: !durationComplete,
+      requested_frames: 600,
+      duration_fulfilled: durationEnd >= 600,
+      inspection_job_id: "duration-job",
+    },
+  });
+  await page.route("**/api/projects/*/search", (route) =>
+    route.fulfill({
+      json: {
+        results: [durationResult()],
+        page: 0,
+        has_more: false,
+        activity_job_id: "duration-job",
+      },
+    }),
+  );
+  await page.route(`**/api/projects/${projectId}`, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: {
+        ...(await response.json()),
+        jobs: [
+          {
+            id: "duration-job",
+            kind: "activity_inspect",
+            status: durationJobStatus,
+            progress: durationJobStatus === "done" ? 1 : 0.5,
+            message:
+              durationJobStatus === "failed"
+                ? "Continuity could not be verified."
+                : "Checking activity",
+            result: { visual_results: [durationResult()] },
+          },
+        ],
+      },
+    });
+  });
+  await page.getByLabel("Search mode").selectOption("visual");
+  await page.getByLabel("Search footage").fill("20 seconds of boxing");
+  for (const state of [
+    "fulfilled",
+    "shortfall",
+    "checking",
+    "failed",
+  ] as const) {
+    durationEnd = state === "fulfilled" ? 660 : 240;
+    durationComplete = state === "fulfilled" || state === "shortfall";
+    durationJobStatus = durationComplete
+      ? "done"
+      : state === "failed"
+        ? "failed"
+        : "running";
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    const card = page.locator(".moment-card");
+    const expectedDuration =
+      state === "fulfilled"
+        ? "Requested 20 seconds. 20 seconds selected."
+        : state === "shortfall"
+          ? "Requested 20 seconds. Found 8 seconds of this activity. The full 8 seconds are selected."
+          : "Requested duration is not yet confirmed.";
+    await expect(card).toContainText(expectedDuration);
+    await page
+      .getByRole("button", { name: "Preview suggested cut visual match 1" })
+      .click();
+    const status = page.getByLabel("Activity inspection status");
+    await expect(status).toContainText(expectedDuration);
+    await expect(
+      page.getByRole("slider", { name: "Selected cut in frame" }),
+    ).toHaveValue("0");
+    await expect(
+      page.getByRole("slider", { name: "Selected cut out frame" }),
+    ).toHaveValue(state === "fulfilled" ? "600" : "240");
+    if (state === "checking" || state === "failed") {
+      await expect(status).toContainText(
+        state === "checking" ? "Checking more footage" : "Inspection stopped",
+      );
+      await expect(card).not.toContainText("Found 8 seconds of this activity");
+    } else {
+      await expect(card.getByRole("alert")).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "Add selected cut to Storybin" })
+        .click();
+      await expect
+        .poll(async () => {
+          const project = await (
+            await request.get(`/api/projects/${projectId}`)
+          ).json();
+          return project.board[0].selections.at(-1);
+        })
+        .toMatchObject({
+          start_frame: 0,
+          end_frame: state === "fulfilled" ? 600 : 240,
+        });
+    }
+  }
 });

@@ -7,6 +7,7 @@ import {
   createVisualRange,
   type VisualRange,
 } from "./features/preview/visualRange";
+import { refreshVisualEvidence } from "./features/preview/refreshVisualEvidence";
 import { moveSelection } from "./features/board/changes";
 import { StorySection } from "./features/board/StorySection";
 import { ClipRow } from "./features/board/ClipRow";
@@ -186,13 +187,32 @@ export default function App() {
           (a, b) => ("rank" in a ? a.rank : 0) - ("rank" in b ? b.rank : 0),
         ),
       );
-      if (["failed", "cancelled"].includes(job.status))
-        setSearchWarning(
-          `Activity inspection ${job.status}: ${job.message}. Completed ranges remain available.`,
-        );
-      else if (job.status === "done") setSearchWarning("");
+      setVisualRange((current) =>
+        current
+          ? refreshVisualEvidence(
+              current,
+              updates,
+              project?.assets.find(
+                (asset) => asset.id === current.candidate.asset_id,
+              )?.frames ?? 0,
+            )
+          : current,
+      );
+      // Job outcomes belong to candidates. Completing one job does not mean
+      // that other candidate locations or search pages were fully inspected.
     }
   }, [project?.jobs]);
+  function activityInspectionJob(candidate: VisualCandidate) {
+    return project?.jobs.find((job) => {
+      if (job.id === candidate.activity?.inspection_job_id) return true;
+      const request = activityRequests.current.get(job.id);
+      return (
+        request?.epoch === searchEpoch.current &&
+        request.pid === activePid.current &&
+        request.candidateIds.has(candidate.id)
+      );
+    });
+  }
   const [imports] = useState(
     () =>
       new ImportController({
@@ -1228,6 +1248,7 @@ export default function App() {
                           key={result.id}
                           candidate={result}
                           asset={assetMap[result.asset_id]}
+                          inspectionJob={activityInspectionJob(result)}
                           onPreview={() => playMoment(result)}
                           onAdd={() => add(result)}
                         />
@@ -1480,6 +1501,11 @@ export default function App() {
                         : null
                     }
                     onVisualRangeChange={setVisualRange}
+                    inspectionJob={
+                      visualRange
+                        ? activityInspectionJob(visualRange.candidate)
+                        : undefined
+                    }
                   />
                   <p className="player-help">
                     Play Assembly shows only the selected ranges, one after
@@ -1508,12 +1534,21 @@ export default function App() {
                         {"description" in preview
                           ? preview.description
                           : "kind" in preview
-                            ? "AI match range · approximate. Review nearby footage before choosing a cut."
+                            ? "Suggested cut · AI proposal. Review the activity and choose the frames to keep."
                             : preview.note || "Selected for your story"}
                       </p>
                       <span className="range">
-                        {timecode(preview.start_frame)} —{" "}
-                        {timecode(preview.end_frame)}
+                        {timecode(
+                          visualRange && preview.id === visualRange.candidate.id
+                            ? visualRange.selectedStart
+                            : preview.start_frame,
+                        )}{" "}
+                        —{" "}
+                        {timecode(
+                          visualRange && preview.id === visualRange.candidate.id
+                            ? visualRange.selectedEnd
+                            : preview.end_frame,
+                        )}
                       </span>
                       {visualRange &&
                         "kind" in preview &&
