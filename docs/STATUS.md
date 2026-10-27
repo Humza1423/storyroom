@@ -2,6 +2,67 @@
 
 Updated: 2026-10-27. Status: local development preview; release gates remain open.
 
+## Search S1b/S1c — duration, partial evidence and actual handoff (2026-10-27)
+
+Implemented independent action recognition and requested editing duration, safe
+boundary-conflict states, clearer cut/activity/source feedback, and preserved
+manual draft frames. A numerically valid recognized span with inconsistent
+continuation flags stays **partial**, not complete; impossible timestamps remain
+rejected. Failed/cancelled continuation snapshots are reused until explicit Retry,
+so repeating a stopped search does not silently spend more calls. Storybin titles
+now select the destination; a separate pencil edits the name.
+
+**The full live comparison is not a quality or speed win.** On the unchanged
+eight-video/24-query development key, `2bd9876` returned relevant moments for
+**7/16** positives, **7/8** returned-first precision, and **3/5** correct requested
+durations (previously 1/5). Nine queries had provider failures; three more had
+validation failures. No negative returned a false clip, but only **6/8** negatives
+were verified: timeout/HTTP 500 are not successful rejections. Median total wait
+was **48.62s**, previously 10.94s; the provider-failure mix prevents attributing
+the slowdown to a particular application change. Used 39/40 allowed generation
+dispatches and 979.63/1,500 supplied video seconds, with no paid fallback.
+
+The separate `2b2e34f` follow-up used **6/8** permitted dispatches / **180.9/300**
+video seconds, including one 503 retry and one manual shortfall probe. Football
+and badminton returned relevant but fragmented/partial ranges; curls were rejected.
+Badminton continuation chose a different later occurrence, so it was rejected
+without replacing the confirmed range. Fresh initial replies had no conflicting
+boundary flags: deterministic tests establish the new conflict policy, but this
+small live follow-up does **not** prove that policy caused an accuracy improvement.
+[Full report and compact evidence](GEMINI_ACTIVITY_EVALUATION.md#s1bs1c-follow-up--2026-10-27).
+
+Actual Storyroom playback: a 20-second football cut played, was adjusted to
+**315–900**, added to **Duration checkpoint demo**, and survived reload. Prior
+**Fresh footage handoff** cuts stayed at cooking **10–610** and push-up **636–708**.
+Assembly reached clip 3/3; rendered MP4 contains **1,257 frames / 41.9s** with
+matching audio duration and silent cooking. The hand-sign shortfall played all
+**79 frames / 2.63s**, with friendly informational feedback. Repeating stopped
+badminton search left usage rows at **150** and queued no new inspection.
+
+**Actual Resolve 21.1.2 import passed for this assembly.** Native media-folder
+selection granted sandbox access; XML reimport then resolved the files. The Edit
+Index displayed source in/out pairs **00:00:10–00:20:10**, **00:21:06–00:23:18**,
+**00:10:15–00:30:00**, with total **00:00:41:27** at 30 fps. Video order is cooking,
+push-up, football; cooking has no audio placement, the other two do. Football
+played through the timeline end. Resolve displays `edit.mp4` labels, so Storybin
+names were not confirmed as visible Resolve sections. Local screenshots remain
+ignored under `data/evaluation/gemini-fresh/evidence/`.
+
+Verification: **318 backend tests passed**, production build passed, full isolated
+browser suite **38 passed**. One earlier browser run failed because its two-second
+fixture finished before a Pause click; the test now checks returning to the cut
+from playing or ended source playback. Scoped rerun **9 passed**, then the full
+38 passed. Retained A2 media regressions are included. SQLite quick check passed;
+all eight input and managed-original SHA-256 hashes match their registered values.
+Recovery backups, historical keys/results, and prior cuts remain intact. No media,
+database or credentials are committed. CI for `2b2e34f` passed on both push and PR;
+final delivery CI is reported on PR #6 rather than assumed from local tests.
+
+Next: **S2 complete-move evidence**, then S3 occurrence continuity/grouping. A
+source extent marked inspected is not proof that a move includes its preparation
+and finish. Keep the preview opt-in, Gemini/exact retrieval unchanged, and do not
+retune this development set into a claimed final benchmark.
+
 ## Search S1a — visible inspection failures (2026-10-27)
 
 Research and independent critic/editor/solution reviews are recorded in

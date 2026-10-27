@@ -32,10 +32,16 @@ Current checkpoint: Gemini-first activity-search preview on
 `codex/gemini-activity-search`, draft PR #6 stacked on evaluation PR #5.
 Read the latest STATUS entry and [GEMINI_ACTIVITY_EVALUATION](GEMINI_ACTIVITY_EVALUATION.md)
 before the historical foundation summary below. The frozen eight-video/24-query
-test is complete but fails recall, precision and duration targets; do not claim
-the AI completion plan passed. Next bounded task: separate requested duration
-from recognition in short contexts and preserve sanitized continuation validation
-reasons. Do not re-audit, integrate Qwen/ANN, or retune the frozen key.
+test is complete but fails quality targets; do not claim the AI completion plan
+passed. S1a diagnostics, S1b independent recognition/edit duration, and S1c partial
+boundary-conflict handling are implemented. Their 24-query comparison had provider
+and validation failures, worse aggregate recall/wait, and 3/5 duration successes.
+The bounded follow-up retains partial football/badminton and honest shortfall
+feedback; it does not establish a general accuracy improvement. Actual three-cut
+render/Resolve 21.1.2 import passed at 1,257 frames / 41.9s. Read the dated report.
+Next: S2 complete-move labels and observed onset/finish, then S3 continuity/grouping
+in [AI_SEARCH_TICKETS](AI_SEARCH_TICKETS.md). Do not re-audit, integrate Qwen/ANN,
+retry failed inspections automatically, or retune the historical key.
 
 Canonical repository is now `/Users/hamzah_ali/Documents/Codex/2026-10-02/storyroom`;
 the old long path is a compatibility symlink. The demo uses port 15176/API 18767,

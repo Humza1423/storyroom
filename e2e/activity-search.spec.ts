@@ -88,6 +88,18 @@ test("duration presentation separates supported length, incomplete inspection an
 });
 
 test("boundary conflicts keep recognized activity available without claiming a duration shortfall", () => {
+  const stopped = activityPresentation(
+    { ...candidate, activity: { ...candidate.activity!, complete: false } },
+    {
+      id: "job",
+      status: "failed",
+      message: "Inspection is unrelated to its retrieved anchor",
+    },
+  )!;
+  expect(stopped.inspection).toContain(
+    "The next inspection found a different moment",
+  );
+  expect(stopped.inspection).not.toContain("retrieved anchor");
   for (const conflict of [
     "boundary_conflict_before",
     "boundary_conflict_after",

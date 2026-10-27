@@ -232,8 +232,10 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).currentTime)).toBeLessThan(0.05);
   await page.getByRole("button", { name: "Play full source video" }).click();
   await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).currentTime)).toBeGreaterThan(1.25);
-  await page.getByRole("button", { name: "Pause full source video" }).click();
+  // This two-second fixture may finish before the next UI action on a busy Mac.
+  // Returning to the cut must work whether source playback is playing or ended.
   await page.getByRole("button", { name: "Return to match preview" }).click();
+  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).paused)).toBe(true);
   await expect(
     page.getByRole("slider", { name: "Position within selected clip" }),
   ).toBeVisible();

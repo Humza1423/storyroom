@@ -182,7 +182,7 @@ Try `Give me 20 seconds of pasta cooking in boiling water.` for the successful
 duration example and `I need a 20 second horses-in-a-field cutaway.` for a miss.
 Use the in/out sliders and add to a Storybin; refresh and inspect the saved range.
 
-## Next bounded fix
+## Historical next bounded fix (superseded by the follow-up below)
 
 1. Separate **find this activity** from **choose its requested duration** in the
    existing combined request. An eight-second crop cannot prove absence of a
@@ -194,3 +194,133 @@ Use the in/out sliders and add to a Storybin; refresh and inspect the saved rang
 3. Use these now-development failures for a bounded comparison, then freeze a
    fresh small test. Do not lower acceptance thresholds, add Qwen/ANN, or call
    this production-ready. Discrete-move lead-in remains a separate acceptance gate.
+
+## S1b/S1c follow-up — 2026-10-27
+
+### What was changed and compared
+
+S1a first preserved safe reasons without changing decisions. S1b (`2bd9876`)
+separated action recognition from requested edit length in the combined response;
+removed the local numeric regex override; and added honest UI duration/inspection
+states without resetting chosen cuts. Same model, 3-fps crops, initial eight-second
+limit, shortlist and exact retrieval. The historical key stayed byte-for-byte
+unchanged. This is now development evidence, not a fresh held-out validation.
+
+| Measure | Historical v1 | S1b full 24-query run |
+|---|---:|---:|
+| Positive top-five labeled moment recall | 12/16 | 7/16 |
+| Returned-first labeled moment precision | 12/13 | 7/8 |
+| Correct requested edit duration | 1/5 | 3/5 |
+| False negative-query clips returned | 0/8 | 0 returned; only 6/8 verified |
+| Video dispatches / supplied seconds | 43 / 1,065.8 | 39 / 979.63 |
+| Initial / total median wait | 8.61 / 10.94s | 42.32 / 48.62s |
+
+Nine queries encountered provider failures (p06, p08, p09, p11, p14, p15, p16,
+n01, n03); three more had validation failures (p01, p04, p05). Provider failure
+includes continuation failures retaining a result. HTTP 500/timeout are **not**
+confirmed negative rejections. Fewer calls under failures is not an efficiency win.
+Returned token usage was 164,055 input / 9,144 output; failed requests can lack
+usage. Existing query embeddings were reused (zero new text-embedding calls).
+The hard runner cap was 40 actual generation dispatches / 1,500 video seconds,
+including retries, atomically reserved before dispatch. No paid fallback.
+[Per-query v3 evidence](evidence/gemini-duration-v3.json).
+
+Football, horses and cooking fulfilled 600-frame duration requests. Complete-kick
+ranges remained 21.4–24.6s and 9.8–13.6s; push-up remained 21.2–23.6s, beginning
+during descent. The single matched discrete label still yields a 0.70s median,
+which cannot certify movement completeness. Do not claim these are solved.
+
+S1b also exposed a concrete validation distinction: p01/p05 had valid local match
+spans vetoed by inconsistent continuation flags, whereas p04 had out-of-crop
+timestamps. S1c (`2b2e34f`) keeps only the former as explicitly partial evidence;
+the latter remains invalid. Cache versions changed, old results remain readable.
+The runner now fingerprints actual source files as well as HEAD before resuming.
+
+### Bounded S1c follow-up and its limits
+
+Selected p01 football, p05 20-second badminton and n04 absent curls before the
+follow-up. Added one separately recorded shortfall probe, not another scored
+benchmark query. Total six generation dispatches / 180.9 supplied seconds within
+eight / 300 limits, including a single 503 retry. The three fixed searches used
+cached query embeddings; the new manual probe used one text-embedding call.
+[V4 ranges, diagnostics, contract and source fingerprints](evidence/gemini-boundary-v4.json).
+
+- Football returned relevant **16.233–17.567s** and **21.033–22.033s** fragments.
+  It still does not provide one useful broad activity card. Initial wait 12.67s.
+- Badminton returned **0–6.5s** and **2.6–10.6s**, still partial, not 20 seconds.
+  Initial wait 16.83s; 57.79s including failed continuation. The next inspection
+  selected a later local **14.333–19.667s** interval in a 27.5s context rather than
+  extending the original anchor. It was rejected; the original ranges survived.
+- Absent bicep curls returned no match after all five candidate checks (10.03s).
+- New initial provider replies contained **no boundary-conflict flags**. Therefore
+  this live change cannot be attributed to the new conflict policy; provider output
+  varied. Deterministic regressions prove the policy, not a live accuracy gain.
+- `I need 20 seconds of a person demonstrating a hand sign indoors.` returned
+  f07 **0–79 frames**, complete available extent, requested 600. It selected all
+  **2.633s**, with friendly shortfall feedback; 8.69s HTTP wait, one video request.
+  This establishes one shortfall example, not continuous-action generalization.
+
+### Product playback, persistence, render and Resolve
+
+In **Gemini fresh validation v1**, searched the cached football duration prompt,
+watched its 10–30s selected cut reach 20.0/20, reviewed activity and full source,
+then moved In from frame 300 to **315**, retaining Out **900**. Added to
+**Duration checkpoint demo** and reloaded: those frames survived. The existing
+**Fresh footage handoff** selections remained f06 **10–610**, f03 **636–708**.
+An initial title click opened renaming rather than selecting the target bin and
+the add did not persist. Actual reload caught it; separate title-select/pencil-edit
+controls and a browser regression fixed the ambiguity. New add then persisted.
+
+Played the shortfall clip to its 2.633s end and a retained badminton partial range.
+Repeated stopped badminton search reused the terminal snapshot: usage rows stayed
+at 150 and no new inspection job was queued. Explicit Activity-panel Retry is still
+available. The message says the next inspection found a different moment, rather
+than exposing “retrieved anchor” jargon. No claim of completed badminton extent.
+
+Assembly reached **Clip 3 of 3**. UI render `93ecda73b9d943c898b841bc059fb191`
+completed: 1280×720, 30 fps, **1,257 frames / 41.9s video and audio**. First 19.9s
+cooking audio measured the −91dB silent floor. Export
+`caaed1d4b64f4caa901a3ea5a09b7edb` then imported into actual **Resolve 21.1.2**,
+project **Storyroom duration checkpoint 2026-10-27**. The native folder importer
+granted access after the first attempt reported missing sources. Reimport succeeded.
+The Edit Index showed exactly:
+
+| Order | Source | In → exclusive Out (seconds:frames, 30 fps) | Duration |
+|---|---|---|---|
+| 1 | Cooking | 00:00:10 → 00:20:10 | 00:20:00 |
+| 2 | Push-up | 00:21:06 → 00:23:18 | 00:02:12 |
+| 3 | Football | 00:10:15 → 00:30:00 | 00:19:15 |
+
+Timeline duration **00:00:41:27**; three video placements and two audio placements,
+with no audio under silent cooking. Football played through the end. Visible source
+labels are `edit.mp4`, not Storybin sections; do not claim Resolve-bin mapping.
+Screenshot `data/evaluation/gemini-fresh/evidence/resolve-duration-v4.png` and
+Storyroom shortfall/assembly screenshots remain local and ignored. Managed sources
+and inputs for all eight clips match their registered SHA-256; SQLite quick check
+passed, and recovery backups remain intact. This is selection-handoff evidence,
+not a fresh comprehensive codec or audible-quality test.
+
+Checks: **318 backend tests**, production build, **38 isolated browser tests** pass,
+including retained media correctness. A timing-sensitive Pause click in a two-second
+browser fixture was replaced by testing return-to-cut from either playing or ended
+source state; playback-progress and paused-return assertions remain.
+
+### Reproduce without new API calls
+
+Use the prepared demo at `http://127.0.0.1:15176/`, **Gemini fresh validation v1**,
+Visual AI → **Activity search (preview)**. Exact cached queries:
+
+1. `I need 20 seconds of football practice on grass.` — preview the 20-second cut,
+   Review activity, then View full source video. The saved adjusted selection is
+   separately visible in **Duration checkpoint demo**.
+2. `I need 20 seconds of a person demonstrating a hand sign indoors.` — preview
+   all 2.63 seconds and read the informational shortfall.
+3. `Give me 20 seconds of badminton court action.` — inspect the partial/stopped result. Do not
+   choose Retry unless intending to make new provider calls.
+
+Cache identity includes the complete query. Other wording can make new calls.
+The exported XML and saved Resolve project above remain available locally.
+
+Next: S2 labels/observed complete moves, then S3 continuity and duplicate activity
+cards. Provider availability is a separate measured limitation. No more tuning this
+same key, no Qwen/ANN integration, and no production-readiness claim.

@@ -4,8 +4,12 @@
 
 `grounded: true` on visual search uses raw embedding anchors rather than replacing
 them with motion-group intervals. `server/grounding.py` makes one bounded Gemini
-request to verify visible meaning, interpret broad/move/duration intent, and locate
-activity plus suggested-cut frames. Initial contexts are at most eight seconds;
+request to verify visible meaning, interpret broad-activity/specific-move intent,
+and locate activity plus suggested-cut frames. Requested edit duration is a
+separate nullable field, not a third action intent: an eight-second matching crop
+must not be rejected just because the creator wants a 20-second cut. Intrinsic
+conditions such as holding a plank for 20 seconds remain semantic requirements.
+Initial contexts are at most eight seconds;
 an interior crop edge stays unresolved. No automatic follow-through padding is
 applied. Old search and opt-in legacy localization remain available unchanged.
 
@@ -17,11 +21,24 @@ Retry preserves that progress. Cache identity includes model, prompt/sampling
 version, proxy hash, anchor and supplied context. Grounded duplicates are
 suppressed without joining uninspected gaps; separate occurrences remain distinct.
 
+The v4 contract retains a numerically valid, evidence-supported span with
+inconsistent continuation flags as an explicitly unresolved boundary. It never
+extends frames from that flag alone; impossible timestamps remain rejected.
+Continuation must overlap the original matching occurrence, not a later unrelated
+move. Failed/cancelled terminal snapshots are reused on repeated search until the
+creator chooses Retry. Diagnostics retain bounded safe reasons and supplied crop
+identity, not raw provider text. Evaluation records source-file fingerprints as
+well as Git revision to prevent resuming across uncommitted algorithm changes.
+
 Result start/end fields still identify the suggested cut. Optional `activity`
 metadata identifies the longer inspected interval, completeness and duration
 fulfillment. The UI polls its inspection job only for the current project/query;
 it never rewrites accepted Storybin selections. The player switches between cut,
 activity and full source. This path remains a preview until real-footage gates pass.
+The presentation separates exact supported duration, verified shortfall, incomplete
+inspection and stopped work. Worker evidence can refresh an open preview without
+resetting its manually adjusted frames. Inspected source extent is not the same as
+an observed complete movement; continuous-activity grouping still has known misses.
 
 ## Follow one action through the application
 

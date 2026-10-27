@@ -4,6 +4,20 @@ export type ActivityInspectionJob = Pick<Job, "id" | "status" | "message">;
 
 const seconds = (frames: number) => Number((frames / 30).toFixed(2)).toString();
 
+function inspectionReason(message: string) {
+  const reasons: Record<string, string> = {
+    "Inspection is unrelated to its retrieved anchor":
+      "The next inspection found a different moment, so the original footage was kept.",
+    "Inspection seconds outside supplied video":
+      "The AI returned timing outside the video it was shown.",
+    "No verified continuity across this activity boundary.":
+      "Could not confirm that the next footage continues this activity.",
+    "Activity inspection made no progress; retained partial activity.":
+      "Could not establish more of this activity. Your confirmed footage was kept.",
+  };
+  return reasons[message] ?? message;
+}
+
 /** Duration support, observed extent and worker outcome are independent facts. */
 export function activityPresentation(
   candidate: VisualCandidate,
@@ -39,7 +53,7 @@ export function activityPresentation(
   const inspection = complete
     ? "Activity extent inspected. Review the movement’s beginning and finish."
     : stopped
-      ? `Inspection stopped${job?.status === "cancelled" ? " (cancelled)" : ""}. Confirmed footage remains available; the activity’s beginning or end is unresolved.${job?.message ? ` ${job.message}` : ""}`
+      ? `Inspection stopped${job?.status === "cancelled" ? " (cancelled)" : ""}. Confirmed footage remains available; the activity’s beginning or end is unresolved.${job?.message ? ` ${inspectionReason(job.message)}` : ""}`
       : checking
         ? "Checking more footage. The activity’s beginning or end is still unresolved."
         : "Activity partially inspected. Its beginning or end is unresolved.";
