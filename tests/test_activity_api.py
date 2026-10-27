@@ -161,3 +161,33 @@ def test_grounded_duration_shortfall_is_explicit(client, clip, monkeypatch):
     assert found["activity"]["requested_frames"] == 600
     assert found["activity"]["duration_fulfilled"] is False
     assert (found["start_frame"], found["end_frame"]) == (0, 24)
+
+
+@pytest.mark.parametrize("terminal", ["failed", "cancelled"])
+def test_repeated_search_retains_stopped_inspection_without_automatic_retry(
+    client, clip, monkeypatch, terminal
+):
+    pid, _aid = ready_index(client, clip, monkeypatch)
+    partial = verdict(20, True)
+    partial["requested_duration_seconds"] = 20
+    monkeypatch.setattr(
+        grounding,
+        "inspect_ranges",
+        lambda query, specs, **kwargs: ({specs[0][0]: partial}, None),
+    )
+    request = {"mode": "visual", "query": "20 seconds of boxing", "grounded": True}
+    first = client.post(f"/api/projects/{pid}/search", json=request).json()
+    job_id = first["activity_job_id"]
+    # The worker has retained progress before its terminal failure/cancellation.
+    db.execute(
+        "UPDATE jobs SET status=?,result=? WHERE id=?",
+        (terminal, json.dumps({"visual_results": first["results"]}), job_id),
+    )
+    repeated = client.post(f"/api/projects/{pid}/search", json=request).json()
+    assert repeated["activity_job_id"] == job_id
+    assert repeated["incomplete"]
+    assert repeated["results"][0]["activity"]["inspection_job_id"] == job_id
+    assert not repeated["results"][0]["activity"]["complete"]
+    assert "open Activity to retry" in repeated["warning"]
+    assert len(db.rows("SELECT * FROM jobs WHERE kind='activity_inspect'")) == 1
+    assert db.one("SELECT status FROM jobs WHERE id=?", (job_id,))["status"] == terminal

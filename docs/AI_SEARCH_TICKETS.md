@@ -95,6 +95,8 @@ legitimate interior stops, invalid timestamps, interrupted continuation and hone
 duration messages. After the unchanged S1b trial ends, compare affected examples
 plus a negative in a separate trial capped at eight generation dispatches and 300
 supplied video seconds. State any incomplete comparison; no paid fallback.
+Retain stopped continuation snapshots on repeated searches; require the existing
+Activity-panel retry action instead of silently starting the same failed work again.
 
 ## S2 — Complete movements and honest boundaries
 

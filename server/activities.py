@@ -206,13 +206,32 @@ def inspect_candidates(project_id, query, shortlist, frames, hashes, status):
             "contract_version": grounding.VERSION,
         }
         previous = db.one(
-            "SELECT result FROM jobs WHERE project_id=? AND kind='activity_inspect' "
-            "AND payload=? AND status='done' ORDER BY created DESC LIMIT 1",
+            "SELECT id,status,result FROM jobs WHERE project_id=? AND kind='activity_inspect' "
+            "AND payload=? AND status IN ('done','failed','cancelled') ORDER BY created DESC LIMIT 1",
             (project_id, json.dumps(payload, sort_keys=True)),
         )
         if previous and previous["result"]:
-            status["incomplete"] = bool(error)
-            return json.loads(previous["result"])["visual_results"]
+            retained = json.loads(previous["result"])["visual_results"]
+            partial = any(not c["activity"]["complete"] for c in retained)
+            status["incomplete"] = (
+                bool(error) or bool(status.get("has_more")) or partial
+            )
+            if partial:
+                status["activity_job_id"] = previous["id"]
+                for candidate in retained:
+                    if not candidate["activity"]["complete"]:
+                        candidate["activity"]["inspection_job_id"] = previous["id"]
+                if previous["status"] in ("failed", "cancelled"):
+                    status["warning"] = " ".join(
+                        filter(
+                            None,
+                            [
+                                status.get("warning"),
+                                "Previous activity inspection stopped. Confirmed footage remains available; open Activity to retry.",
+                            ],
+                        )
+                    )
+            return retained
         job_id = db.enqueue(project_id, "activity_inspect", payload)
         status["activity_job_id"] = job_id
         status["incomplete"] = True
