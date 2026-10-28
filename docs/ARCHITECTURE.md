@@ -17,6 +17,14 @@ applied. Old search and opt-in legacy localization remain available unchanged.
 the existing persistent worker as `activity_inspect` jobs. Continuation inspects
 30-second chunks with four-second overlap, requires grounded overlap, and saves
 completed proposals/compact request diagnostics before failure or cancellation.
+Continuation now has its own versioned contract/cache: established activity,
+marked overlap, direction, original query and locked intent/edit duration go in;
+one connected interval, visible continuity evidence and continues/observed-stop/
+uncertain outcome come out. Discovery's contract remains unchanged. Numeric
+overlap without semantic evidence is insufficient. Contradictory shrinking stops,
+crop-edge stops and invalid timestamps are rejected without erasing prior work.
+Job identity includes the continuation version so old work cannot silently run
+under new inspection rules. Duration fulfillment does not stop extent inspection.
 Retry preserves that progress. Cache identity includes model, prompt/sampling
 version, proxy hash, anchor and supplied context. Grounded duplicates are
 suppressed without joining uninspected gaps; separate occurrences remain distinct.
@@ -39,6 +47,15 @@ The presentation separates exact supported duration, verified shortfall, incompl
 inspection and stopped work. Worker evidence can refresh an open preview without
 resetting its manually adjusted frames. Inspected source extent is not the same as
 an observed complete movement; continuous-activity grouping still has known misses.
+
+Activity review uses the entire established range as handle bounds; legacy visual
+results keep approximate ±1-second context. In/out sliders and numeric inputs use
+integer frames with an exclusive end and a one-frame minimum. Selecting the full
+activity snapshots its current extent; later worker expansion does not enlarge
+the editor's draft. `App.tsx` holds a temporary destination/range draft. Card Add
+and visual drag open review without a board write; explicit confirmation saves
+the exact frames through the existing board format. Deleted destinations require
+review again rather than silently redirecting the cut. Source review is read-only.
 
 ## Follow one action through the application
 

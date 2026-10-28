@@ -63,8 +63,13 @@ See [the checkpoint](GEMINI_ACTIVITY_EVALUATION.md) and
 [focused research-based tickets](AI_SEARCH_TICKETS.md). S1a–S1c now provide safe
 diagnostics, independent edit duration and unresolved-boundary handling. Their
 controlled development comparison did not improve aggregate quality/speed; provider
-failures and fragmented movement remain explicit. The new three-cut app/render/
-Resolve handoff passed. Next S2 checks complete movements independently of overlap
+failures and fragmented movement remain explicit. The three-cut app/render/
+Resolve handoff passed. S1d now implements same-activity continuation and full-
+activity frame selection, with a five-cut render/Resolve check. Its bounded live
+comparison still fails two of four reviewed boundaries, so **S1 remains open**;
+see [activity-review evidence](ACTIVITY_REVIEW_EVALUATION.md). Do not start S2
+until the continuation gate is resolved or its scope is explicitly revised.
+After that, S2 checks complete movements independently of overlap
 scores; S3 checks continuous activity/occurrence grouping and bounded reuse; S4
 freezes fresh release examples only after selecting a configuration.
 Keep exact retrieval and Gemini;

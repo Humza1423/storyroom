@@ -51,6 +51,15 @@ separate from accepted edits. Regeneration must never overwrite manual decisions
 Manual import, organization, trim, preview, save, and export remain usable offline
 without cloud AI. Cloud analysis requires explicit permission and budget checks.
 
+For activity-search results, establish the matching activity before choosing an
+edit. Show its inspected extent/status and a suggested cut inside it. Review is
+required before adding or dropping a visual result into a Storybin; the editor
+can select the full established activity or adjust exact frame boundaries. The
+suggestion is a starting point, not the only usable range. Automatic editorial
+quality is deferred; continuity, truthful status and exact saved choices are the
+current requirements. A complete short activity is useful information, not an
+error; unfinished inspection must not be presented as a confirmed shortfall.
+
 ## Bounded first release
 
 - Local browser application, single local user; development targets an 8 GB Mac.

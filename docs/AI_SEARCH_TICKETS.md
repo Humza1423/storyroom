@@ -98,6 +98,30 @@ supplied video seconds. State any incomplete comparison; no paid fallback.
 Retain stopped continuation snapshots on repeated searches; require the existing
 Activity-panel retry action instead of silently starting the same failed work again.
 
+## S1d — Follow the established activity; review before adding
+
+Implement a separate anchored continuation contract: original query, established
+activity, marked overlap, direction and locked intent/duration. Require visible
+semantic continuity and valid connected timestamps; retain partial footage on
+uncertainty/failure. Inspect extent even after the requested cut length is met.
+Keep discovery/retrieval/model/sampling unchanged and version continuation caches.
+
+Visual Add/drop opens review without saving. Show established activity/status,
+suggested cut and exact selected frames separately. Allow entire-activity in/out
+adjustment, one-frame keyboard/numeric controls and full-activity selection.
+Preserve manual drafts through worker updates and save only explicit confirmation.
+Keep incomplete inspection, supported duration and verified shortfall distinct.
+Suggested cut attractiveness is not a gate for this ticket.
+
+Freeze four independently reviewed cases before inference. Compare identical
+contexts/model/sampling with a hard eight-attempt/240-video-second cap, retries
+included, no paid fallback. **Current gate remains OPEN:** the saved comparison
+used all eight attempts / 118.67 seconds and passed strict boundary checks 2/4.
+See [report](ACTIVITY_REVIEW_EVALUATION.md). UI/persistence/render/actual Resolve
+handoff passed, but cannot substitute for the failed live continuation checks.
+No more generation attempts under this cap. Next decision must target the saved
+badminton conflict with adequate diagnostics, not lower acceptance or start S2.
+
 ## S2 — Complete movements and honest boundaries
 
 Independently watch and label at least ten moves with preparation/execution/finish,

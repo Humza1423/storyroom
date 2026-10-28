@@ -2,6 +2,61 @@
 
 Updated: 2026-10-27. Status: local development preview; release gates remain open.
 
+## Search S1d — activity extent and editor-selected frames (2026-10-27)
+
+**Implemented and verified selection workflow; continuation quality gate remains
+OPEN. Do not start S2.** A separate anchored continuation contract preserves the
+original activity, marked overlap, direction and intent/duration. It requires
+semantic continuity and strict timestamps; conflicting extensions leave prior
+footage usable and incomplete. Initial discovery/retrieval/model/sampling are
+unchanged. Continuation cache/job identities are independently versioned.
+
+Visual Add and drag now open review without saving. Review shows established
+activity/status, suggested cut and exact selected frames. Handles/numeric inputs
+reach the entire activity with one-frame adjustment; full-activity selection
+snapshots its current extent. Worker updates cannot enlarge a manual selection.
+Confirmation preserves the intended Storybin; deleting it requires review again.
+Legacy approximate-range review and manual editing remain available.
+
+The independently frozen four-case comparison consumed **8/8 generation attempts,
+118.67/240 supplied video seconds**, no retries or paid fallback. Candidate
+continuity-plus-boundary checks passed **2/4**: jacks stopped at frame 80 before
+burpees, and cooking extended to source frame 610. Badminton failed with
+`boundary_conflict`; the exact proposed timestamps/subtype were not retained in
+that run, so its cause cannot honestly be narrowed further. Push-up followed the
+anchor but ended at 710, outside reviewed 681–696. Baseline boundary checks also
+passed 2/4; its contract did not separately test continuity. This is not an
+accuracy win or a search-wide benchmark. Reported wait totals were 81.97s baseline
+and 8.99s candidate, one ordered sample each—not a proven causal speedup. Safe
+numeric conflict snapshots/reasons were added afterward for future diagnosis;
+no extra requests were made from the exhausted cap.
+[Full report and reproducible steps](ACTIVITY_REVIEW_EVALUATION.md),
+[compact evidence](evidence/continuation-v1.json).
+
+Actual Storyroom used a legitimate prior cached hand-sign result, not re-keyed
+comparison outputs. Activity **0–79** and adjusted cut **1–78** were previewed,
+confirmed into **Activity review checkpoint**, and reopened unchanged. Prior
+cooking **10–610**, push-up **636–708** and football **315–900** stayed intact.
+Assembly reached placement 5/5. Render measured **1,413 frames / 47.1s** with
+matching audio duration. Actual **Resolve 21.1.2** import into **Storyroom activity
+review 2026-10-27**, after native media-folder sandbox access, displayed all five
+matching source pairs, five video/four audio cuts, **00:00:47:03** total. The final
+adjusted clip played to the end. Visible Resolve labels were `edit.mp4`, not proven
+Storybin labels. Evidence screenshots stay ignored locally.
+
+Checks: **363 backend tests passed**, production build passed, full isolated
+browser suite **39 passed** (1.8m), fatal Ruff checks and whitespace check passed.
+Retained A2 media regressions passed in that backend suite. One existing
+Starlette/httpx warning remains. SQLite quick check passed; all eight managed
+original hashes match registration, recovery backups remain, and cached UI demo
+left usage rows at **150**. Media, database and secrets are uncommitted. Delivery
+CI is reported on PR #6 after push, not inferred from local success.
+
+Next: diagnose the remaining same-activity boundary contradiction using the new
+safe reason/snapshot evidence in a separately approved bounded experiment. Do not
+lower tolerances, rewrite the frozen key, reset the exhausted ledger, claim the
+new pipeline passed, or move to complete-movement S2 yet.
+
 ## Search S1b/S1c — duration, partial evidence and actual handoff (2026-10-27)
 
 Implemented independent action recognition and requested editing duration, safe

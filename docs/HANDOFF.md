@@ -39,8 +39,19 @@ and validation failures, worse aggregate recall/wait, and 3/5 duration successes
 The bounded follow-up retains partial football/badminton and honest shortfall
 feedback; it does not establish a general accuracy improvement. Actual three-cut
 render/Resolve 21.1.2 import passed at 1,257 frames / 41.9s. Read the dated report.
-Next: S2 complete-move labels and observed onset/finish, then S3 continuity/grouping
-in [AI_SEARCH_TICKETS](AI_SEARCH_TICKETS.md). Do not re-audit, integrate Qwen/ANN,
+S1d adds independently frozen continuation cases, a separate same-activity contract
+and required full-activity review/frame selection. The 8-attempt/240-second live
+cap is exhausted (118.67 seconds supplied); strict boundary checks passed 2/4.
+Badminton remains rejected with a boundary conflict and push-up ends outside its
+reviewed bounds. **Stay on S1; do not start S2.** Read
+[activity-review evidence](ACTIVITY_REVIEW_EVALUATION.md) before further work.
+The new diagnostics can distinguish future boundary conflicts, but were added
+after this run; do not invent its missing raw timestamps or reset the call cap.
+The UI demo uses legitimate existing caches, not re-keyed comparison outputs.
+Five saved cuts render/import into Resolve at 1,413 frames / 47.1s, with the two
+new hand-sign ranges 0–79 and 1–78 preserved separately. Historical cuts remain.
+After S1: S2 complete moves, then S3 continuity/grouping in
+[AI_SEARCH_TICKETS](AI_SEARCH_TICKETS.md). Do not re-audit, integrate Qwen/ANN,
 retry failed inspections automatically, or retune the historical key.
 
 Canonical repository is now `/Users/hamzah_ali/Documents/Codex/2026-10-02/storyroom`;
