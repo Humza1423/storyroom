@@ -101,6 +101,10 @@ export function Player({
   }, [preview?.asset_id, preview?.id]);
 
   useEffect(() => {
+    // A worker can change the playable activity without replacing the video.
+    // Seeking alone does not pause it; keep actual playback and controls aligned.
+    const element = video.current;
+    element?.pause();
     activeRangeKey.current = rangeKey;
     advanced.current = false;
     prepared.current = false;
@@ -108,10 +112,9 @@ export function Player({
     setElapsed(0);
     setPlayhead(startFrame);
     setPlaying(false);
-    const element = video.current;
     if (element?.readyState && preview) prepare(element);
-    // The video element is keyed by the original range below. Its metadata
-    // callback is the normal path; this handles cached metadata as well.
+    // Metadata handles a new source; this also prepares an existing video after
+    // its frame bounds change. Assembly playback resumes explicitly in prepare.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => {
       if (activeRangeKey.current === rangeKey) activeRangeKey.current = "";

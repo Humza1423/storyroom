@@ -549,6 +549,19 @@ test("suggested cut, activity and source previews preserve independent saved cut
   await page
     .getByRole("button", { name: "Select activity found so far" })
     .click();
+  await page
+    .getByRole("button", { name: "Review activity", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Play activity", exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      page
+        .locator("video")
+        .evaluate((video) => (video as HTMLVideoElement).paused),
+    )
+    .toBe(false);
   completedJob = true;
   await expect(page.locator(".moment-card .filename").first()).toContainText(
     "6.0–11.0s",
@@ -558,6 +571,16 @@ test("suggested cut, activity and source previews preserve independent saved cut
   await expect(page.getByLabel("Activity inspection status")).toContainText(
     "Activity extent inspected",
   );
+  await expect
+    .poll(() =>
+      page
+        .locator("video")
+        .evaluate((video) => (video as HTMLVideoElement).paused),
+    )
+    .toBe(true);
+  await expect(
+    page.getByRole("button", { name: "Play activity", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("slider", { name: "Selected cut in frame" }),
   ).toHaveValue("60");

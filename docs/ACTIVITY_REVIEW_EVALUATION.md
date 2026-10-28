@@ -126,7 +126,8 @@ Local screenshots:
 
 ## Reproduce the editor workflow without new model calls
 
-1. Open the workspace above and select **Gemini fresh validation v1**. Do not
+1. Open the workspace above and select **Gemini fresh validation v1**. Choose the
+   destination Storybin before opening review. Do not
    substitute an isolated browser-test database or the old four-clip project.
 2. Use Visual AI with the previously cached query:
    **I need 20 seconds of a person demonstrating a hand sign indoors.**
@@ -140,7 +141,9 @@ Local screenshots:
 5. Check start **0**, exclusive end **79**, and duration **79 frames**. Adjust
    numeric controls to **1–78** and check duration **77 frames**. One arrow step
    changes one frame; at 30fps that is one-thirtieth of a second.
-6. Choose the intended Storybin and confirm **Add selected cut**. Opening review
+6. Check the destination shown below the player and confirm **Add selected cut**.
+   To change destination, choose another Storybin and reopen the result's review.
+   Opening review
    or dragging a result must not create a saved placement before confirmation.
    Reload and inspect the saved exact boundaries.
 7. Play the assembly, render and export. Adding another placement changes the

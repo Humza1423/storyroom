@@ -17,6 +17,9 @@ reach the entire activity with one-frame adjustment; full-activity selection
 snapshots its current extent. Worker updates cannot enlarge a manual selection.
 Confirmation preserves the intended Storybin; deleting it requires review again.
 Legacy approximate-range review and manual editing remain available.
+Independent UI review caught a playback-state race during worker expansion:
+changed activity bounds now pause the retained video before seeking, and a browser
+regression checks actual playback state as well as the button label.
 
 The independently frozen four-case comparison consumed **8/8 generation attempts,
 118.67/240 supplied video seconds**, no retries or paid fallback. Candidate
@@ -45,7 +48,7 @@ adjusted clip played to the end. Visible Resolve labels were `edit.mp4`, not pro
 Storybin labels. Evidence screenshots stay ignored locally.
 
 Checks: **363 backend tests passed**, production build passed, full isolated
-browser suite **39 passed** (1.8m), fatal Ruff checks and whitespace check passed.
+browser suite **39 passed** (1.9m), fatal Ruff checks and whitespace check passed.
 Retained A2 media regressions passed in that backend suite. One existing
 Starlette/httpx warning remains. SQLite quick check passed; all eight managed
 original hashes match registration, recovery backups remain, and cached UI demo
