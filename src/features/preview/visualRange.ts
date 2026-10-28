@@ -44,12 +44,23 @@ export function createVisualRange(
     candidate.end_frame > frames
   )
     return null;
+  const activity = activityBounds(candidate, frames);
+  if (candidate.activity && !activity) return null;
   return {
     candidate,
-    contextStart: Math.max(0, candidate.start_frame - 30),
-    contextEnd: Math.min(frames, candidate.end_frame + 30),
+    contextStart: activity?.start ?? Math.max(0, candidate.start_frame - 30),
+    contextEnd: activity?.end ?? Math.min(frames, candidate.end_frame + 30),
     selectedStart: candidate.start_frame,
     selectedEnd: candidate.end_frame,
+  };
+}
+
+/** Snapshot the established range; subsequent worker updates never move this cut. */
+export function selectEstablishedActivity(range: VisualRange): VisualRange {
+  return {
+    ...range,
+    selectedStart: range.candidate.activity?.start_frame ?? range.contextStart,
+    selectedEnd: range.candidate.activity?.end_frame ?? range.contextEnd,
   };
 }
 

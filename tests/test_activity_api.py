@@ -89,6 +89,16 @@ def test_grounded_search_worker_progress_and_completed_results(
         }, None
 
     monkeypatch.setattr(grounding, "inspect_ranges", inspect)
+
+    def continue_activity(query, spec, **kwargs):
+        result, error = inspect(query, [spec], **kwargs)
+        result[spec[0]].update(
+            continuity="same_activity",
+            continuity_evidence="The same boxing continues through the marked overlap.",
+        )
+        return result, error
+
+    monkeypatch.setattr(grounding, "inspect_continuation", continue_activity)
     response = client.post(
         f"/api/projects/{pid}/search",
         json={"mode": "visual", "query": "boxing", "grounded": True},

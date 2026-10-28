@@ -22,7 +22,9 @@ export function VisualCandidateCard({
 }) {
   const activity = candidate.activity;
   const presentation = activityPresentation(candidate, inspectionJob);
-  const previewLabel = activity ? "Preview suggested cut" : "Preview & adjust";
+  const previewLabel = activity
+    ? "Review activity & choose cut"
+    : "Preview & adjust";
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: "visual:" + candidate.id,
@@ -69,17 +71,18 @@ export function VisualCandidateCard({
       {activity && (
         <div className="activity-summary">
           <p>
-            Activity · {(activity.start_frame / 30).toFixed(1)}–
+            Established activity · {(activity.start_frame / 30).toFixed(1)}–
             {(activity.end_frame / 30).toFixed(1)}s ·{" "}
             {((activity.end_frame - activity.start_frame) / 30).toFixed(1)}s
           </p>
+          <p className="activity-status-label">{presentation?.statusLabel}</p>
           {presentation?.duration && <p>{presentation.duration}</p>}
           <p>{presentation?.inspection}</p>
         </div>
       )}
       <div className="card-actions">
         <button className="text-button" onClick={onAdd}>
-          <Plus size={13} /> Quick add to Storybin
+          <Plus size={13} /> Review before adding
         </button>
       </div>
     </article>

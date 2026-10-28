@@ -1010,6 +1010,11 @@ input[type="checkbox"] {
   font-weight: 600;
 }
 .visual-range-labels span:last-child { white-space: nowrap; }
+.activity-status-label { color: #d8e0c4; font-weight: 600; }
+.visual-frame-entry { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.visual-frame-entry input { min-width: 0; width: 100px; padding: 7px; color: inherit; background: #10161b; border: 1px solid var(--border); border-radius: 4px; }
+.visual-range-editor .selected-frame-summary { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.visual-range-labels { flex-wrap: wrap; }
 .visual-context-track {
   position: relative;
   height: 12px;

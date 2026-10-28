@@ -4,6 +4,7 @@ import type { Moment, Selection, VisualCandidate } from "../../types";
 import {
   activityBounds,
   moveVisualHandle,
+  selectEstablishedActivity,
   type VisualRange,
 } from "./visualRange";
 import { canAdvancePlaybackRange } from "./playback";
@@ -90,7 +91,13 @@ export function Player({
     : "";
 
   useEffect(() => {
-    setReview(null);
+    setReview(
+      visualRange && activity
+        ? { id: visualRange.candidate.id, mode: "activity" }
+        : null,
+    );
+    // Evidence updates may expand the range, but must not change the review mode.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview?.asset_id, preview?.id]);
 
   useEffect(() => {
@@ -109,14 +116,7 @@ export function Player({
     return () => {
       if (activeRangeKey.current === rangeKey) activeRangeKey.current = "";
     };
-  }, [
-    preview?.asset_id,
-    preview?.start_frame,
-    preview?.end_frame,
-    preview?.id,
-    assembly,
-    rangeKey,
-  ]);
+  }, [preview?.asset_id, preview?.id, assembly, rangeKey]);
 
   function prepare(element: HTMLVideoElement) {
     if (!preview || prepared.current) return;
@@ -157,7 +157,7 @@ export function Player({
           <>
             <video
               ref={video}
-              key={`${preview.asset_id}:${preview.start_frame}:${preview.end_frame}:${preview.id}`}
+              key={`${preview.asset_id}:${preview.id}`}
               controls={false}
               preload="auto"
               playsInline
@@ -301,6 +301,21 @@ export function Player({
               className="activity-status"
               aria-label="Activity inspection status"
             >
+              <strong className="activity-status-label">
+                {presentation.statusLabel}
+              </strong>
+              {activity && (
+                <p className="activity-established-range">
+                  Established activity · {frameTimecode(activity.start)}–
+                  {frameTimecode(activity.end)}
+                  <br />
+                  {(activity.end - activity.start) / 30 ===
+                  Math.floor((activity.end - activity.start) / 30)
+                    ? (activity.end - activity.start) / 30
+                    : ((activity.end - activity.start) / 30).toFixed(2)}
+                  s · {activity.end - activity.start} frames
+                </p>
+              )}
               {presentation.duration && <p>{presentation.duration}</p>}
               <p>{presentation.inspection}</p>
             </div>
@@ -309,11 +324,11 @@ export function Player({
             {reviewingFullSource
               ? "Full source video · not verified. Review the entire imported clip; the AI match and your selected cut stay marked below."
               : reviewingActivity
-                ? visualRange.candidate.activity?.complete
+                ? presentation?.complete
                   ? "Activity range · AI identified. This view does not change your selected cut."
                   : "Activity range · partially inspected. Its beginning or end may still be unresolved."
                 : activity
-                  ? "Selected cut preview. Nearby footage is not verified; scrub to check before and after the suggestion."
+                  ? "Selected cut preview. Adjust the cut anywhere inside the established activity."
                   : "Nearby footage · not verified. Scrub to check what happens before and after the match."}
           </p>
           {activity && (
@@ -329,9 +344,7 @@ export function Player({
                 );
               }}
             >
-              {reviewingActivity
-                ? "Return to suggested cut"
-                : "Review activity"}
+              {reviewingActivity ? "Preview selected cut" : "Review activity"}
             </button>
           )}
           <button
@@ -347,7 +360,9 @@ export function Player({
             }}
           >
             {reviewingFullSource
-              ? "Return to match preview"
+              ? activity
+                ? "Return to selected cut"
+                : "Return to match preview"
               : "View full source video"}
           </button>
           <div className="visual-context-track" aria-hidden="true">
@@ -369,7 +384,7 @@ export function Player({
           <label className="visual-range-control">
             {reviewingFullSource
               ? "Scrub full source video"
-              : reviewingActivity
+              : activity
                 ? "Scrub activity"
                 : "Scrub nearby footage"}{" "}
             · {(playhead / 30).toFixed(1)}s
@@ -377,7 +392,7 @@ export function Player({
               aria-label={
                 reviewingFullSource
                   ? "Scrub full source video"
-                  : reviewingActivity
+                  : activity
                     ? "Scrub activity"
                     : "Scrub nearby footage"
               }
@@ -401,13 +416,44 @@ export function Player({
               {(visualRange.selectedEnd / 30).toFixed(1)}s
             </span>
           </div>
-          {reviewing ? (
+          <p
+            className="selected-frame-summary"
+            aria-label="Selected cut frame summary"
+          >
+            Start {frameTimecode(visualRange.selectedStart)} · frame{" "}
+            {visualRange.selectedStart}
+            <br />
+            End {frameTimecode(visualRange.selectedEnd)} · frame{" "}
+            {visualRange.selectedEnd} (exclusive)
+            <br />
+            Duration{" "}
+            {(
+              (visualRange.selectedEnd - visualRange.selectedStart) /
+              30
+            ).toFixed(2)}
+            s · {visualRange.selectedEnd - visualRange.selectedStart} frames
+          </p>
+          {reviewingFullSource ? (
             <p className="full-source-note">
-              Viewing only—the selected cut has not changed. Return to match
+              Viewing only—the selected cut has not changed. Return to the cut
               preview to adjust its in and out points.
             </p>
           ) : (
             <>
+              {activity && (
+                <button
+                  type="button"
+                  className="secondary full-source-toggle"
+                  onClick={() => {
+                    video.current?.pause();
+                    onVisualRangeChange(selectEstablishedActivity(visualRange));
+                  }}
+                >
+                  {presentation?.complete
+                    ? "Select full activity"
+                    : "Select activity found so far"}
+                </button>
+              )}
               <label className="visual-range-control">
                 In · frame {visualRange.selectedStart}
                 <input
@@ -425,6 +471,21 @@ export function Player({
                         "in",
                         Number(event.target.value),
                       ),
+                    );
+                  }}
+                />
+              </label>
+              <label className="visual-frame-entry">
+                Start frame
+                <FrameNumberInput
+                  aria-label="Selected cut start frame number"
+                  min={visualRange.contextStart}
+                  max={visualRange.selectedEnd - 1}
+                  value={visualRange.selectedStart}
+                  onCommit={(frame) => {
+                    video.current?.pause();
+                    onVisualRangeChange(
+                      moveVisualHandle(visualRange, "in", frame),
                     );
                   }}
                 />
@@ -450,10 +511,78 @@ export function Player({
                   }}
                 />
               </label>
+              <label className="visual-frame-entry">
+                End frame · exclusive
+                <FrameNumberInput
+                  aria-label="Selected cut end frame number"
+                  min={visualRange.selectedStart + 1}
+                  max={visualRange.contextEnd}
+                  value={visualRange.selectedEnd}
+                  onCommit={(frame) => {
+                    video.current?.pause();
+                    onVisualRangeChange(
+                      moveVisualHandle(visualRange, "out", frame),
+                    );
+                  }}
+                />
+              </label>
             </>
           )}
         </div>
       )}
     </>
+  );
+}
+
+function frameTimecode(frame: number) {
+  const seconds = Math.floor(frame / 30);
+  return [
+    Math.floor(seconds / 3600),
+    Math.floor(seconds / 60) % 60,
+    seconds % 60,
+    frame % 30,
+  ]
+    .map((value) => String(value).padStart(2, "0"))
+    .join(":");
+}
+
+/** Let a person finish typing before clamping: "659" must not become "151" after its first digit. */
+function FrameNumberInput({
+  value,
+  min,
+  max,
+  onCommit,
+  "aria-label": label,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onCommit: (frame: number) => void;
+  "aria-label": string;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  return (
+    <input
+      aria-label={label}
+      type="number"
+      min={min}
+      max={max}
+      step="1"
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => {
+        const parsed = Number(draft);
+        const frame =
+          draft.trim() && Number.isFinite(parsed)
+            ? Math.max(min, Math.min(max, Math.round(parsed)))
+            : value;
+        setDraft(String(frame));
+        onCommit(frame);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.currentTarget.blur();
+      }}
+    />
   );
 }

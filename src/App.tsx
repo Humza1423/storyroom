@@ -5,6 +5,7 @@ import { ProcessingPanel } from "./components/ProcessingPanel";
 import { Player } from "./features/preview/Player";
 import {
   createVisualRange,
+  activityBounds,
   type VisualRange,
 } from "./features/preview/visualRange";
 import { refreshVisualEvidence } from "./features/preview/refreshVisualEvidence";
@@ -101,6 +102,13 @@ export default function App() {
     [trimEnd, setTrimEnd] = useState(0),
     [note, setNote] = useState("");
   const [visualRange, setVisualRange] = useState<VisualRange | null>(null);
+  // Reviewing a proposal is not a board write. Keep the intended destination
+  // stable while the editor previews footage or selects another Storybin.
+  const [visualDestination, setVisualDestination] = useState<{
+    projectId: string;
+    candidateId: string;
+    sectionId: string | null;
+  } | null>(null);
   const [groundedSearch, setGroundedSearch] = useState(false);
   const activityRequests = useRef(
     new Map<
@@ -324,6 +332,7 @@ export default function App() {
     setVisualPagingError("");
     setPreview(null);
     setVisualRange(null);
+    setVisualDestination(null);
     setSelected(null);
     setActiveSection("");
     setSequenceIndex(null);
@@ -489,7 +498,10 @@ export default function App() {
       boardEpoch.current++;
     }
   }
-  function add(moment: Moment | VisualCandidate, sectionId = active?.id) {
+  function add(
+    moment: Moment | VisualCandidate,
+    sectionId: string | null | undefined = active?.id,
+  ) {
     task(async () => {
       let next = structuredClone(board);
       if (!sectionId) {
@@ -503,7 +515,11 @@ export default function App() {
         sectionId = s.id;
         setActiveSection(s.id);
       }
-      const section = next.find((s) => s.id === sectionId)!;
+      const section = next.find((s) => s.id === sectionId);
+      if (!section)
+        throw new Error(
+          "That Storybin no longer exists. Choose another destination and review the cut again.",
+        );
       section.selections.push({
         id: id(),
         asset_id: moment.asset_id,
@@ -517,6 +533,7 @@ export default function App() {
   }
   function selectClip(c: Selection) {
     setVisualRange(null);
+    setVisualDestination(null);
     setSelected(c);
     setPreview(c);
     setTrimStart(c.start_frame);
@@ -525,7 +542,7 @@ export default function App() {
     setSequenceIndex(null);
     revealPlayer();
   }
-  function playMoment(m: Moment | VisualCandidate) {
+  function playMoment(m: Moment | VisualCandidate, destination = active?.id) {
     if ("kind" in m) {
       const range = createVisualRange(m, assetMap[m.asset_id]?.frames ?? 0);
       if (!range) {
@@ -534,14 +551,75 @@ export default function App() {
         );
         return;
       }
-      setVisualRange(range);
+      setVisualRange((current) =>
+        current?.candidate.id === m.id &&
+        current.candidate.asset_id === m.asset_id
+          ? refreshVisualEvidence(
+              current,
+              [m],
+              assetMap[m.asset_id]?.frames ?? 0,
+            )
+          : range,
+      );
+      setVisualDestination({
+        projectId: pid,
+        candidateId: m.id,
+        sectionId: destination ?? null,
+      });
     } else {
       setVisualRange(null);
+      setVisualDestination(null);
     }
     setPreview(m);
     setSelected(null);
     setSequenceIndex(null);
     revealPlayer();
+  }
+  function confirmVisualCut() {
+    if (
+      !visualRange ||
+      !visualDestination ||
+      visualDestination.projectId !== pid ||
+      visualDestination.candidateId !== visualRange.candidate.id
+    )
+      return;
+    const { selectedStart, selectedEnd, candidate } = visualRange;
+    const frames = assetMap[candidate.asset_id]?.frames ?? 0;
+    const activity = activityBounds(candidate, frames);
+    if (
+      !Number.isInteger(selectedStart) ||
+      !Number.isInteger(selectedEnd) ||
+      selectedStart < 0 ||
+      selectedStart >= selectedEnd ||
+      selectedEnd > frames
+    ) {
+      setError("Choose a valid frame range before adding this cut.");
+      return;
+    }
+    if (
+      candidate.activity &&
+      (!activity ||
+        selectedStart < activity.start ||
+        selectedEnd > activity.end)
+    ) {
+      setError(
+        "The activity range changed. Review the available footage and adjust your cut before adding it.",
+      );
+      return;
+    }
+    if (
+      visualDestination.sectionId &&
+      !board.some((s) => s.id === visualDestination.sectionId)
+    ) {
+      setError(
+        "That Storybin no longer exists. Choose another destination and review the cut again.",
+      );
+      return;
+    }
+    add(
+      { ...candidate, start_frame: selectedStart, end_frame: selectedEnd },
+      visualDestination.sectionId,
+    );
   }
   function advance() {
     if (sequenceIndex === null) {
@@ -608,7 +686,7 @@ export default function App() {
       return;
     }
     if (visualCandidate) {
-      add(visualCandidate, targetSection);
+      playMoment(visualCandidate, targetSection);
       return;
     }
     task(async () => {
@@ -1250,7 +1328,7 @@ export default function App() {
                           asset={assetMap[result.asset_id]}
                           inspectionJob={activityInspectionJob(result)}
                           onPreview={() => playMoment(result)}
-                          onAdd={() => add(result)}
+                          onAdd={() => playMoment(result)}
                         />
                       ) : (
                         <MomentCard
@@ -1553,18 +1631,34 @@ export default function App() {
                       {visualRange &&
                         "kind" in preview &&
                         preview.id === visualRange.candidate.id && (
-                          <button
-                            className="secondary wide"
-                            onClick={() =>
-                              add({
-                                ...preview,
-                                start_frame: visualRange.selectedStart,
-                                end_frame: visualRange.selectedEnd,
-                              })
-                            }
-                          >
-                            <Plus size={14} /> Add selected cut to Storybin
-                          </button>
+                          <>
+                            <p className="visual-add-destination" role="status">
+                              Destination:{" "}
+                              {visualDestination?.sectionId
+                                ? (board.find(
+                                    (s) => s.id === visualDestination.sectionId,
+                                  )?.title ??
+                                  "Storybin removed—review again to choose another")
+                                : "a new Storybin"}
+                              . Nothing is added until you confirm.
+                            </p>
+                            <button
+                              className="secondary wide"
+                              disabled={
+                                busy ||
+                                !visualDestination ||
+                                !!(
+                                  visualDestination.sectionId &&
+                                  !board.some(
+                                    (s) => s.id === visualDestination.sectionId,
+                                  )
+                                )
+                              }
+                              onClick={confirmVisualCut}
+                            >
+                              <Plus size={14} /> Add selected cut to Storybin
+                            </button>
+                          </>
                         )}
                       {!selected && "description" in preview && (
                         <button

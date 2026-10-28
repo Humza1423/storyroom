@@ -204,6 +204,7 @@ def inspect_candidates(project_id, query, shortlist, frames, hashes, status):
             "query": query,
             "candidates": candidates,
             "contract_version": grounding.VERSION,
+            "continuation_contract_version": grounding.CONTINUATION_VERSION,
         }
         previous = db.one(
             "SELECT id,status,result FROM jobs WHERE project_id=? AND kind='activity_inspect' "
@@ -274,7 +275,11 @@ def continue_inspection(job, cancelled, progress):
         raise ValueError(message)
 
     persist()
-    if payload.get("contract_version") != grounding.VERSION:
+    if (
+        payload.get("contract_version") != grounding.VERSION
+        or payload.get("continuation_contract_version")
+        != grounding.CONTINUATION_VERSION
+    ):
         stop(
             "contract_changed",
             "Inspection rules changed. Retained footage is available; run this search again to inspect more.",
@@ -324,9 +329,11 @@ def continue_inspection(job, cancelled, progress):
                 right,
             )
             diagnostics = {}
-            verdicts, error = grounding.inspect_ranges(
+            verdicts, error = grounding.inspect_continuation(
                 payload["query"],
-                [spec],
+                spec,
+                established_activity=a,
+                direction="before" if before else "after",
                 job_id=job["id"],
                 cancelled=cancelled,
                 diagnostics=diagnostics,
@@ -343,6 +350,16 @@ def continue_inspection(job, cancelled, progress):
                 stop(
                     "boundary_uncertain",
                     "Activity boundary remains uncertain; completed inspections were retained.",
+                )
+            if (
+                verdict.get("continuity") != "same_activity"
+                or not isinstance(verdict.get("continuity_evidence"), str)
+                or not verdict["continuity_evidence"].strip()
+                or len(verdict["intervals"]) != 1
+            ):
+                stop(
+                    "continuity_unsupported",
+                    "No visible evidence connects this extension to the same activity.",
                 )
             # Require actual semantic overlap with the already inspected action.
             overlaps = [

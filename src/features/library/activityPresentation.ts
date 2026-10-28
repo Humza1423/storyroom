@@ -58,6 +58,14 @@ export function activityPresentation(
         ? "Checking more footage. The activity’s beginning or end is still unresolved."
         : "Activity partially inspected. Its beginning or end is unresolved.";
   return {
+    statusLabel: complete
+      ? "Complete"
+      : checking
+        ? "Still checking"
+        : stopped
+          ? "Inspection stopped · incomplete"
+          : "Inspection incomplete",
+    complete,
     duration,
     inspection: `${boundaryConflict ? "Action found; its beginning or end needs another look. " : ""}${inspection}`,
   };

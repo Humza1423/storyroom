@@ -103,6 +103,20 @@ def test_single_combined_request_maps_local_seconds_without_padding(fake):
     assert len(fake.calls) == 1
 
 
+def test_budget_failure_is_actionable_without_dispatching_or_leaking_details(fake, monkeypatch):
+    def exhausted(*_args):
+        raise ValueError("Untrusted internal accounting details")
+
+    monkeypatch.setattr(grounding.db, "reserve", exhausted)
+    diagnostics = {}
+    results, error = grounding.inspect_ranges("kick", [candidate()], diagnostics=diagnostics)
+    assert not results and error.inspection_code == "budget_unavailable"
+    assert "Cached results and manual editing remain available" in error.safe_message
+    assert "Untrusted" not in error.safe_message
+    assert diagnostics["error_code"] == "budget_unavailable"
+    assert not fake.calls
+
+
 def test_batch_validates_candidates_independently_and_caches_valid_work(fake):
     fake.rows = [row(), row("b")]
     fake.rows[1]["intervals"][0]["end_seconds"] = 100
@@ -982,3 +996,223 @@ def test_v4_retains_v3_cache_without_silently_reusing_its_boundary_policy(
     assert error is None and results["a"]["intervals"][0]["boundary_conflict_after"]
     assert len(fake.calls) == 1 and len(fake.cache) == 2
     assert fake.cache[old_key] == historical
+
+
+def continuation_activity():
+    return {
+        "start_frame": 330,
+        "end_frame": 390,
+        "intent": "broad_activity",
+        "requested_frames": 600,
+        "visible_evidence": "One athlete continues a boxing combination.",
+    }
+
+
+def continuation_row(**changes):
+    value = {
+        "candidate_id": "a",
+        "continuity": "same_activity",
+        "continuity_evidence": "The same athlete keeps punching across the marked overlap, with one brief pause.",
+        "boundary_outcome": "observed_stop",
+        "intervals": [
+            {
+                "start_seconds": 1,
+                "end_seconds": 6,
+                "visible_evidence": "The athlete punches, pauses briefly, resumes punching, then visibly lowers both arms.",
+            }
+        ],
+    }
+    value.update(changes)
+    return value
+
+
+def continue_call(fake, **kwargs):
+    fake.rows = [continuation_row()]
+    fake.rows[0].update(kwargs.pop("response", {}))
+    return grounding.inspect_continuation(
+        "20 seconds of boxing",
+        candidate(),
+        established_activity=kwargs.pop("established", continuation_activity()),
+        direction=kwargs.pop("direction", "after"),
+        **kwargs,
+    )
+
+
+def test_continuation_uses_own_contract_and_locked_interpretation(fake):
+    metrics = {}
+    results, error = continue_call(fake, diagnostics=metrics)
+    assert error is None
+    value = results["a"]
+    assert value["intent"] == "broad_activity"
+    assert value["requested_duration_seconds"] == 20
+    assert value["continuity"] == "same_activity"
+    assert value["intervals"][0]["end_frame"] == 480
+    assert not value["intervals"][0]["continues_after"]
+    assert metrics["contract_version"] == grounding.CONTINUATION_VERSION
+    assert metrics["candidates"][0]["direction"] == "after"
+    request = fake.calls[0]
+    prompt = request["contents"][-1]
+    assert '"locked_intent": "broad_activity"' in prompt
+    assert '"requested_edit_frames": 600' in prompt
+    assert '"overlap_local_start_seconds": 1.0' in prompt
+    assert "Do not search for another occurrence" in prompt
+    properties = request["config"].response_schema["properties"]["results"]["items"][
+        "properties"
+    ]
+    assert "intent" not in properties and "requested_duration_seconds" not in properties
+    assert properties["intervals"]["maxItems"] == 1
+    cached, error = grounding.inspect_continuation(
+        "20 seconds of boxing",
+        candidate(),
+        established_activity=continuation_activity(),
+        direction="after",
+    )
+    assert error is None and cached == results and len(fake.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("continuity", "different_activity"),
+        ("continuity", "uncertain"),
+        ("continuity_evidence", ""),
+        ("continuity_evidence", " "),
+        ("continuity_evidence", None),
+    ],
+)
+def test_temporal_overlap_without_semantic_connection_is_rejected(fake, field, value):
+    results, error = continue_call(fake, response={field: value})
+    assert not results and error.inspection_code == "continuity_unsupported"
+    assert not fake.cache
+
+
+@pytest.mark.parametrize("start,end", [(4, 6), (0, 1.5), (1.5, 2.5)])
+def test_later_or_incomplete_overlap_cannot_replace_activity(fake, start, end):
+    response = continuation_row()
+    response["intervals"][0].update(start_seconds=start, end_seconds=end)
+    results, error = continue_call(fake, response=response)
+    assert not results and error.inspection_code == "continuity_unsupported"
+
+
+@pytest.mark.parametrize(
+    "start,end", [(-0.1, 6), (1, 8.1), (2, 1), (True, 6), (1, float("nan"))]
+)
+def test_continuation_keeps_strict_timestamp_rejection(fake, start, end):
+    response = continuation_row()
+    response["intervals"][0].update(start_seconds=start, end_seconds=end)
+    results, error = continue_call(fake, response=response)
+    assert not results and error is not None and not fake.cache
+
+
+def test_continuation_uncertain_boundary_stays_partial(fake):
+    results, error = continue_call(fake, response={"boundary_outcome": "uncertain"})
+    assert error is None
+    span = results["a"]["intervals"][0]
+    assert span["continues_after"] and span["boundary_conflict_after"]
+    assert (span["start_frame"], span["end_frame"]) == (330, 480)
+
+
+@pytest.mark.parametrize("outcome,end", [("continues", 6), ("observed_stop", 8)])
+def test_inconsistent_boundary_outcomes_fail_closed(fake, outcome, end):
+    response = continuation_row(boundary_outcome=outcome)
+    response["intervals"][0]["end_seconds"] = end
+    diagnostics = {}
+    results, error = continue_call(fake, response=response, diagnostics=diagnostics)
+    assert not results and error.inspection_code == "boundary_conflict"
+    detail = diagnostics["errors"][-1]
+    assert detail["reason"] == (
+        "continuation_edge_missing" if outcome == "continues" else "crop_edge_not_stop"
+    )
+    assert detail["proposed_interval"]["end_seconds"] == end
+    assert detail["proposed_interval"]["boundary_outcome"] == outcome
+    assert "continuity_evidence" not in detail["proposed_interval"]
+
+
+def test_continuation_to_crop_edge_is_partial_until_source_edge(fake):
+    response = continuation_row(boundary_outcome="continues")
+    response["intervals"][0]["end_seconds"] = 8
+    results, error = continue_call(fake, response=response)
+    assert error is None and results["a"]["intervals"][0]["continues_after"]
+    results, error = grounding.inspect_continuation(
+        "20 seconds of boxing",
+        candidate(asset_frames=540),
+        established_activity=continuation_activity(),
+        direction="after",
+    )
+    assert error is None and not results["a"]["intervals"][0]["continues_after"]
+
+
+def test_continuation_before_extends_only_the_existing_onset(fake):
+    response = continuation_row(boundary_outcome="observed_stop")
+    response["intervals"][0].update(start_seconds=0.5, end_seconds=3)
+    results, error = continue_call(fake, direction="before", response=response)
+    assert error is None
+    assert results["a"]["intervals"][0]["start_frame"] == 315
+    assert not results["a"]["intervals"][0]["continues_before"]
+
+
+@pytest.mark.parametrize("direction,start,end", [("after", 1, 2.9), ("before", 1.1, 3)])
+def test_observed_stop_cannot_shrink_previously_established_activity(
+    fake, direction, start, end
+):
+    response = continuation_row(boundary_outcome="observed_stop")
+    response["intervals"][0].update(start_seconds=start, end_seconds=end)
+    results, error = continue_call(fake, direction=direction, response=response)
+    assert not results and error.inspection_code == "boundary_conflict"
+    assert not fake.cache
+
+
+@pytest.mark.parametrize("direction,start,end", [("after", 1, 3), ("before", 1, 3)])
+def test_observed_stop_may_confirm_the_exact_previously_established_edge(
+    fake, direction, start, end
+):
+    response = continuation_row(boundary_outcome="observed_stop")
+    response["intervals"][0].update(start_seconds=start, end_seconds=end)
+    results, error = continue_call(fake, direction=direction, response=response)
+    assert error is None
+    assert not results["a"]["intervals"][0]["continues_" + direction]
+
+
+@pytest.mark.parametrize(
+    "change", ["direction", "intent", "duration", "established", "evidence", "version"]
+)
+def test_continuation_cache_identity_tracks_contract_and_established_activity(
+    fake, monkeypatch, change
+):
+    spec = grounding.InspectionCandidate(*candidate())
+    established = continuation_activity()
+    original = grounding.continuation_cache_key("boxing", spec, established, "after")
+    discovery = grounding.cache_key("boxing", spec)
+    direction = "after"
+    if change == "direction":
+        direction = "before"
+    elif change == "intent":
+        established["intent"] = "specific_move"
+    elif change == "duration":
+        established["requested_frames"] = 90
+    elif change == "established":
+        established["end_frame"] += 1
+    elif change == "evidence":
+        established["visible_evidence"] = "Different supported evidence."
+    else:
+        monkeypatch.setattr(grounding, "CONTINUATION_VERSION", "new-continuation")
+    assert (
+        grounding.continuation_cache_key("boxing", spec, established, direction)
+        != original
+    )
+    assert grounding.cache_key("boxing", spec) == discovery
+
+
+def test_continuation_does_not_reuse_general_discovery_cache(fake):
+    spec = grounding.InspectionCandidate(*candidate())
+    historical = {
+        "decision": "no_match",
+        "intervals": [],
+        "intent": "specific_move",
+        "requested_duration_seconds": None,
+    }
+    fake.cache[grounding.cache_key("20 seconds of boxing", spec)] = historical
+    results, error = continue_call(fake)
+    assert error is None and results
+    assert len(fake.calls) == 1 and len(fake.cache) == 2
+    assert fake.cache[grounding.cache_key("20 seconds of boxing", spec)] == historical

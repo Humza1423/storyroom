@@ -170,6 +170,7 @@ def worker(monkeypatch):
             "visual_proxy_hash": "hash",
         },
         lookups=[],
+        requests=[],
     )
 
     def one(sql, params):
@@ -179,8 +180,9 @@ def worker(monkeypatch):
     def execute(sql, params):
         state.stored = json.loads(params[0])
 
-    def inspect(query, specs, **kwargs):
-        state.calls.append(specs)
+    def inspect(query, spec, **kwargs):
+        state.calls.append([spec])
+        state.requests.append(copy.deepcopy(kwargs))
         reply = state.rows.pop(0) if state.rows else interval(120, 420)
         return {
             "c0": {
@@ -188,13 +190,15 @@ def worker(monkeypatch):
                 "requested_duration_seconds": None,
                 "decision": "match",
                 "intervals": [reply],
+                "continuity": "same_activity",
+                "continuity_evidence": "The same boxer keeps punching through the overlap.",
             }
         }, state.error
 
     monkeypatch.setattr(activities.db, "one", one)
     monkeypatch.setattr(activities.db, "execute", execute)
     monkeypatch.setattr(activities.media, "sha256_file", lambda path: "hash")
-    monkeypatch.setattr(activities.grounding, "inspect_ranges", inspect)
+    monkeypatch.setattr(activities.grounding, "inspect_continuation", inspect)
     state.job = {
         "id": "job",
         "project_id": "project",
@@ -203,6 +207,7 @@ def worker(monkeypatch):
                 "query": "boxing",
                 "candidates": [result(interval(0, 240, after=True))],
                 "contract_version": grounding.VERSION,
+                "continuation_contract_version": grounding.CONTINUATION_VERSION,
             }
         ),
         "result": None,
@@ -219,6 +224,9 @@ def test_continuation_uses_30_seconds_and_four_seconds_overlap(worker):
     assert (spec[3], spec[4]) == (120, 240)
     assert output["visual_results"][0]["activity"]["end_frame"] == 420
     assert output["visual_results"][0]["activity"]["complete"]
+    assert worker.requests[0]["direction"] == "after"
+    assert worker.requests[0]["established_activity"]["start_frame"] == 0
+    assert worker.requests[0]["established_activity"]["end_frame"] == 240
 
 
 def test_continuation_clears_only_the_reinspected_boundary_conflict(worker):
@@ -257,6 +265,68 @@ def test_old_inspection_job_keeps_partial_results_without_mixing_contracts(
     assert worker.stored["inspection_diagnostics"]["error_code"] == "contract_changed"
 
 
+@pytest.mark.parametrize("version", [None, "older-continuation"])
+def test_old_continuation_contract_never_uses_new_rules(worker, version):
+    payload = json.loads(worker.job["payload"])
+    payload["continuation_contract_version"] = version
+    worker.job["payload"] = json.dumps(payload)
+    with pytest.raises(ValueError, match="run this search again"):
+        activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
+    assert not worker.calls
+    assert worker.stored["visual_results"][0]["activity"]["end_frame"] == 240
+
+
+def test_duration_fulfillment_does_not_stop_extent_inspection(worker):
+    payload = json.loads(worker.job["payload"])
+    payload["query"] = "20 seconds of boxing"
+    payload["candidates"] = [result(interval(0, 840, after=True), requested=20)]
+    worker.job["payload"] = json.dumps(payload)
+    worker.rows = [interval(720, 1620, after=True), interval(1500, 1740)]
+    output = activities.continue_inspection(
+        worker.job, lambda: False, lambda *args: None
+    )
+    assert len(worker.calls) == 2
+    assert all(
+        request["established_activity"]["requested_frames"] == 600
+        for request in worker.requests
+    )
+    activity = output["visual_results"][0]["activity"]
+    assert activity["end_frame"] == 1740 and activity["complete"]
+    assert (
+        output["visual_results"][0]["end_frame"]
+        - output["visual_results"][0]["start_frame"]
+        == 600
+    )
+
+
+@pytest.mark.parametrize(
+    "continuity,evidence",
+    [
+        ("different_activity", "Another action follows."),
+        ("uncertain", "Cannot link them."),
+        ("same_activity", ""),
+    ],
+)
+def test_worker_defends_against_overlap_without_semantic_connection(
+    worker, monkeypatch, continuity, evidence
+):
+    def inspect(*args, **kwargs):
+        return {
+            "c0": {
+                "decision": "match",
+                "intervals": [interval(120, 420)],
+                "continuity": continuity,
+                "continuity_evidence": evidence,
+            }
+        }, None
+
+    monkeypatch.setattr(grounding, "inspect_continuation", inspect)
+    with pytest.raises(ValueError, match="visible evidence"):
+        activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
+    assert worker.stored["visual_results"][0]["activity"]["end_frame"] == 240
+    assert not worker.stored["visual_results"][0]["activity"]["complete"]
+
+
 def test_disjoint_action_cannot_bridge_gap(worker):
     worker.rows = [interval(600, 840)]
     with pytest.raises(ValueError, match="continuity"):
@@ -282,18 +352,18 @@ def test_completed_call_is_persisted_when_cancellation_arrives(worker):
 
 def test_quota_failure_keeps_completed_stage_and_retry_resumes(worker):
     worker.rows = [interval(120, 1020, after=True)]
-    original = activities.grounding.inspect_ranges
+    original = activities.grounding.inspect_continuation
 
     def quota_on_second(query, specs, **kwargs):
         if len(worker.calls) == 1:
-            worker.calls.append(specs)
+            worker.calls.append([specs])
             return {}, ValueError("quota")
         return original(query, specs, **kwargs)
 
     from unittest.mock import patch
 
     with (
-        patch.object(activities.grounding, "inspect_ranges", quota_on_second),
+        patch.object(activities.grounding, "inspect_continuation", quota_on_second),
         pytest.raises(ValueError),
     ):
         activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
@@ -357,7 +427,7 @@ def test_safe_validation_reason_and_partial_work_are_persisted(worker, monkeypat
         )
         return {}, SafeFailure("private provider content must not be stored")
 
-    monkeypatch.setattr(activities.grounding, "inspect_ranges", inspect)
+    monkeypatch.setattr(activities.grounding, "inspect_continuation", inspect)
     with pytest.raises(ValueError, match="Returned times fall outside"):
         activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
     assert worker.stored["visual_results"][0]["activity"]["end_frame"] == 240

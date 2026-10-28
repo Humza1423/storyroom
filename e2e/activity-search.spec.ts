@@ -3,7 +3,11 @@ import { execFileSync } from "node:child_process";
 import { activityBounds } from "../src/features/preview/visualRange";
 import type { VisualCandidate } from "../src/types";
 import { activityPresentation } from "../src/features/library/activityPresentation";
-import { createVisualRange } from "../src/features/preview/visualRange";
+import {
+  createVisualRange,
+  moveVisualHandle,
+  selectEstablishedActivity,
+} from "../src/features/preview/visualRange";
 import { refreshVisualEvidence } from "../src/features/preview/refreshVisualEvidence";
 
 const candidate: VisualCandidate = {
@@ -162,7 +166,7 @@ test("updated activity evidence preserves manual draft frames and rejects unrela
   const refreshed = refreshVisualEvidence(draft, [updated], 900);
   expect(refreshed.candidate).toBe(updated);
   expect([refreshed.selectedStart, refreshed.selectedEnd]).toEqual([160, 290]);
-  expect(refreshed.contextEnd).toBe(810);
+  expect(refreshed.contextEnd).toBe(900);
   expect(draft.candidate).toBe(candidate);
   expect(refreshVisualEvidence(draft, [{ ...updated, id: "other" }], 900)).toBe(
     draft,
@@ -173,6 +177,22 @@ test("updated activity evidence preserves manual draft frames and rejects unrela
   expect(
     refreshVisualEvidence(draft, [{ ...updated, end_frame: 901 }], 900),
   ).toBe(draft);
+});
+
+test("full activity handles and full selection use established frames, not suggested context", () => {
+  const range = createVisualRange(candidate, 900)!;
+  expect([range.contextStart, range.contextEnd]).toEqual([60, 660]);
+  expect(moveVisualHandle(range, "in", -1).selectedStart).toBe(60);
+  expect(moveVisualHandle(range, "out", 999).selectedEnd).toBe(660);
+  const full = selectEstablishedActivity(range);
+  expect([full.selectedStart, full.selectedEnd]).toEqual([60, 660]);
+  const expanded = refreshVisualEvidence(
+    full,
+    [{ ...candidate, activity: { ...candidate.activity!, end_frame: 900 } }],
+    900,
+  );
+  expect([expanded.selectedStart, expanded.selectedEnd]).toEqual([60, 660]);
+  expect(expanded.contextEnd).toBe(900);
 });
 
 test("activity playback rejects invalid bounds and ranges excluding the selected cut", () => {
@@ -194,6 +214,15 @@ test("activity playback rejects invalid bounds and ranges excluding the selected
         720,
       ),
     ).toBeNull();
+    expect(
+      createVisualRange(
+        {
+          ...candidate,
+          activity: { ...candidate.activity!, start_frame, end_frame },
+        },
+        720,
+      ),
+    ).toBeNull();
   }
   expect(activityBounds({ ...candidate, activity: undefined }, 720)).toBeNull();
 });
@@ -202,6 +231,7 @@ test("suggested cut, activity and source previews preserve independent saved cut
   page,
   request,
 }) => {
+  page.setDefaultTimeout(15000);
   const fixture = `${process.env.STORYROOM_FIXTURES}/activity-24s.mp4`;
   execFileSync("ffmpeg", [
     "-nostdin",
@@ -331,15 +361,16 @@ test("suggested cut, activity and source previews preserve independent saved cut
   };
   page.on("request", recordPreviewWrite);
   await page
-    .getByRole("button", { name: "Preview suggested cut visual match 1" })
+    .getByRole("button", {
+      name: "Review activity & choose cut visual match 1",
+    })
     .click();
-  await expect(page.locator(".assembly-controls span")).toContainText("/ 5.0s");
+  await expect(page.locator(".assembly-controls span")).toContainText(
+    "/ 20.0s",
+  );
   await expect(
     page.getByRole("slider", { name: "Selected cut in frame" }),
   ).toHaveValue("150");
-  await page
-    .getByRole("button", { name: "Review activity", exact: true })
-    .click();
   await expect(page.locator(".assembly-controls span")).toContainText(
     "/ 20.0s",
   );
@@ -375,7 +406,7 @@ test("suggested cut, activity and source previews preserve independent saved cut
   await expect(page.locator(".assembly-controls span")).toContainText(
     "/ 24.0s",
   );
-  await page.getByRole("button", { name: "Return to match preview" }).click();
+  await page.getByRole("button", { name: "Return to selected cut" }).click();
   await expect(page.locator(".assembly-controls span")).toContainText("/ 5.0s");
   await expect(
     page.getByRole("slider", { name: "Selected cut in frame" }),
@@ -386,7 +417,39 @@ test("suggested cut, activity and source previews preserve independent saved cut
   page.off("request", recordPreviewWrite);
   expect(previewWrites).toEqual([]);
   await page
-    .getByRole("button", { name: "Quick add to Storybin", exact: true })
+    .getByRole("button", { name: "Review before adding", exact: true })
+    .click();
+  await expect(page.locator(".clip-row")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Select full activity", exact: true })
+    .click();
+  await expect(
+    page.getByRole("slider", { name: "Selected cut in frame" }),
+  ).toHaveValue("60");
+  await expect(
+    page.getByRole("slider", { name: "Selected cut out frame" }),
+  ).toHaveValue("660");
+  await page
+    .getByRole("spinbutton", { name: "Selected cut start frame number" })
+    .fill("60");
+  await page.getByRole("slider", { name: "Selected cut in frame" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await page
+    .getByRole("spinbutton", { name: "Selected cut end frame number" })
+    .fill("660");
+  await page
+    .getByRole("spinbutton", { name: "Selected cut end frame number" })
+    .press("Enter");
+  await page.getByRole("slider", { name: "Selected cut out frame" }).focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(
+    page.getByRole("slider", { name: "Selected cut out frame" }),
+  ).toHaveValue("659");
+  await expect(page.getByLabel("Selected cut frame summary")).toContainText(
+    "598 frames",
+  );
+  await page
+    .getByRole("button", { name: "Add selected cut to Storybin" })
     .click();
   await expect
     .poll(
@@ -394,10 +457,24 @@ test("suggested cut, activity and source previews preserve independent saved cut
         (await (await request.get(`/api/projects/${projectId}`)).json())
           .board[0].selections[0],
     )
-    .toMatchObject({ start_frame: 150, end_frame: 300 });
+    .toMatchObject({ start_frame: 61, end_frame: 659 });
   await page
     .getByRole("button", { name: "Drag visual match" })
     .dragTo(page.locator(".story-section").first());
+  await expect(page.locator(".clip-row")).toHaveCount(1);
+  // Reopening the same result retains the draft; choose a different range explicitly.
+  await expect(
+    page.getByRole("slider", { name: "Selected cut in frame" }),
+  ).toHaveValue("61");
+  await page
+    .getByRole("spinbutton", { name: "Selected cut start frame number" })
+    .fill("150");
+  await page
+    .getByRole("spinbutton", { name: "Selected cut end frame number" })
+    .fill("300");
+  await page
+    .getByRole("button", { name: "Add selected cut to Storybin" })
+    .click();
   await expect
     .poll(
       async () =>
@@ -445,6 +522,7 @@ test("suggested cut, activity and source previews preserve independent saved cut
                         end_frame: 330,
                         activity: {
                           ...candidate.activity,
+                          end_frame: 720,
                           complete: completedJob,
                           inspection_job_id: "activity-job",
                         },
@@ -464,12 +542,13 @@ test("suggested cut, activity and source previews preserve independent saved cut
     "Checking more footage",
   );
   await page
-    .getByRole("button", { name: "Preview suggested cut visual match 1" })
+    .getByRole("button", {
+      name: "Review activity & choose cut visual match 1",
+    })
     .click();
-  await page.getByRole("slider", { name: "Selected cut in frame" }).fill("160");
   await page
-    .getByRole("slider", { name: "Selected cut out frame" })
-    .fill("290");
+    .getByRole("button", { name: "Select activity found so far" })
+    .click();
   completedJob = true;
   await expect(page.locator(".moment-card .filename").first()).toContainText(
     "6.0–11.0s",
@@ -481,10 +560,22 @@ test("suggested cut, activity and source previews preserve independent saved cut
   );
   await expect(
     page.getByRole("slider", { name: "Selected cut in frame" }),
-  ).toHaveValue("160");
+  ).toHaveValue("60");
   await expect(
     page.getByRole("slider", { name: "Selected cut out frame" }),
-  ).toHaveValue("290");
+  ).toHaveValue("660");
+  await expect(
+    page.getByRole("slider", { name: "Selected cut out frame" }),
+  ).toHaveAttribute("max", "720");
+  await page
+    .getByRole("spinbutton", { name: "Selected cut start frame number" })
+    .fill("160");
+  await page
+    .getByRole("spinbutton", { name: "Selected cut end frame number" })
+    .fill("290");
+  await page
+    .getByRole("spinbutton", { name: "Selected cut end frame number" })
+    .press("Enter");
   await expect(
     page
       .getByRole("alert")
@@ -501,7 +592,7 @@ test("suggested cut, activity and source previews preserve independent saved cut
       ],
     ),
   ).toEqual([
-    [150, 300],
+    [61, 659],
     [150, 300],
   ]);
   // Failed continuation keeps the same confirmed proposal, not a no-match result.
@@ -541,17 +632,18 @@ test("suggested cut, activity and source previews preserve independent saved cut
   await expect(page.locator(".clip-row")).toHaveCount(2);
   const saved = await (await request.get(`/api/projects/${projectId}`)).json();
   expect(saved.board[0].selections[0]).toMatchObject({
-    start_frame: 150,
-    end_frame: 300,
+    start_frame: 61,
+    end_frame: 659,
   });
 
   // Exercise all duration messages in the browser over the real prepared source.
   let durationEnd = 660;
+  let durationCase = "fulfilled";
   let durationComplete = true;
   let durationJobStatus = "done";
   const durationResult = (): VisualCandidate => ({
     ...candidate,
-    id: "duration-result",
+    id: `duration-result-${durationCase}`,
     asset_id: details.assets[0].id,
     start_frame: 0,
     end_frame: Math.min(600, durationEnd),
@@ -607,6 +699,7 @@ test("suggested cut, activity and source previews preserve independent saved cut
     "checking",
     "failed",
   ] as const) {
+    durationCase = state;
     durationEnd = state === "fulfilled" ? 660 : 240;
     durationComplete = state === "fulfilled" || state === "shortfall";
     durationJobStatus = durationComplete
@@ -624,7 +717,9 @@ test("suggested cut, activity and source previews preserve independent saved cut
           : "Requested duration is not yet confirmed.";
     await expect(card).toContainText(expectedDuration);
     await page
-      .getByRole("button", { name: "Preview suggested cut visual match 1" })
+      .getByRole("button", {
+        name: "Review activity & choose cut visual match 1",
+      })
       .click();
     const status = page.getByLabel("Activity inspection status");
     await expect(status).toContainText(expectedDuration);
@@ -657,4 +752,64 @@ test("suggested cut, activity and source previews preserve independent saved cut
         });
     }
   }
+  // Drag is a destination proposal, not a write or a dependence on later focus.
+  const beforeDestination = await (
+    await request.get(`/api/projects/${projectId}`)
+  ).json();
+  await page
+    .getByRole("button", { name: "Add story section", exact: true })
+    .click();
+  await page.getByLabel("Section title").fill("Alternate destination");
+  await page.getByRole("button", { name: "Save section", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Drag visual match", exact: true })
+    .dragTo(page.locator(".story-section").nth(1));
+  await expect(page.locator(".visual-add-destination")).toContainText(
+    "Alternate destination",
+  );
+  const pending = await (
+    await request.get(`/api/projects/${projectId}`)
+  ).json();
+  expect(pending.board[1].selections).toEqual([]);
+  await page
+    .getByRole("button", { name: "Select Storybin Training", exact: true })
+    .click();
+  await expect(page.locator(".visual-add-destination")).toContainText(
+    "Alternate destination",
+  );
+  await page
+    .getByRole("button", { name: "Add selected cut to Storybin", exact: true })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(`/api/projects/${projectId}`)).json())
+          .board[1].selections[0],
+    )
+    .toMatchObject({ start_frame: 0, end_frame: 240 });
+  const afterDestination = await (
+    await request.get(`/api/projects/${projectId}`)
+  ).json();
+  expect(afterDestination.board[0].selections).toEqual(
+    beforeDestination.board[0].selections,
+  );
+  await page
+    .locator(".story-section")
+    .nth(1)
+    .getByRole("button", { name: "Remove section", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: "Add selected cut to Storybin",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await page.reload();
+  await expect(page.locator(".clip-row")).toHaveCount(
+    beforeDestination.board[0].selections.length,
+  );
+  expect(
+    (await (await request.get(`/api/projects/${projectId}`)).json()).board[0]
+      .selections,
+  ).toEqual(beforeDestination.board[0].selections);
 });
