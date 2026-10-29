@@ -30,6 +30,14 @@ and [THIRD_PARTY](THIRD_PARTY.md) cover model experiments and licensing boundari
 
 Current checkpoint: Gemini-first activity-search preview on
 `codex/gemini-activity-search`, draft PR #6 stacked on evaluation PR #5.
+Latest continuation follow-up: read [S1e evidence](CONTINUATION_S1E_EVALUATION.md).
+The exact prepared-copy worker reaches badminton 0–900 and selects 0–600 after
+a bounded stop recheck; display-rounded endpoints now validate safely. The new
+8-attempt allowance is exhausted (97.83 video seconds). Later jacks still ends
+three frames early; independent review found the historical push-up label omits
+the rise. Preserve history and keep S1 open; do not start S2 or make more calls
+from either exhausted ledger. The normal session proxy differs from the tested
+prepared copy, and its new Visual AI/Resolve demonstration remains unverified.
 Read the latest STATUS entry and [GEMINI_ACTIVITY_EVALUATION](GEMINI_ACTIVITY_EVALUATION.md)
 before the historical foundation summary below. The frozen eight-video/24-query
 test is complete but fails quality targets; do not claim the AI completion plan

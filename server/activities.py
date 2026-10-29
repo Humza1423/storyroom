@@ -11,7 +11,7 @@ import json
 from . import config, db, grounding, media
 from .localization import candidate_context
 
-VERSION = "activity-v4-unresolved-boundary-conflicts"
+VERSION = "activity-v5-short-stop-recheck"
 CHUNK = 30 * config.FPS
 OVERLAP = 4 * config.FPS
 
@@ -248,12 +248,17 @@ def continue_inspection(job, cancelled, progress):
     saved = json.loads(job["result"]) if job.get("result") else {}
     candidates = copy.deepcopy(saved.get("visual_results", payload["candidates"]))
     totals = saved.get("inspection_diagnostics", {})
+    # At most one accepted probe per candidate/direction, including after resume.
+    # Later suspicious stops stay partial. Completed evidence is
+    # saved before applying it so cancellation/retry cannot repeat an accepted call.
+    rechecks = saved.get("stop_rechecks", {})
 
     def persist():
         result = {
             "visual_results": distinct_activities(candidates),
             "query": payload["query"],
             "inspection_diagnostics": totals,
+            "stop_rechecks": rechecks,
         }
         db.execute(
             "UPDATE jobs SET result=? WHERE id=?", (json.dumps(result), job["id"])
@@ -303,14 +308,37 @@ def continue_inspection(job, cancelled, progress):
             raise ValueError("Playback proxy changed; reindex this clip.")
         a = candidate["activity"]
         while not a["complete"]:
+            scheduled_recheck = False
             if cancelled():
                 stop("cancelled", "Activity inspection cancelled.", cancelled=True)
             progress(
                 0,
                 f"Inspecting activity around {a['start_frame'] / 30:.1f}–{a['end_frame'] / 30:.1f}s",
             )
-            before = a["continues_before"]
-            if before:
+            probe_key = next(
+                (
+                    key
+                    for key in (a["id"] + ":before", a["id"] + ":after")
+                    if rechecks.get(key, {}).get("status")
+                    in ("pending", "verified", "uncertain", "exhausted")
+                ),
+                None,
+            )
+            probe = rechecks.get(probe_key) if probe_key else None
+            if probe and probe["status"] == "exhausted":
+                stop(
+                    "boundary_uncertain",
+                    "This activity direction used its one short stop recheck; retained partial footage.",
+                )
+            if probe and probe["status"] == "uncertain":
+                stop(
+                    "boundary_uncertain",
+                    "Activity stop remains uncertain after its short recheck; retained partial footage.",
+                )
+            before = probe["direction"] == "before" if probe else a["continues_before"]
+            if probe:
+                left, right, anchor_left, anchor_right = probe["frames"]
+            elif before:
                 right = min(asset["frames"], a["start_frame"] + OVERLAP)
                 left = max(0, right - CHUNK)
                 anchor_left, anchor_right = a["start_frame"], min(a["end_frame"], right)
@@ -329,15 +357,18 @@ def continue_inspection(job, cancelled, progress):
                 right,
             )
             diagnostics = {}
-            verdicts, error = grounding.inspect_continuation(
-                payload["query"],
-                spec,
-                established_activity=a,
-                direction="before" if before else "after",
-                job_id=job["id"],
-                cancelled=cancelled,
-                diagnostics=diagnostics,
-            )
+            if probe and probe["status"] == "verified":
+                verdicts, error = {"c0": probe["verdict"]}, None
+            else:
+                verdicts, error = grounding.inspect_continuation(
+                    payload["query"],
+                    spec,
+                    established_activity=a,
+                    direction="before" if before else "after",
+                    job_id=job["id"],
+                    cancelled=cancelled,
+                    diagnostics=diagnostics,
+                )
             _merge_diagnostics(totals, diagnostics)
             persist()
             verdict = verdicts.get("c0")
@@ -380,6 +411,17 @@ def continue_inspection(job, cancelled, progress):
                     - max(i["start_frame"], anchor_left)
                 ),
             )
+            if probe:
+                probe.update(status="verified", verdict=verdict)
+                persist()
+                if cancelled() or isinstance(error, InterruptedError):
+                    stop("cancelled", "Activity inspection cancelled.", cancelled=True)
+                if error:
+                    raise ValueError(
+                        getattr(
+                            error, "safe_message", "Activity inspection incomplete."
+                        )
+                    )
             old = (a["start_frame"], a["end_frame"])
             if before:
                 a["start_frame"] = min(a["start_frame"], interval["start_frame"])
@@ -393,8 +435,53 @@ def continue_inspection(job, cancelled, progress):
                 a["boundary_conflict_after"] = interval.get(
                     "boundary_conflict_after", False
                 )
+            if probe:
+                probe["status"] = "complete"
+            elif (
+                a["intent"] == "broad_activity"
+                and verdict.get("boundary_outcome") == "observed_stop"
+            ):
+                direction = "before" if before else "after"
+                edge = a["start_frame"] if before else a["end_frame"]
+                if 0 < edge < asset["frames"]:
+                    key = a["id"] + ":" + direction
+                    previous = rechecks.get(key)
+                    a["continues_" + direction] = True
+                    _refresh(candidate)
+                    if previous:
+                        previous.update(status="exhausted", blocked_edge=edge)
+                        stop(
+                            "boundary_uncertain",
+                            "This activity direction used its one short stop recheck; retained partial footage.",
+                        )
+                    if before:
+                        probe_right = min(a["end_frame"], edge + config.FPS)
+                        probe_left = max(0, probe_right - 8 * config.FPS)
+                        anchors = (edge, probe_right)
+                    else:
+                        probe_left = max(a["start_frame"], edge - config.FPS)
+                        probe_right = min(asset["frames"], probe_left + 8 * config.FPS)
+                        anchors = (probe_left, edge)
+                    rechecks[key] = {
+                        "direction": direction,
+                        "edge": edge,
+                        "status": "pending",
+                        "frames": [probe_left, probe_right, *anchors],
+                    }
+                    scheduled_recheck = True
             _refresh(candidate)
             persist()
+            if probe and (
+                verdict.get("boundary_outcome") == "uncertain"
+                or a.get(
+                    "boundary_conflict_before" if before else "boundary_conflict_after"
+                )
+            ):
+                probe["status"] = "uncertain"
+                stop(
+                    "boundary_uncertain",
+                    "Activity stop remains uncertain after its short recheck; retained partial footage.",
+                )
             if cancelled() or isinstance(error, InterruptedError):
                 stop("cancelled", "Activity inspection cancelled.", cancelled=True)
             if error:
@@ -403,6 +490,7 @@ def continue_inspection(job, cancelled, progress):
                 )
             if (
                 old == (a["start_frame"], a["end_frame"])
+                and not scheduled_recheck
                 and not a["complete"]
                 and (a["continues_before"] if before else a["continues_after"])
             ):

@@ -171,6 +171,7 @@ def worker(monkeypatch):
         },
         lookups=[],
         requests=[],
+        outcomes=[],
     )
 
     def one(sql, params):
@@ -184,14 +185,19 @@ def worker(monkeypatch):
         state.calls.append([spec])
         state.requests.append(copy.deepcopy(kwargs))
         reply = state.rows.pop(0) if state.rows else interval(120, 420)
+        verdict = {
+            "intent": "broad_activity",
+            "requested_duration_seconds": None,
+            "decision": "match",
+            "intervals": [reply],
+            "continuity": "same_activity",
+            "continuity_evidence": "The same boxer keeps punching through the overlap.",
+        }
+        if state.outcomes:
+            verdict["boundary_outcome"] = state.outcomes.pop(0)
         return {
             "c0": {
-                "intent": "broad_activity",
-                "requested_duration_seconds": None,
-                "decision": "match",
-                "intervals": [reply],
-                "continuity": "same_activity",
-                "continuity_evidence": "The same boxer keeps punching through the overlap.",
+                **verdict,
             }
         }, state.error
 
@@ -442,3 +448,195 @@ def test_cancel_records_safe_reason_with_existing_partial_results(worker):
         activities.continue_inspection(worker.job, lambda: True, lambda *args: None)
     assert worker.stored["inspection_diagnostics"]["error_code"] == "cancelled"
     assert worker.stored["visual_results"][0]["activity"]["end_frame"] == 240
+
+
+def _premature_stop(worker, intent="broad_activity"):
+    worker.asset["frames"] = 900
+    payload = json.loads(worker.job["payload"])
+    payload["candidates"] = [result(interval(0, 195, after=True), intent=intent)]
+    worker.job["payload"] = json.dumps(payload)
+    worker.rows = [interval(75, 715), interval(685, 900)]
+    worker.outcomes = ["observed_stop", "continues"]
+
+
+def test_short_recheck_corrects_premature_broad_stop(worker, monkeypatch):
+    _premature_stop(worker)
+    original = grounding.inspect_continuation
+
+    def inspect(*args, **kwargs):
+        if worker.calls:
+            retained = worker.stored["visual_results"][0]["activity"]
+            assert retained["end_frame"] == 715
+            assert not retained["complete"]
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(grounding, "inspect_continuation", inspect)
+    output = activities.continue_inspection(
+        worker.job, lambda: False, lambda *args: None
+    )
+    assert len(worker.calls) == 2
+    assert worker.calls[0][0][6:] == (75, 900)
+    assert worker.calls[1][0][3:5] == (685, 715)
+    assert worker.calls[1][0][6:] == (685, 900)
+    activity = output["visual_results"][0]["activity"]
+    assert activity["end_frame"] == 900 and activity["complete"]
+    assert len(output["stop_rechecks"]) == 1
+
+
+def test_confirmed_short_stop_gets_exactly_one_probe(worker):
+    _premature_stop(worker)
+    worker.rows[1] = interval(685, 715)
+    worker.outcomes[1] = "observed_stop"
+    output = activities.continue_inspection(
+        worker.job, lambda: False, lambda *args: None
+    )
+    assert len(worker.calls) == 2
+    activity = output["visual_results"][0]["activity"]
+    assert activity["end_frame"] == 715 and activity["complete"]
+    resumed = {**worker.job, "result": json.dumps(output)}
+    activities.continue_inspection(resumed, lambda: False, lambda *args: None)
+    assert len(worker.calls) == 2
+
+
+def test_stop_at_existing_edge_still_gets_one_short_check(worker):
+    _premature_stop(worker)
+    worker.rows = [
+        interval(75, 195),
+        interval(165, 405, after=True),
+        interval(285, 900),
+    ]
+    worker.outcomes = ["observed_stop", "continues", "continues"]
+    output = activities.continue_inspection(
+        worker.job, lambda: False, lambda *args: None
+    )
+    assert worker.calls[1][0][3:5] == (165, 195)
+    assert worker.calls[1][0][6:] == (165, 405)
+    assert output["visual_results"][0]["activity"]["complete"]
+    assert len(worker.calls) == 3  # Long inspection, one short probe, next long chunk.
+
+
+def test_new_stop_in_same_direction_cannot_start_a_second_short_probe(worker):
+    _premature_stop(worker)
+    worker.asset["frames"] = 1800
+    worker.rows = [
+        interval(75, 715),
+        interval(685, 925, after=True),
+        interval(805, 1200),
+    ]
+    worker.outcomes = ["observed_stop", "continues", "observed_stop"]
+    with pytest.raises(ValueError, match="one short stop recheck"):
+        activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
+    assert len(worker.calls) == 3
+    activity = worker.stored["visual_results"][0]["activity"]
+    assert activity["end_frame"] == 1200 and not activity["complete"]
+    assert worker.calls[1][0][7] - worker.calls[1][0][6] == 240
+    state = next(iter(worker.stored["stop_rechecks"].values()))
+    assert state["status"] == "exhausted" and state["blocked_edge"] == 1200
+    resumed = {**worker.job, "result": json.dumps(worker.stored)}
+    with pytest.raises(ValueError, match="one short stop recheck"):
+        activities.continue_inspection(resumed, lambda: False, lambda *args: None)
+    assert len(worker.calls) == 3
+
+
+def test_recheck_cannot_merge_adjacent_disjoint_action(worker):
+    _premature_stop(worker)
+    worker.rows[1] = interval(800, 900)
+    with pytest.raises(ValueError, match="continuity"):
+        activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
+    activity = worker.stored["visual_results"][0]["activity"]
+    assert activity["end_frame"] == 715 and not activity["complete"]
+    assert len(worker.calls) == 2
+
+
+def test_recheck_uncertainty_stops_without_automatic_probe_loop(worker):
+    _premature_stop(worker)
+    worker.rows[1] = {**interval(685, 715, after=True), "boundary_conflict_after": True}
+    worker.outcomes[1] = "uncertain"
+    with pytest.raises(ValueError, match="after its short recheck"):
+        activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
+    assert len(worker.calls) == 2
+    assert not worker.stored["visual_results"][0]["activity"]["complete"]
+    resumed = {**worker.job, "result": json.dumps(worker.stored)}
+    with pytest.raises(ValueError, match="after its short recheck"):
+        activities.continue_inspection(resumed, lambda: False, lambda *args: None)
+    assert len(worker.calls) == 2
+
+
+def test_probe_quota_failure_retains_partial_and_retry_skips_long_request(
+    worker, monkeypatch
+):
+    _premature_stop(worker)
+    original = grounding.inspect_continuation
+
+    def inspect(query, spec, **kwargs):
+        if len(worker.calls) == 1:
+            worker.calls.append([spec])
+            return {}, ValueError("quota")
+        return original(query, spec, **kwargs)
+
+    monkeypatch.setattr(grounding, "inspect_continuation", inspect)
+    with pytest.raises(ValueError):
+        activities.continue_inspection(worker.job, lambda: False, lambda *args: None)
+    assert worker.stored["visual_results"][0]["activity"]["end_frame"] == 715
+    assert not worker.stored["visual_results"][0]["activity"]["complete"]
+    monkeypatch.setattr(grounding, "inspect_continuation", original)
+    resumed = {**worker.job, "result": json.dumps(worker.stored)}
+    output = activities.continue_inspection(resumed, lambda: False, lambda *args: None)
+    assert len(worker.calls) == 3
+    assert worker.calls[-1][0][6:] == (685, 900)
+    assert output["visual_results"][0]["activity"]["complete"]
+
+
+def test_cancelled_verified_probe_is_reused_without_another_call(worker):
+    _premature_stop(worker)
+    with pytest.raises(media.Cancelled):
+        activities.continue_inspection(
+            worker.job, lambda: len(worker.calls) >= 2, lambda *args: None
+        )
+    saved = copy.deepcopy(worker.stored)
+    assert saved["visual_results"][0]["activity"]["end_frame"] == 715
+    assert not saved["visual_results"][0]["activity"]["complete"]
+    assert next(iter(saved["stop_rechecks"].values()))["status"] == "verified"
+    resumed = {**worker.job, "result": json.dumps(saved)}
+    output = activities.continue_inspection(resumed, lambda: False, lambda *args: None)
+    assert len(worker.calls) == 2
+    assert output["visual_results"][0]["activity"]["end_frame"] == 900
+    assert output["visual_results"][0]["activity"]["complete"]
+
+
+def test_specific_move_stop_does_not_add_probe(worker):
+    _premature_stop(worker, intent="specific_move")
+    output = activities.continue_inspection(
+        worker.job, lambda: False, lambda *args: None
+    )
+    assert len(worker.calls) == 1
+    assert output["visual_results"][0]["activity"]["end_frame"] == 715
+    assert not output["stop_rechecks"]
+
+
+def test_source_edge_stop_does_not_add_probe(worker):
+    _premature_stop(worker)
+    worker.rows = [interval(75, 900)]
+    output = activities.continue_inspection(
+        worker.job, lambda: False, lambda *args: None
+    )
+    assert len(worker.calls) == 1
+    assert output["visual_results"][0]["activity"]["complete"]
+
+
+def test_before_stop_recheck_is_directional_and_bounded(worker):
+    _premature_stop(worker)
+    payload = json.loads(worker.job["payload"])
+    payload["candidates"] = [result(interval(600, 900, before=True))]
+    worker.job["payload"] = json.dumps(payload)
+    worker.rows = [interval(185, 720), interval(0, 215)]
+    output = activities.continue_inspection(
+        worker.job, lambda: False, lambda *args: None
+    )
+    spec = worker.calls[1][0]
+    assert spec[3:5] == (185, 215)
+    assert spec[6:] == (0, 215)
+    assert worker.requests[1]["direction"] == "before"
+    activity = output["visual_results"][0]["activity"]
+    assert activity["start_frame"] == 0 and activity["end_frame"] == 900
+    assert activity["complete"]

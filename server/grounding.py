@@ -442,6 +442,17 @@ def _number(value):
     return type(value) in (int, float) and math.isfinite(value)
 
 
+def _within_supplied_seconds(value, duration):
+    if not _number(value) or value < 0:
+        return False
+    # The prompt displays the exact frame duration to three decimals. Accept
+    # that displayed endpoint, not a general tolerance or timestamp clamp.
+    # The subsequent integer-frame check still forbids leaving the crop.
+    return value <= duration or (
+        value == float(f"{duration:.3f}") and value - duration <= 0.0005
+    )
+
+
 def _validated(candidate, value, *, cached=False):
     if not isinstance(value, dict):
         raise InspectionError("response_malformed", "Invalid inspection result")
@@ -504,7 +515,7 @@ def _validated(candidate, value, *, cached=False):
             start, end, cut_start, cut_end = values
         else:
             duration = (candidate.context_end - candidate.context_start) / config.FPS
-            if any(not _number(item) or not 0 <= item <= duration for item in values):
+            if any(not _within_supplied_seconds(item, duration) for item in values):
                 raise _interval_error(
                     "timestamp_out_of_context",
                     "Inspection seconds outside supplied video",

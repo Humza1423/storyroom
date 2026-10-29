@@ -1,6 +1,32 @@
 # Project status and release checklist
 
-Updated: 2026-10-27. Status: local development preview; release gates remain open.
+Updated: 2026-10-29. Status: local development preview; release gates remain open.
+
+## Search S1e — early stops and timestamp precision (2026-10-29)
+
+Badminton's current early stop was semantic: Gemini proposed frame 715 while
+actual footage continues. A short tail correctly reached 900, exposing a separate
+display-rounding rejection (7.167s versus exact 215/30s). Fixed that narrow
+validation case while preserving invalid timestamp rejection. Broad interior
+stops now receive one bounded short worker recheck; failure/cancellation retains
+partial footage and completed probe evidence survives retry. No schema changes.
+
+The actual worker on the exact prepared evaluation copy resumed after two HTTP
+503 attempts to activity **0–900**, complete, with requested cut **0–600**.
+New allowance consumed **8/8 attempts, 97.83/180 video seconds**, unpaid, no paid
+fallback. Historical ledger and labels remain intact. Later jacks ends at 395,
+three frames before frozen tolerance 398–404. Independent review disproved the
+historical push-up endpoint label: it cuts off the movement; continuity across
+the following camera edit is uncertain. **S1 remains OPEN; do not start S2.**
+The 6fps endpoint integration and full updated Visual AI-to-Resolve demonstration
+are unverified. [Evidence, identities, limitations and next action](CONTINUATION_S1E_EVALUATION.md).
+
+Checks: **397 backend tests passed**, including retained media regressions;
+production build passed; **39 isolated browser tests passed** (1.6m); Ruff and
+whitespace checks passed. One existing Starlette/httpx deprecation warning remains.
+Actual app source playback confirmed badminton through 30s. Existing eight clips,
+five cuts/1,413 frames and user database remain intact; SQLite quick check passed.
+GitHub CI results are reported after the verified checkpoint push on PR #6.
 
 ## Search S1d — activity extent and editor-selected frames (2026-10-27)
 

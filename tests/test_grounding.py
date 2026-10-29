@@ -103,13 +103,17 @@ def test_single_combined_request_maps_local_seconds_without_padding(fake):
     assert len(fake.calls) == 1
 
 
-def test_budget_failure_is_actionable_without_dispatching_or_leaking_details(fake, monkeypatch):
+def test_budget_failure_is_actionable_without_dispatching_or_leaking_details(
+    fake, monkeypatch
+):
     def exhausted(*_args):
         raise ValueError("Untrusted internal accounting details")
 
     monkeypatch.setattr(grounding.db, "reserve", exhausted)
     diagnostics = {}
-    results, error = grounding.inspect_ranges("kick", [candidate()], diagnostics=diagnostics)
+    results, error = grounding.inspect_ranges(
+        "kick", [candidate()], diagnostics=diagnostics
+    )
     assert not results and error.inspection_code == "budget_unavailable"
     assert "Cached results and manual editing remain available" in error.safe_message
     assert "Untrusted" not in error.safe_message
@@ -1216,3 +1220,111 @@ def test_continuation_does_not_reuse_general_discovery_cache(fake):
     assert error is None and results
     assert len(fake.calls) == 1 and len(fake.cache) == 2
     assert fake.cache[grounding.cache_key("20 seconds of boxing", spec)] == historical
+
+
+def tail_candidate():
+    # The live badminton tail has 215 source frames: 7.166666...s, displayed
+    # to Gemini as 7.167s. Keep the source offset to exercise frame conversion.
+    return ("a", Path("/opaque.mp4"), "tail-hash", 685, 715, 900, 685, 900)
+
+
+def tail_activity():
+    return {
+        "start_frame": 0,
+        "end_frame": 715,
+        "intent": "broad_activity",
+        "requested_frames": 600,
+        "visible_evidence": "The same players continue badminton on the court.",
+    }
+
+
+def tail_response(end=7.167, start=0):
+    return continuation_row(
+        boundary_outcome="continues",
+        intervals=[
+            {
+                "start_seconds": start,
+                "end_seconds": end,
+                "visible_evidence": "The players continue the same activity to the source end.",
+            }
+        ],
+    )
+
+
+def test_display_rounded_source_endpoint_maps_to_exact_frames_and_cached_result(fake):
+    fake.rows = [tail_response()]
+    result, error = grounding.inspect_continuation(
+        "20 seconds of badminton",
+        tail_candidate(),
+        established_activity=tail_activity(),
+        direction="after",
+    )
+    assert error is None
+    span = result["a"]["intervals"][0]
+    assert (span["start_frame"], span["end_frame"]) == (685, 900)
+    assert not span["continues_after"]
+    cached, error = grounding.inspect_continuation(
+        "20 seconds of badminton",
+        tail_candidate(),
+        established_activity=tail_activity(),
+        direction="after",
+    )
+    assert error is None and cached == result and len(fake.calls) == 1
+
+
+def test_captured_badminton_display_rounding_replays_without_provider_call():
+    # Replay the captured numeric endpoint only. Evidence text is a placeholder;
+    # this proves timestamp handling, not independent semantic correctness.
+    candidate = grounding.InspectionCandidate(*tail_candidate())
+    result = grounding._validated_continuation(
+        candidate, tail_response(), tail_activity(), "after"
+    )
+    assert result["intervals"][0]["end_frame"] == 900
+
+
+@pytest.mark.parametrize("end", [7.2, 7.1671, 7.1669, 7.168, float("inf")])
+def test_display_rounding_does_not_accept_other_out_of_crop_times(fake, end):
+    fake.rows = [tail_response(end=end)]
+    result, error = grounding.inspect_continuation(
+        "20 seconds of badminton",
+        tail_candidate(),
+        established_activity=tail_activity(),
+        direction="after",
+    )
+    assert not result and error.inspection_code == "timestamp_out_of_context"
+    assert not fake.cache
+
+
+@pytest.mark.parametrize("start", [-0.0001, -0.001, -1])
+def test_display_rounding_does_not_accept_negative_times(fake, start):
+    fake.rows = [tail_response(start=start)]
+    result, error = grounding.inspect_continuation(
+        "20 seconds of badminton",
+        tail_candidate(),
+        established_activity=tail_activity(),
+        direction="after",
+    )
+    assert not result and error.inspection_code == "timestamp_out_of_context"
+    assert not fake.cache
+
+
+def test_cached_display_rounding_cannot_bypass_frame_bounds(fake):
+    fake.rows = [tail_response()]
+    result, error = grounding.inspect_continuation(
+        "20 seconds of badminton",
+        tail_candidate(),
+        established_activity=tail_activity(),
+        direction="after",
+    )
+    assert error is None and result
+    key = next(iter(fake.cache))
+    fake.cache[key]["intervals"][0]["end_frame"] = 901
+    fake.rows = [tail_response(end=7.2)]
+    result, error = grounding.inspect_continuation(
+        "20 seconds of badminton",
+        tail_candidate(),
+        established_activity=tail_activity(),
+        direction="after",
+    )
+    assert not result and error.inspection_code == "timestamp_out_of_context"
+    assert len(fake.calls) == 2
