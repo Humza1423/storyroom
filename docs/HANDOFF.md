@@ -28,6 +28,48 @@ and [THIRD_PARTY](THIRD_PARTY.md) cover model experiments and licensing boundari
 
 ## Next entry point
 
+Current checkpoint: Gemini-first activity-search preview on
+`codex/gemini-activity-search`, draft PR #6 stacked on evaluation PR #5.
+Latest continuation follow-up: read [S1e evidence](CONTINUATION_S1E_EVALUATION.md).
+The exact prepared-copy worker reaches badminton 0–900 and selects 0–600 after
+a bounded stop recheck; display-rounded endpoints now validate safely. The new
+8-attempt allowance is exhausted (97.83 video seconds). Later jacks still ends
+three frames early; independent review found the historical push-up label omits
+the rise. Preserve history and keep S1 open; do not start S2 or make more calls
+from either exhausted ledger. The normal session proxy differs from the tested
+prepared copy, and its new Visual AI/Resolve demonstration remains unverified.
+Read the latest STATUS entry and [GEMINI_ACTIVITY_EVALUATION](GEMINI_ACTIVITY_EVALUATION.md)
+before the historical foundation summary below. The frozen eight-video/24-query
+test is complete but fails quality targets; do not claim the AI completion plan
+passed. S1a diagnostics, S1b independent recognition/edit duration, and S1c partial
+boundary-conflict handling are implemented. Their 24-query comparison had provider
+and validation failures, worse aggregate recall/wait, and 3/5 duration successes.
+The bounded follow-up retains partial football/badminton and honest shortfall
+feedback; it does not establish a general accuracy improvement. Actual three-cut
+render/Resolve 21.1.2 import passed at 1,257 frames / 41.9s. Read the dated report.
+S1d adds independently frozen continuation cases, a separate same-activity contract
+and required full-activity review/frame selection. The 8-attempt/240-second live
+cap is exhausted (118.67 seconds supplied); strict boundary checks passed 2/4.
+Badminton remains rejected with a boundary conflict and push-up ends outside its
+reviewed bounds. **Stay on S1; do not start S2.** Read
+[activity-review evidence](ACTIVITY_REVIEW_EVALUATION.md) before further work.
+The new diagnostics can distinguish future boundary conflicts, but were added
+after this run; do not invent its missing raw timestamps or reset the call cap.
+The UI demo uses legitimate existing caches, not re-keyed comparison outputs.
+Five saved cuts render/import into Resolve at 1,413 frames / 47.1s, with the two
+new hand-sign ranges 0–79 and 1–78 preserved separately. Historical cuts remain.
+After S1: S2 complete moves, then S3 continuity/grouping in
+[AI_SEARCH_TICKETS](AI_SEARCH_TICKETS.md). Do not re-audit, integrate Qwen/ANN,
+retry failed inspections automatically, or retune the historical key.
+
+Canonical repository is now `/Users/hamzah_ali/Documents/Codex/2026-10-02/storyroom`;
+the old long path is a compatibility symlink. The demo uses port 15176/API 18767,
+`data/evaluation/gemini-fresh/session`, project **Gemini fresh validation v1**,
+eight clips. Old 12-clip evidence remains separately intact. Check the startup
+banner for code and database identity; do not infer them from the port.
+
+### Historical foundation handoff
+
 The foundation, A1–A3, real-footage checks, and Resolve handoff are merged into
 the public repository's `main` branch. [PR #1](https://github.com/Humza1423/storyroom/pull/1)
 contains the review and CI history. Read [STATUS](STATUS.md),

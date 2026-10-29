@@ -1,6 +1,219 @@
 # Project status and release checklist
 
-Updated: 2026-10-25. Status: local development preview; release gates remain open.
+Updated: 2026-10-29. Status: local development preview; release gates remain open.
+
+## Search S1e — early stops and timestamp precision (2026-10-29)
+
+Badminton's current early stop was semantic: Gemini proposed frame 715 while
+actual footage continues. A short tail correctly reached 900, exposing a separate
+display-rounding rejection (7.167s versus exact 215/30s). Fixed that narrow
+validation case while preserving invalid timestamp rejection. Broad interior
+stops now receive one bounded short worker recheck; failure/cancellation retains
+partial footage and completed probe evidence survives retry. No schema changes.
+
+The actual worker on the exact prepared evaluation copy resumed after two HTTP
+503 attempts to activity **0–900**, complete, with requested cut **0–600**.
+New allowance consumed **8/8 attempts, 97.83/180 video seconds**, unpaid, no paid
+fallback. Historical ledger and labels remain intact. Later jacks ends at 395,
+three frames before frozen tolerance 398–404. Independent review disproved the
+historical push-up endpoint label: it cuts off the movement; continuity across
+the following camera edit is uncertain. **S1 remains OPEN; do not start S2.**
+The 6fps endpoint integration and full updated Visual AI-to-Resolve demonstration
+are unverified. [Evidence, identities, limitations and next action](CONTINUATION_S1E_EVALUATION.md).
+
+Checks: **397 backend tests passed**, including retained media regressions;
+production build passed; **39 isolated browser tests passed** (1.6m); Ruff and
+whitespace checks passed. One existing Starlette/httpx deprecation warning remains.
+Actual app source playback confirmed badminton through 30s. Existing eight clips,
+five cuts/1,413 frames and user database remain intact; SQLite quick check passed.
+GitHub CI results are reported after the verified checkpoint push on PR #6.
+
+## Search S1d — activity extent and editor-selected frames (2026-10-27)
+
+**Implemented and verified selection workflow; continuation quality gate remains
+OPEN. Do not start S2.** A separate anchored continuation contract preserves the
+original activity, marked overlap, direction and intent/duration. It requires
+semantic continuity and strict timestamps; conflicting extensions leave prior
+footage usable and incomplete. Initial discovery/retrieval/model/sampling are
+unchanged. Continuation cache/job identities are independently versioned.
+
+Visual Add and drag now open review without saving. Review shows established
+activity/status, suggested cut and exact selected frames. Handles/numeric inputs
+reach the entire activity with one-frame adjustment; full-activity selection
+snapshots its current extent. Worker updates cannot enlarge a manual selection.
+Confirmation preserves the intended Storybin; deleting it requires review again.
+Legacy approximate-range review and manual editing remain available.
+Independent UI review caught a playback-state race during worker expansion:
+changed activity bounds now pause the retained video before seeking, and a browser
+regression checks actual playback state as well as the button label.
+
+The independently frozen four-case comparison consumed **8/8 generation attempts,
+118.67/240 supplied video seconds**, no retries or paid fallback. Candidate
+continuity-plus-boundary checks passed **2/4**: jacks stopped at frame 80 before
+burpees, and cooking extended to source frame 610. Badminton failed with
+`boundary_conflict`; the exact proposed timestamps/subtype were not retained in
+that run, so its cause cannot honestly be narrowed further. Push-up followed the
+anchor but ended at 710, outside reviewed 681–696. Baseline boundary checks also
+passed 2/4; its contract did not separately test continuity. This is not an
+accuracy win or a search-wide benchmark. Reported wait totals were 81.97s baseline
+and 8.99s candidate, one ordered sample each—not a proven causal speedup. Safe
+numeric conflict snapshots/reasons were added afterward for future diagnosis;
+no extra requests were made from the exhausted cap.
+[Full report and reproducible steps](ACTIVITY_REVIEW_EVALUATION.md),
+[compact evidence](evidence/continuation-v1.json).
+
+Actual Storyroom used a legitimate prior cached hand-sign result, not re-keyed
+comparison outputs. Activity **0–79** and adjusted cut **1–78** were previewed,
+confirmed into **Activity review checkpoint**, and reopened unchanged. Prior
+cooking **10–610**, push-up **636–708** and football **315–900** stayed intact.
+Assembly reached placement 5/5. Render measured **1,413 frames / 47.1s** with
+matching audio duration. Actual **Resolve 21.1.2** import into **Storyroom activity
+review 2026-10-27**, after native media-folder sandbox access, displayed all five
+matching source pairs, five video/four audio cuts, **00:00:47:03** total. The final
+adjusted clip played to the end. Visible Resolve labels were `edit.mp4`, not proven
+Storybin labels. Evidence screenshots stay ignored locally.
+
+Checks: **363 backend tests passed**, production build passed, full isolated
+browser suite **39 passed** (1.9m), fatal Ruff checks and whitespace check passed.
+Retained A2 media regressions passed in that backend suite. One existing
+Starlette/httpx warning remains. SQLite quick check passed; all eight managed
+original hashes match registration, recovery backups remain, and cached UI demo
+left usage rows at **150**. Media, database and secrets are uncommitted. Delivery
+CI is reported on PR #6 after push, not inferred from local success.
+
+Next: diagnose the remaining same-activity boundary contradiction using the new
+safe reason/snapshot evidence in a separately approved bounded experiment. Do not
+lower tolerances, rewrite the frozen key, reset the exhausted ledger, claim the
+new pipeline passed, or move to complete-movement S2 yet.
+
+## Search S1b/S1c — duration, partial evidence and actual handoff (2026-10-27)
+
+Implemented independent action recognition and requested editing duration, safe
+boundary-conflict states, clearer cut/activity/source feedback, and preserved
+manual draft frames. A numerically valid recognized span with inconsistent
+continuation flags stays **partial**, not complete; impossible timestamps remain
+rejected. Failed/cancelled continuation snapshots are reused until explicit Retry,
+so repeating a stopped search does not silently spend more calls. Storybin titles
+now select the destination; a separate pencil edits the name.
+
+**The full live comparison is not a quality or speed win.** On the unchanged
+eight-video/24-query development key, `2bd9876` returned relevant moments for
+**7/16** positives, **7/8** returned-first precision, and **3/5** correct requested
+durations (previously 1/5). Nine queries had provider failures; three more had
+validation failures. No negative returned a false clip, but only **6/8** negatives
+were verified: timeout/HTTP 500 are not successful rejections. Median total wait
+was **48.62s**, previously 10.94s; the provider-failure mix prevents attributing
+the slowdown to a particular application change. Used 39/40 allowed generation
+dispatches and 979.63/1,500 supplied video seconds, with no paid fallback.
+
+The separate `2b2e34f` follow-up used **6/8** permitted dispatches / **180.9/300**
+video seconds, including one 503 retry and one manual shortfall probe. Football
+and badminton returned relevant but fragmented/partial ranges; curls were rejected.
+Badminton continuation chose a different later occurrence, so it was rejected
+without replacing the confirmed range. Fresh initial replies had no conflicting
+boundary flags: deterministic tests establish the new conflict policy, but this
+small live follow-up does **not** prove that policy caused an accuracy improvement.
+[Full report and compact evidence](GEMINI_ACTIVITY_EVALUATION.md#s1bs1c-follow-up--2026-10-27).
+
+Actual Storyroom playback: a 20-second football cut played, was adjusted to
+**315–900**, added to **Duration checkpoint demo**, and survived reload. Prior
+**Fresh footage handoff** cuts stayed at cooking **10–610** and push-up **636–708**.
+Assembly reached clip 3/3; rendered MP4 contains **1,257 frames / 41.9s** with
+matching audio duration and silent cooking. The hand-sign shortfall played all
+**79 frames / 2.63s**, with friendly informational feedback. Repeating stopped
+badminton search left usage rows at **150** and queued no new inspection.
+
+**Actual Resolve 21.1.2 import passed for this assembly.** Native media-folder
+selection granted sandbox access; XML reimport then resolved the files. The Edit
+Index displayed source in/out pairs **00:00:10–00:20:10**, **00:21:06–00:23:18**,
+**00:10:15–00:30:00**, with total **00:00:41:27** at 30 fps. Video order is cooking,
+push-up, football; cooking has no audio placement, the other two do. Football
+played through the timeline end. Resolve displays `edit.mp4` labels, so Storybin
+names were not confirmed as visible Resolve sections. Local screenshots remain
+ignored under `data/evaluation/gemini-fresh/evidence/`.
+
+Verification: **318 backend tests passed**, production build passed, full isolated
+browser suite **38 passed**. One earlier browser run failed because its two-second
+fixture finished before a Pause click; the test now checks returning to the cut
+from playing or ended source playback. Scoped rerun **9 passed**, then the full
+38 passed. Retained A2 media regressions are included. SQLite quick check passed;
+all eight input and managed-original SHA-256 hashes match their registered values.
+Recovery backups, historical keys/results, and prior cuts remain intact. No media,
+database or credentials are committed. CI for `2b2e34f` passed on both push and PR;
+final delivery CI is reported on PR #6 rather than assumed from local tests.
+
+Next: **S2 complete-move evidence**, then S3 occurrence continuity/grouping. A
+source extent marked inspected is not proof that a move includes its preparation
+and finish. Keep the preview opt-in, Gemini/exact retrieval unchanged, and do not
+retune this development set into a claimed final benchmark.
+
+## Search S1a — visible inspection failures (2026-10-27)
+
+Research and independent critic/editor/solution reviews are recorded in
+[the focused delivery tickets](AI_SEARCH_TICKETS.md). The first runtime checkpoint
+adds stable, safe validation/provider failure reasons and bounded candidate/crop
+diagnostics. Continuation jobs retain the last five diagnostic records and summed
+usage in their existing result, including cancellation and partial work. No prompt,
+model, sampling, retrieval, cache identity, acceptance rule or frame math changed.
+
+Verification: full backend suite **273 passed**; selected Ruff checks and whitespace
+check passed. One existing Starlette/httpx deprecation warning remains. No live
+provider calls in this diagnostics checkpoint; it makes no accuracy claim.
+The eight-clip **Gemini fresh validation v1** database is intact and a local,
+ignored SQLite recovery backup passed its integrity check. No source media,
+historical evaluation or accepted cut was replaced. Next: S1b separates recognition
+from requested edit duration and compares the unchanged model/crops on development
+examples. Browser and live evidence belong to that next checkpoint.
+
+## Gemini-first activity search checkpoint (2026-10-25)
+
+Current work: `codex/gemini-activity-search`, draft [PR #6](https://github.com/Humza1423/storyroom/pull/6)
+stacked on evaluation PR #5. No merge. Ticket 1's corrected baseline is complete;
+Tickets 2–3 have an implemented opt-in preview and live evidence, **not passed
+quality gates**. The earlier rabbit/obstacle-course claims below are superseded
+by [the reviewed baseline](GEMINI_SEARCH_BASELINE.md), with historical keys retained.
+
+Implemented combined Gemini relevance/timing inspection, distinct activity/cut
+ranges, resumable 30-second/4-second-overlap continuation, duration selection,
+per-stage API diagnostics, and player cut/activity/source review. Accepted cuts
+remain independent. Live use exposed a stale duplicate-card bug; completed worker
+snapshots now replace their original proposal batch, with a browser regression.
+No Qwen, ANN, paid fallback, billing change or new infrastructure.
+
+Eight new licensed clips from Commons/DVIDS/NASA completed indexing: 135 segments,
+37 embedding SDK calls. Frozen 24-query run at `2ee6d64`, Embedding 2 + unpaid
+3.5 Flash Lite: **12/16** positive top-five moment recall, **12/13** returned-first
+precision, **0/8** negative false returns, **1/5** requested-duration successes.
+Four continuations failed with partial results retained. Boundary median **0.70s**
+has only **one matched discrete label** and is not a general accuracy claim.
+43 video SDK calls, 24 text-embedding calls; initial p50 **8.61s**, total p50
+**10.94s**. One cached push-up replay took **58ms**, zero inspection requests.
+No direct speed/quality gain claim against the different older test library.
+
+Actual browser workflow: boxing activity 0–20s, suggestion 3.5–10.7s; reviewed
+activity/source, adjusted to frames **106–300**, added to a new Storybin, reopened
+unchanged, assembly reached 5/5, render measured **20.233333s**. Actual Resolve
+import, after native media-folder access, showed all five matching source ranges
+and **00:00:20:07** duration. The new push-up result was also played: relevant,
+but starts during descent, so complete-move lead-in remains imperfect.
+
+Verification: backend **239 passed** (one existing Starlette/httpx warning),
+including the frozen-key hash assertion. Production build
+passed. Full isolated browser suite **34 passed**; after the duplicate-card fix,
+focused activity browser checks **2 passed**. Existing A2 regressions remain in the
+backend suite. Initial Ubuntu CI failed on a script import; portable import fixed
+in `b94dcd1`, subsequent CI recorded on PR #6. No fake-provider result is counted
+as live search accuracy. See [full evidence, limitations and reproduction](GEMINI_ACTIVITY_EVALUATION.md).
+
+Next: fix duration/context interpretation and expose sanitized continuation
+validation reasons in one bounded comparison. Keep the experiment opt-in; no
+default promotion, prompt-tuning loop, model switch or ANN migration yet.
+
+Current demonstration server: `http://127.0.0.1:15176`, API 18767; canonical repo
+`/Users/hamzah_ali/Documents/Codex/2026-10-02/storyroom`; database
+`data/evaluation/gemini-fresh/session/storyroom.sqlite`; project **Gemini fresh
+validation v1**, **8 clips**. The older 12-clip development data remains under
+`data/evaluation/visual-search/heldout-v1/session`; 40 referred to queries, not clips.
 
 ## Full-source review from a Visual AI match (2026-10-25)
 

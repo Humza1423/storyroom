@@ -100,7 +100,7 @@ def search(project_id, query, semantic=False, limit=50):
 
 
 def search_visual(project_id, query, limit=5, trace=None, status=None, page=0,
-                  experimental_localization=False):
+                  experimental_localization=False, grounded=False):
     if type(page) is not int or not 0 <= page < MAX_VISUAL_PAGES:
         raise ValueError(f"Visual search page must be between 0 and {MAX_VISUAL_PAGES - 1}.")
     if not query.strip():
@@ -165,6 +165,26 @@ def search_visual(project_id, query, limit=5, trace=None, status=None, page=0,
     for row in rows:
         row["embedding"] = json.loads(row["embedding"])
     scored = ExactVectorIndex().search(query_vector, rows, limit=len(rows))
+    if grounded:
+        from .activities import inspect_candidates
+
+        # Motion proposals are retrieval anchors, not semantic event identities.
+        # Keep raw evidence which the legacy midpoint grouping could discard.
+        anchors = []
+        for score, row in scored:
+            if any(hit["asset_id"] == row["asset_id"] and
+                   abs((hit["start_frame"] + hit["end_frame"])
+                       - (row["start_frame"] + row["end_frame"])) < 30
+                   for hit in anchors):
+                continue
+            anchors.append({**{k: row[k] for k in ("id", "asset_id", "asset_name", "start_frame", "end_frame")},
+                            "score": score, "rank": len(anchors) + 1, "kind": "visual"})
+        shortlist, has_more = _visual_candidate_page(anchors, page)
+        target_status = status if status is not None else {}
+        target_status.update(page=page, has_more=has_more)
+        hashes = {row["asset_id"]: row["visual_proxy_hash"] for row in rows}
+        frames = {row["asset_id"]: row["frames"] for row in rows}
+        return inspect_candidates(project_id, query, shortlist, frames, hashes, target_status)
     # Keep raw cosine scores inside the ranking pipeline. The API deliberately
     # does not expose them as confidence values.
     ranked = rank_distinct_events(scored, profiles, limit=len(rows))

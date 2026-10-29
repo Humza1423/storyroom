@@ -1,0 +1,193 @@
+{
+  "study": "continuation-development-v1",
+  "date": "2026-10-27",
+  "ticket_status": "open",
+  "kind": "four-case development comparison, not a general accuracy benchmark",
+  "local_report": "data/evaluation/gemini-fresh/continuation-comparison-v1.json",
+  "local_report_sha256": "539e269f02df84026e87eca0c7edc79567a29187f3e6eeb902eee2a2e30c0898",
+  "fixture": "tests/fixtures/continuation-cases-v1.json",
+  "fixture_sha256": "0f9509835b239ccb6f23cbc25443d489115a219437bc675e14a873bc9ea8efa6",
+  "code_revision": "a78f17f74dc49b4da7a850b2419a8806aa1e23e6",
+  "runtime_sources": {
+    "server/activities.py": "5a2939c9bdd26b8313f5c5c06e928a92781b1406a6b068a762cd69d94be45e2d",
+    "server/grounding.py": "9105d22da611a1253ef51661e506b16929044108467f2fabb8e6ffa83b75864b",
+    "server/search.py": "7aeaae0b7d61d2413897dad17b68cf37fd6e87d005a12fc537a9be8d56320e2f",
+    "server/ai.py": "1e0535f9912e3e7d0e4df576e1fc837fe8979206d74bfdc8a7aa7d9dd6a38c29",
+    "server/media.py": "ae49cb97e0d754f0d039b2cf8cd8e121bc73cfb06aaeab96b79cf6f953f60084",
+    "scripts/evaluate_activity_search.py": "dfa932269ae65288b77f3226f599afc0d6c25d92dc65c7651574da84af7357f9",
+    "scripts/evaluate_continuation.py": "c0fbbae555da357c1d35e7197a21af107202b574a496dcadb17782fb7b1584db"
+  },
+  "model": "gemini-3.5-flash-lite",
+  "sampling_fps": 3,
+  "normalized_fps": 30,
+  "baseline_contract": "grounded-ranges-v4-boundary-conflict-3fps",
+  "candidate_contract": "grounded-continuation-v1-connected-activity-3fps",
+  "budget": {
+    "maximum_generation_attempts": 8,
+    "generation_attempts": 8,
+    "maximum_supplied_video_seconds": 240,
+    "supplied_video_seconds": 118.66666666666666,
+    "retries": 0,
+    "embedding_requests": 0,
+    "cache_hits": 0,
+    "tier": "unpaid",
+    "recorded_estimated_usd": 0,
+    "more_calls_authorized_by_this_comparison": false
+  },
+  "summary": {
+    "baseline_expected_boundary_passes": 2,
+    "candidate_expected_boundary_and_continuity_passes": 2,
+    "case_count": 4,
+    "baseline_semantic_continuity_tested_separately": false,
+    "provider_http_failures": 0,
+    "baseline_validation_failures": 1,
+    "candidate_validation_failures": 1,
+    "baseline_total_latency_seconds": 81.97089762595715,
+    "candidate_total_latency_seconds": 8.987270250974689,
+    "baseline_input_tokens": 14168,
+    "baseline_output_tokens": 730,
+    "candidate_input_tokens": 13629,
+    "candidate_output_tokens": 638,
+    "latency_causal_improvement_established": false
+  },
+  "cases": [
+    {
+      "id": "badminton-pause",
+      "query": "Give me 20 seconds of badminton court action.",
+      "context_frames": [75, 900],
+      "anchor_frames": [75, 195],
+      "expected_end_frame_bounds": [885, 900],
+      "baseline": {
+        "status": "inspection_failed",
+        "error_code": "anchor_unrelated",
+        "proposed_crop_seconds": [14.667, 19.667],
+        "elapsed_seconds": 35.37459358299384,
+        "input_tokens": 6084,
+        "output_tokens": 180
+      },
+      "candidate": {
+        "status": "inspection_failed",
+        "error_code": "boundary_conflict",
+        "conflict_subtype": null,
+        "proposed_interval": null,
+        "elapsed_seconds": 2.6135006669792347,
+        "input_tokens": 5941,
+        "output_tokens": 164,
+        "passed": false
+      },
+      "limitation": "The saved response diagnostics do not identify the exact boundary contradiction. Later snapshot diagnostics are not evidence of what this earlier response contained."
+    },
+    {
+      "id": "jacks-before-burpees",
+      "query": "Find the jumping jacks before he starts burpees.",
+      "context_frames": [0, 240],
+      "anchor_frames": [0, 60],
+      "expected_end_frame_bounds": [75, 86],
+      "baseline": {
+        "returned_frames": [0, 80],
+        "boundary_pass": true,
+        "elapsed_seconds": 12.820033958996646,
+        "input_tokens": 2116,
+        "output_tokens": 176
+      },
+      "candidate": {
+        "returned_frames": [0, 80],
+        "boundary_outcome": "observed_stop",
+        "continuity": "same_activity",
+        "passed": true,
+        "elapsed_seconds": 1.748955416958779,
+        "input_tokens": 1975,
+        "output_tokens": 169
+      }
+    },
+    {
+      "id": "single-pushup-before-next",
+      "query": "Show a complete push-up including going down and pushing back up.",
+      "context_frames": [600, 825],
+      "anchor_frames": [630, 660],
+      "expected_end_frame_bounds": [681, 696],
+      "baseline": {
+        "returned_frames": [710, 790],
+        "status": "disconnected_occurrence",
+        "passed": false,
+        "elapsed_seconds": 31.02033833396854,
+        "input_tokens": 2126,
+        "output_tokens": 187
+      },
+      "candidate": {
+        "returned_frames": [630, 710],
+        "boundary_outcome": "observed_stop",
+        "continuity": "same_activity",
+        "boundary_pass": false,
+        "passed": false,
+        "elapsed_seconds": 2.040200499992352,
+        "input_tokens": 1997,
+        "output_tokens": 168
+      },
+      "limitation": "Candidate covers the anchor rather than selecting the later move, but its end is 14 frames beyond the latest reviewed acceptable end. This remains a failure; model-written continuity is not independent ground truth."
+    },
+    {
+      "id": "continuous-boiling-pasta",
+      "query": "Give me 20 seconds of pasta boiling in a pot.",
+      "context_frames": [120, 610],
+      "anchor_frames": [120, 240],
+      "expected_end_frame_bounds": [600, 610],
+      "baseline": {
+        "returned_frames": [120, 610],
+        "boundary_pass": true,
+        "elapsed_seconds": 2.755931749998126,
+        "input_tokens": 3842,
+        "output_tokens": 187
+      },
+      "candidate": {
+        "returned_frames": [120, 610],
+        "boundary_outcome": "continues",
+        "continuity": "same_activity",
+        "passed": true,
+        "elapsed_seconds": 2.584613667044323,
+        "input_tokens": 3716,
+        "output_tokens": 137
+      },
+      "interpretation": "The inspected activity reaches the available source end, not an observed natural ending of boiling. Earlier established frames 0–240 remain separate input to the worker's extension."
+    }
+  ],
+  "actual_ui_demonstration": {
+    "project": "Gemini fresh validation v1",
+    "project_id": "811ae3bc316b4cbcbe02020737df236e",
+    "frontend": "http://127.0.0.1:15176/",
+    "api": "http://127.0.0.1:18767/",
+    "database": "data/evaluation/gemini-fresh/session/storyroom.sqlite",
+    "source_of_search_result": "Prior legitimate cached hand-sign shortfall result; not a re-keyed paired-comparison result",
+    "source_id": "f07",
+    "new_selections_exclusive_frames": [[0, 79], [1, 78]],
+    "prior_selections_preserved": [[10, 610], [636, 708], [315, 900]],
+    "new_storybin": "Activity review checkpoint",
+    "render_job_id": "a42e47318e094e3f98713f08b74333df",
+    "render_frames": 1413,
+    "render_seconds": 47.1,
+    "export_job_id": "28120990d67946a580a920d0d9941a88",
+    "screenshots_local_only": [
+      "data/evaluation/gemini-fresh/evidence/activity-review-frames.png",
+      "data/evaluation/gemini-fresh/evidence/activity-review-assembly.png",
+      "data/evaluation/gemini-fresh/evidence/resolve-activity-review.png"
+    ],
+    "resolve": {
+      "version": "21.1.2",
+      "project": "Storyroom activity review 2026-10-27",
+      "timeline_duration_timecode": "00:00:47:03",
+      "video_cuts": 5,
+      "audio_clips": 4,
+      "source_ranges_confirmed": [[10, 610], [636, 708], [315, 900], [0, 79], [1, 78]],
+      "initial_missing_media_resolved_by": "Native ImportMediaFolder granted sandbox access to the session/media folder; reimported XML then resolved",
+      "last_adjusted_cut_played_to_timeline_end": true,
+      "storybin_names_verified_in_resolve": false
+    }
+  },
+  "remaining_gaps": [
+    "Badminton continuation remains rejected with an unclassified boundary conflict in this saved run.",
+    "Single push-up continuation ends outside the frozen reviewed tolerance.",
+    "UI selection/render/export proof is independent of the new continuation model's quality.",
+    "Four development contexts cannot establish general accuracy, throughput or production readiness."
+  ],
+  "next_gap": "Resolve the two continuation failures with preserved diagnostics and a separately approved bounded experiment. Do not start S2 or rerun this exhausted comparison automatically."
+}

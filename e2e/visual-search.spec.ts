@@ -1,17 +1,40 @@
 import { test, expect } from "@playwright/test";
-import { createVisualRange, moveVisualHandle } from "../src/features/preview/visualRange";
+import {
+  createVisualRange,
+  moveVisualHandle,
+} from "../src/features/preview/visualRange";
 
 test("visual context and handles clamp to source frames", () => {
-  const candidate = { id: "a", asset_id: "a", start_frame: 6, end_frame: 36, rank: 1, kind: "visual" as const };
+  const candidate = {
+    id: "a",
+    asset_id: "a",
+    start_frame: 6,
+    end_frame: 36,
+    rank: 1,
+    kind: "visual" as const,
+  };
   const range = createVisualRange(candidate, 50)!;
-  expect(range).toMatchObject({ contextStart: 0, contextEnd: 50, selectedStart: 6, selectedEnd: 36 });
+  expect(range).toMatchObject({
+    contextStart: 0,
+    contextEnd: 50,
+    selectedStart: 6,
+    selectedEnd: 36,
+  });
   expect(moveVisualHandle(range, "in", -100).selectedStart).toBe(0);
   expect(moveVisualHandle(range, "out", 1000).selectedEnd).toBe(50);
   expect(moveVisualHandle(range, "in", 50).selectedStart).toBe(35);
   expect(moveVisualHandle(range, "out", -1).selectedEnd).toBe(7);
-  expect(createVisualRange({ ...candidate, start_frame: 0, end_frame: 1 }, 50)?.contextEnd).toBe(31);
-  expect(createVisualRange({ ...candidate, start_frame: 49, end_frame: 50 }, 50)?.contextStart).toBe(19);
-  expect(createVisualRange({ ...candidate, start_frame: 36, end_frame: 6 }, 50)).toBeNull();
+  expect(
+    createVisualRange({ ...candidate, start_frame: 0, end_frame: 1 }, 50)
+      ?.contextEnd,
+  ).toBe(31);
+  expect(
+    createVisualRange({ ...candidate, start_frame: 49, end_frame: 50 }, 50)
+      ?.contextStart,
+  ).toBe(19);
+  expect(
+    createVisualRange({ ...candidate, start_frame: 36, end_frame: 6 }, 50),
+  ).toBeNull();
   expect(createVisualRange({ ...candidate, end_frame: 51 }, 50)).toBeNull();
   expect(createVisualRange({ ...candidate, start_frame: -1 }, 50)).toBeNull();
 });
@@ -178,25 +201,41 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   await page.getByLabel("Search footage").fill("person doing a jumping jack");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("VISUAL MATCH · #1")).toBeVisible();
-  await page.getByRole("button", { name: "Preview & adjust visual match 1" }).click();
+  await page
+    .getByRole("button", { name: "Preview & adjust visual match 1" })
+    .click();
   for (const width of [1440, 1024, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     const layout = await page.evaluate(() => {
       const player = document.querySelector(".player")!.getBoundingClientRect();
-      const video = document.querySelector(".player video")!.getBoundingClientRect();
-      const controls = document.querySelector(".assembly-controls")!.getBoundingClientRect();
-      const editor = document.querySelector(".visual-range-editor")!.getBoundingClientRect();
-      const mode = document.querySelector(".library-tools label")!.getBoundingClientRect();
-      const analyze = document.querySelector(".library-tools button")!.getBoundingClientRect();
+      const video = document
+        .querySelector(".player video")!
+        .getBoundingClientRect();
+      const controls = document
+        .querySelector(".assembly-controls")!
+        .getBoundingClientRect();
+      const editor = document
+        .querySelector(".visual-range-editor")!
+        .getBoundingClientRect();
+      const mode = document
+        .querySelector(".library-tools label")!
+        .getBoundingClientRect();
+      const analyze = document
+        .querySelector(".library-tools button")!
+        .getBoundingClientRect();
       return {
         pageWidth: document.documentElement.scrollWidth,
         viewportWidth: window.innerWidth,
         videoFits: video.top >= player.top && video.bottom <= player.bottom,
-        controlsFit: controls.top >= player.top && controls.bottom <= player.bottom,
+        controlsFit:
+          controls.top >= player.top && controls.bottom <= player.bottom,
         controlsVisible: controls.height >= 40,
         editorFits: editor.left >= 0 && editor.right <= window.innerWidth,
-        searchToolsSeparate: mode.right <= analyze.left || analyze.right <= mode.left ||
-          mode.bottom <= analyze.top || analyze.bottom <= mode.top,
+        searchToolsSeparate:
+          mode.right <= analyze.left ||
+          analyze.right <= mode.left ||
+          mode.bottom <= analyze.top ||
+          analyze.bottom <= mode.top,
       };
     });
     expect(layout, `player layout at ${width}px`).toMatchObject({
@@ -212,28 +251,57 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   await page.setViewportSize({ width: 1440, height: 1000 });
   const writeRequests: string[] = [];
   page.on("request", (request) => {
-    if (request.method() !== "GET") writeRequests.push(`${request.method()} ${request.url()}`);
+    if (request.method() !== "GET")
+      writeRequests.push(`${request.method()} ${request.url()}`);
   });
   await expect(page.locator("video")).toBeVisible();
-  await expect(page.getByText("AI match range · approximate", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("AI match range · approximate", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(/Nearby footage · not verified/)).toBeVisible();
   await expect(page.getByText("Your selected cut")).toBeVisible();
-  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).currentTime)).toBeGreaterThan(0.15);
+  await expect
+    .poll(() =>
+      page
+        .locator("video")
+        .evaluate((v) => (v as HTMLVideoElement).currentTime),
+    )
+    .toBeGreaterThan(0.15);
   await expect(
     page.getByRole("slider", { name: "Position within selected clip" }),
   ).toBeVisible();
   await expect(page.locator(".assembly-controls span")).toContainText("/ 1.0s");
   await page.getByRole("button", { name: "View full source video" }).click();
-  await expect(page.getByText(/Full source video · not verified/)).toBeVisible();
+  await expect(
+    page.getByText(/Full source video · not verified/),
+  ).toBeVisible();
   await expect(
     page.getByRole("slider", { name: "Position in full source video" }),
   ).toBeVisible();
   await expect(page.locator(".assembly-controls span")).toContainText("/ 2.0s");
-  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).currentTime)).toBeLessThan(0.05);
+  await expect
+    .poll(() =>
+      page
+        .locator("video")
+        .evaluate((v) => (v as HTMLVideoElement).currentTime),
+    )
+    .toBeLessThan(0.05);
   await page.getByRole("button", { name: "Play full source video" }).click();
-  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).currentTime)).toBeGreaterThan(1.25);
-  await page.getByRole("button", { name: "Pause full source video" }).click();
+  await expect
+    .poll(() =>
+      page
+        .locator("video")
+        .evaluate((v) => (v as HTMLVideoElement).currentTime),
+    )
+    .toBeGreaterThan(1.25);
+  // This two-second fixture may finish before the next UI action on a busy Mac.
+  // Returning to the cut must work whether source playback is playing or ended.
   await page.getByRole("button", { name: "Return to match preview" }).click();
+  await expect
+    .poll(() =>
+      page.locator("video").evaluate((v) => (v as HTMLVideoElement).paused),
+    )
+    .toBe(true);
   await expect(
     page.getByRole("slider", { name: "Position within selected clip" }),
   ).toBeVisible();
@@ -245,7 +313,11 @@ test("visual candidates can be previewed, selected and independently trimmed", a
       .evaluate((v) => (v as HTMLVideoElement).controls),
   ).toBe(false);
   await page
-    .getByRole("button", { name: "Quick add to Storybin", exact: true })
+    .getByRole("button", { name: "Review before adding", exact: true })
+    .click();
+  await expect(page.locator(".clip-row")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Add selected cut to Storybin" })
     .click();
   await expect(page.locator(".clip-row")).toHaveCount(1);
   await page.locator(".clip-main").click();
@@ -266,11 +338,19 @@ test("visual candidates can be previewed, selected and independently trimmed", a
     })
     .toMatchObject({ moment_id: null, start_frame: 12, end_frame: 42 });
 
-  await page.getByRole("button", { name: "Preview & adjust visual match 1" }).click();
+  await page
+    .getByRole("button", { name: "Preview & adjust visual match 1" })
+    .click();
   writeRequests.length = 0;
   await page.getByRole("slider", { name: "Scrub nearby footage" }).focus();
   await page.keyboard.press("Home");
-  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).currentTime)).toBeLessThan(0.05);
+  await expect
+    .poll(() =>
+      page
+        .locator("video")
+        .evaluate((v) => (v as HTMLVideoElement).currentTime),
+    )
+    .toBeLessThan(0.05);
   await page.getByRole("slider", { name: "Selected cut in frame" }).focus();
   await page.keyboard.press("Home");
   await page.getByRole("slider", { name: "Selected cut out frame" }).focus();
@@ -279,32 +359,77 @@ test("visual candidates can be previewed, selected and independently trimmed", a
   await expect(page.locator(".assembly-controls span")).toContainText("/ 2.0s");
   expect(writeRequests).toEqual([]);
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("slider", { name: "Selected cut in frame" })).toBeVisible();
-  expect(await page.locator(".visual-range-editor").evaluate((e) => e.getBoundingClientRect().width)).toBeLessThanOrEqual(390);
+  await expect(
+    page.getByRole("slider", { name: "Selected cut in frame" }),
+  ).toBeVisible();
+  expect(
+    await page
+      .locator(".visual-range-editor")
+      .evaluate((e) => e.getBoundingClientRect().width),
+  ).toBeLessThanOrEqual(390);
   await page.getByRole("button", { name: "Play selected range" }).click();
-  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).currentTime)).toBeGreaterThan(1.9);
-  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).paused), { timeout: 5000 }).toBe(true);
-  await page.getByRole("button", { name: "Add selected cut to Storybin" }).click();
+  await expect
+    .poll(() =>
+      page
+        .locator("video")
+        .evaluate((v) => (v as HTMLVideoElement).currentTime),
+    )
+    .toBeGreaterThan(1.9);
+  await expect
+    .poll(
+      () =>
+        page.locator("video").evaluate((v) => (v as HTMLVideoElement).paused),
+      { timeout: 5000 },
+    )
+    .toBe(true);
+  await page
+    .getByRole("button", { name: "Add selected cut to Storybin" })
+    .click();
   await expect(page.locator(".clip-row")).toHaveCount(2);
-  await expect.poll(async () => {
-    const saved = await (await request.get(`/api/projects/${projectId}`)).json();
-    return saved.board[0].selections[1];
-  }).toMatchObject({ moment_id: null, start_frame: 0, end_frame: 60 });
+  await expect
+    .poll(async () => {
+      const saved = await (
+        await request.get(`/api/projects/${projectId}`)
+      ).json();
+      return saved.board[0].selections[1];
+    })
+    .toMatchObject({ moment_id: null, start_frame: 0, end_frame: 60 });
   await page.reload();
   await expect(page.locator(".clip-row")).toHaveCount(2);
-  const reopened = await (await request.get(`/api/projects/${projectId}`)).json();
-  expect(reopened.board[0].selections.map((s: { start_frame: number; end_frame: number }) => [s.start_frame, s.end_frame]))
-    .toEqual([[12, 42], [0, 60]]);
+  const reopened = await (
+    await request.get(`/api/projects/${projectId}`)
+  ).json();
+  expect(
+    reopened.board[0].selections.map(
+      (s: { start_frame: number; end_frame: number }) => [
+        s.start_frame,
+        s.end_frame,
+      ],
+    ),
+  ).toEqual([
+    [12, 42],
+    [0, 60],
+  ]);
 
   await page.getByLabel("Search mode").selectOption("visual");
   await page.getByLabel("Search footage").fill("person doing a jumping jack");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await page.getByRole("button", { name: "Drag visual match" }).dragTo(page.locator(".story-section").first());
+  await page
+    .getByRole("button", { name: "Drag visual match" })
+    .dragTo(page.locator(".story-section").first());
+  await expect(page.locator(".clip-row")).toHaveCount(2);
+  await page
+    .getByRole("button", { name: "Add selected cut to Storybin" })
+    .click();
   await expect(page.locator(".clip-row")).toHaveCount(3);
-  await expect.poll(async () => {
-    const saved = await (await request.get(`/api/projects/${projectId}`)).json();
-    return saved.board[0].selections[2];
-  }).toMatchObject({ start_frame: 6, end_frame: 36 });
+  await expect
+    .poll(async () => {
+      const saved = await (
+        await request.get(`/api/projects/${projectId}`)
+      ).json();
+      return saved.board[0].selections[2];
+    })
+    .toMatchObject({ start_frame: 6, end_frame: 36 });
 });
 
 test("visual search checks more moments without losing earlier matches", async ({

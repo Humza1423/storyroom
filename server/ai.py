@@ -74,19 +74,23 @@ def _safe_provider_error(exc):
     return f"{parts[0]}: {message}", status_code, provider_status
 
 
-def _generate_with_unpaid_503_retry(api, **kwargs):
+def _generate_with_unpaid_503_retry(api, *, on_attempt=None, **kwargs):
     """Retry one transient capacity failure; never retry a quota error.
 
     Successful first attempts incur no wait or extra request. Paid calls and
     ambiguous timeouts are deliberately not retried automatically.
     """
     try:
+        if on_attempt is not None:
+            on_attempt()
         return api.models.generate_content(**kwargs)
     except Exception as exc:
         if config.VISUAL_TIER != "unpaid" or getattr(exc, "code", None) != 503:
             raise
         log.warning("Gemini video verifier returned HTTP 503; retrying once after 2 seconds")
         time.sleep(2)
+        if on_attempt is not None:
+            on_attempt()
         return api.models.generate_content(**kwargs)
 
 

@@ -3,7 +3,12 @@ import { ImportPanel } from "./features/library/imports/ImportPanel";
 import { footageSummary } from "./features/library/imports/presentation";
 import { ProcessingPanel } from "./components/ProcessingPanel";
 import { Player } from "./features/preview/Player";
-import { createVisualRange, type VisualRange } from "./features/preview/visualRange";
+import {
+  createVisualRange,
+  activityBounds,
+  type VisualRange,
+} from "./features/preview/visualRange";
+import { refreshVisualEvidence } from "./features/preview/refreshVisualEvidence";
 import { moveSelection } from "./features/board/changes";
 import { StorySection } from "./features/board/StorySection";
 import { ClipRow } from "./features/board/ClipRow";
@@ -97,6 +102,25 @@ export default function App() {
     [trimEnd, setTrimEnd] = useState(0),
     [note, setNote] = useState("");
   const [visualRange, setVisualRange] = useState<VisualRange | null>(null);
+  // Reviewing a proposal is not a board write. Keep the intended destination
+  // stable while the editor previews footage or selects another Storybin.
+  const [visualDestination, setVisualDestination] = useState<{
+    projectId: string;
+    candidateId: string;
+    sectionId: string | null;
+  } | null>(null);
+  const [groundedSearch, setGroundedSearch] = useState(false);
+  const activityRequests = useRef(
+    new Map<
+      string,
+      {
+        epoch: number;
+        pid: string;
+        signature: string;
+        candidateIds: Set<string>;
+      }
+    >(),
+  );
   const [brief, setBrief] = useState(""),
     [newProject, setNewProject] = useState(false),
     [projectName, setProjectName] = useState("");
@@ -130,6 +154,73 @@ export default function App() {
   activePid.current = pid;
   const boardEpoch = useRef(0);
   const searchEpoch = useRef(0);
+  function trackActivity(response: VisualSearchResponse) {
+    if (response.activity_job_id)
+      activityRequests.current.set(response.activity_job_id, {
+        epoch: searchEpoch.current,
+        pid: activePid.current,
+        signature: "",
+        candidateIds: new Set(
+          response.results.map((candidate) => candidate.id),
+        ),
+      });
+  }
+  useEffect(() => {
+    for (const job of project?.jobs ?? []) {
+      const request = activityRequests.current.get(job.id);
+      if (
+        !request ||
+        request.epoch !== searchEpoch.current ||
+        request.pid !== activePid.current
+      )
+        continue;
+      const updates = job.result?.visual_results;
+      const signature = JSON.stringify([job.status, updates]);
+      if (!updates || request.signature === signature) continue;
+      request.signature = signature;
+      const ids = new Set(updates.map((candidate) => candidate.id));
+      setResults((current) =>
+        [
+          ...(current ?? []).filter(
+            (candidate) =>
+              !ids.has(candidate.id) &&
+              !request.candidateIds.has(candidate.id) &&
+              !(
+                "kind" in candidate &&
+                candidate.activity?.inspection_job_id === job.id
+              ),
+          ),
+          ...updates,
+        ].sort(
+          (a, b) => ("rank" in a ? a.rank : 0) - ("rank" in b ? b.rank : 0),
+        ),
+      );
+      setVisualRange((current) =>
+        current
+          ? refreshVisualEvidence(
+              current,
+              updates,
+              project?.assets.find(
+                (asset) => asset.id === current.candidate.asset_id,
+              )?.frames ?? 0,
+            )
+          : current,
+      );
+      // Job outcomes belong to candidates. Completing one job does not mean
+      // that other candidate locations or search pages were fully inspected.
+    }
+  }, [project?.jobs]);
+  function activityInspectionJob(candidate: VisualCandidate) {
+    return project?.jobs.find((job) => {
+      if (job.id === candidate.activity?.inspection_job_id) return true;
+      const request = activityRequests.current.get(job.id);
+      return (
+        request?.epoch === searchEpoch.current &&
+        request.pid === activePid.current &&
+        request.candidateIds.has(candidate.id)
+      );
+    });
+  }
   const [imports] = useState(
     () =>
       new ImportController({
@@ -241,6 +332,7 @@ export default function App() {
     setVisualPagingError("");
     setPreview(null);
     setVisualRange(null);
+    setVisualDestination(null);
     setSelected(null);
     setActiveSection("");
     setSequenceIndex(null);
@@ -318,7 +410,12 @@ export default function App() {
       const response = await api<VisualSearchResponse>(
         `/projects/${submittedPid}/search`,
         "POST",
-        { query: submittedQuery, mode: "visual", page: nextPage },
+        {
+          query: submittedQuery,
+          mode: "visual",
+          page: nextPage,
+          grounded: groundedSearch,
+        },
         120000,
       );
       if (
@@ -348,6 +445,7 @@ export default function App() {
         return [...existing, ...added];
       });
       setVisualPage(response.page);
+      trackActivity(response);
       setVisualHasMore(response.has_more && response.page < 7);
       setSearchWarning(response.warning ?? "");
     } catch (error) {
@@ -400,7 +498,10 @@ export default function App() {
       boardEpoch.current++;
     }
   }
-  function add(moment: Moment | VisualCandidate, sectionId = active?.id) {
+  function add(
+    moment: Moment | VisualCandidate,
+    sectionId: string | null | undefined = active?.id,
+  ) {
     task(async () => {
       let next = structuredClone(board);
       if (!sectionId) {
@@ -414,7 +515,11 @@ export default function App() {
         sectionId = s.id;
         setActiveSection(s.id);
       }
-      const section = next.find((s) => s.id === sectionId)!;
+      const section = next.find((s) => s.id === sectionId);
+      if (!section)
+        throw new Error(
+          "That Storybin no longer exists. Choose another destination and review the cut again.",
+        );
       section.selections.push({
         id: id(),
         asset_id: moment.asset_id,
@@ -428,6 +533,7 @@ export default function App() {
   }
   function selectClip(c: Selection) {
     setVisualRange(null);
+    setVisualDestination(null);
     setSelected(c);
     setPreview(c);
     setTrimStart(c.start_frame);
@@ -436,21 +542,84 @@ export default function App() {
     setSequenceIndex(null);
     revealPlayer();
   }
-  function playMoment(m: Moment | VisualCandidate) {
+  function playMoment(m: Moment | VisualCandidate, destination = active?.id) {
     if ("kind" in m) {
       const range = createVisualRange(m, assetMap[m.asset_id]?.frames ?? 0);
       if (!range) {
-        setError("This visual match has an invalid frame range. Try searching again.");
+        setError(
+          "This visual match has an invalid frame range. Try searching again.",
+        );
         return;
       }
-      setVisualRange(range);
+      setVisualRange((current) =>
+        current?.candidate.id === m.id &&
+        current.candidate.asset_id === m.asset_id
+          ? refreshVisualEvidence(
+              current,
+              [m],
+              assetMap[m.asset_id]?.frames ?? 0,
+            )
+          : range,
+      );
+      setVisualDestination({
+        projectId: pid,
+        candidateId: m.id,
+        sectionId: destination ?? null,
+      });
     } else {
       setVisualRange(null);
+      setVisualDestination(null);
     }
     setPreview(m);
     setSelected(null);
     setSequenceIndex(null);
     revealPlayer();
+  }
+  function confirmVisualCut() {
+    if (
+      !visualRange ||
+      !visualDestination ||
+      visualDestination.projectId !== pid ||
+      visualDestination.candidateId !== visualRange.candidate.id
+    )
+      return;
+    const { selectedStart, selectedEnd, candidate } = visualRange;
+    const frames = assetMap[candidate.asset_id]?.frames ?? 0;
+    const activity = activityBounds(candidate, frames);
+    if (
+      !Number.isInteger(selectedStart) ||
+      !Number.isInteger(selectedEnd) ||
+      selectedStart < 0 ||
+      selectedStart >= selectedEnd ||
+      selectedEnd > frames
+    ) {
+      setError("Choose a valid frame range before adding this cut.");
+      return;
+    }
+    if (
+      candidate.activity &&
+      (!activity ||
+        selectedStart < activity.start ||
+        selectedEnd > activity.end)
+    ) {
+      setError(
+        "The activity range changed. Review the available footage and adjust your cut before adding it.",
+      );
+      return;
+    }
+    if (
+      visualDestination.sectionId &&
+      !board.some((s) => s.id === visualDestination.sectionId)
+    ) {
+      setError(
+        "That Storybin no longer exists. Choose another destination and review the cut again.",
+      );
+      return;
+    }
+    add(
+      { ...candidate, start_frame: selectedStart, end_frame: selectedEnd },
+      visualDestination.sectionId,
+    );
   }
   function advance() {
     if (sequenceIndex === null) {
@@ -517,7 +686,7 @@ export default function App() {
       return;
     }
     if (visualCandidate) {
-      add(visualCandidate, targetSection);
+      playMoment(visualCandidate, targetSection);
       return;
     }
     task(async () => {
@@ -865,6 +1034,7 @@ export default function App() {
                                   query: submittedQuery,
                                   mode: submittedMode,
                                   page: 0,
+                                  grounded: groundedSearch,
                                 },
                                 120000,
                               );
@@ -873,6 +1043,7 @@ export default function App() {
                                 activePid.current === submittedPid
                               ) {
                                 setResults(response.results);
+                                trackActivity(response);
                                 setSearchWarning(response.warning ?? "");
                                 setVisualPage(response.page);
                                 setVisualHasMore(
@@ -1008,6 +1179,24 @@ export default function App() {
                   )}
                   {searchMode === "visual" && (
                     <div className="visual-index-box">
+                      <label className="search-explainer">
+                        <input
+                          type="checkbox"
+                          checked={groundedSearch}
+                          onChange={(event) => {
+                            setGroundedSearch(event.target.checked);
+                            searchEpoch.current += 1;
+                            setVisualSearchBusy(false);
+                            setVisualPagingBusy(false);
+                            setResults(null);
+                            setVisualPage(null);
+                            setVisualHasMore(false);
+                            setSearchWarning("");
+                          }}
+                        />{" "}
+                        Activity search (preview): find complete moves and
+                        adjustable activity cuts.
+                      </label>
                       <strong>Search what is visible in the video</strong>
                       <p>
                         Index only prepared clips that have cloud-analysis
@@ -1137,8 +1326,9 @@ export default function App() {
                           key={result.id}
                           candidate={result}
                           asset={assetMap[result.asset_id]}
+                          inspectionJob={activityInspectionJob(result)}
                           onPreview={() => playMoment(result)}
-                          onAdd={() => add(result)}
+                          onAdd={() => playMoment(result)}
                         />
                       ) : (
                         <MomentCard
@@ -1383,8 +1573,17 @@ export default function App() {
                     sourceFrames={
                       preview ? (assetMap[preview.asset_id]?.frames ?? 0) : 0
                     }
-                    visualRange={visualRange && preview?.id === visualRange.candidate.id ? visualRange : null}
+                    visualRange={
+                      visualRange && preview?.id === visualRange.candidate.id
+                        ? visualRange
+                        : null
+                    }
                     onVisualRangeChange={setVisualRange}
+                    inspectionJob={
+                      visualRange
+                        ? activityInspectionJob(visualRange.candidate)
+                        : undefined
+                    }
                   />
                   <p className="player-help">
                     Play Assembly shows only the selected ranges, one after
@@ -1413,30 +1612,63 @@ export default function App() {
                         {"description" in preview
                           ? preview.description
                           : "kind" in preview
-                            ? "AI match range · approximate. Review nearby footage before choosing a cut."
+                            ? "Suggested cut · AI proposal. Review the activity and choose the frames to keep."
                             : preview.note || "Selected for your story"}
                       </p>
                       <span className="range">
-                        {timecode(preview.start_frame)} —{" "}
-                        {timecode(preview.end_frame)}
+                        {timecode(
+                          visualRange && preview.id === visualRange.candidate.id
+                            ? visualRange.selectedStart
+                            : preview.start_frame,
+                        )}{" "}
+                        —{" "}
+                        {timecode(
+                          visualRange && preview.id === visualRange.candidate.id
+                            ? visualRange.selectedEnd
+                            : preview.end_frame,
+                        )}
                       </span>
-                      {visualRange && "kind" in preview && preview.id === visualRange.candidate.id && (
+                      {visualRange &&
+                        "kind" in preview &&
+                        preview.id === visualRange.candidate.id && (
+                          <>
+                            <p className="visual-add-destination" role="status">
+                              Destination:{" "}
+                              {visualDestination?.sectionId
+                                ? (board.find(
+                                    (s) => s.id === visualDestination.sectionId,
+                                  )?.title ??
+                                  "Storybin removed—review again to choose another")
+                                : "a new Storybin"}
+                              . Nothing is added until you confirm.
+                            </p>
+                            <button
+                              className="secondary wide"
+                              disabled={
+                                busy ||
+                                !visualDestination ||
+                                !!(
+                                  visualDestination.sectionId &&
+                                  !board.some(
+                                    (s) => s.id === visualDestination.sectionId,
+                                  )
+                                )
+                              }
+                              onClick={confirmVisualCut}
+                            >
+                              <Plus size={14} /> Add selected cut to Storybin
+                            </button>
+                          </>
+                        )}
+                      {!selected && "description" in preview && (
                         <button
                           className="secondary wide"
-                          onClick={() => add({ ...preview, start_frame: visualRange.selectedStart, end_frame: visualRange.selectedEnd })}
+                          onClick={() => add(preview)}
                         >
-                          <Plus size={14} /> Add selected cut to Storybin
+                          <Plus size={14} /> Add to{" "}
+                          {active?.title || "a new section"}
                         </button>
                       )}
-                      {!selected && "description" in preview && (
-                          <button
-                            className="secondary wide"
-                            onClick={() => add(preview)}
-                          >
-                            <Plus size={14} /> Add to{" "}
-                            {active?.title || "a new section"}
-                          </button>
-                        )}
                     </div>
                   )}
                   {selected && (
