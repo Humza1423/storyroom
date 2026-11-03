@@ -11,7 +11,7 @@ import json
 from . import config, db, grounding, media
 from .localization import candidate_context
 
-VERSION = "activity-v5-short-stop-recheck"
+VERSION = "activity-v6-adaptive-stop-recheck"
 CHUNK = 30 * config.FPS
 OVERLAP = 4 * config.FPS
 
@@ -65,6 +65,17 @@ def suggested_cut(interval, intent, requested=None):
         ),
     )
     return start, min(right, start + length)
+
+
+def _continuity_overlap_frames(activity):
+    """Size stop-recheck overlap from observed activity, within normal chunk bounds.
+
+    A fixed one-second anchor is too large for short events and may be too small
+    for long, continuous activity. Use a fraction of the already established
+    interval, while respecting the existing maximum chunk-overlap budget.
+    """
+    duration = max(1, activity["end_frame"] - activity["start_frame"])
+    return min(OVERLAP, max(1, round(duration * 0.15)))
 
 
 def _refresh(candidate):
@@ -455,11 +466,13 @@ def continue_inspection(job, cancelled, progress):
                             "This activity direction used its one short stop recheck; retained partial footage.",
                         )
                     if before:
-                        probe_right = min(a["end_frame"], edge + config.FPS)
+                        overlap = _continuity_overlap_frames(a)
+                        probe_right = min(a["end_frame"], edge + overlap)
                         probe_left = max(0, probe_right - 8 * config.FPS)
                         anchors = (edge, probe_right)
                     else:
-                        probe_left = max(a["start_frame"], edge - config.FPS)
+                        overlap = _continuity_overlap_frames(a)
+                        probe_left = max(a["start_frame"], edge - overlap)
                         probe_right = min(asset["frames"], probe_left + 8 * config.FPS)
                         anchors = (probe_left, edge)
                     rechecks[key] = {

@@ -1,6 +1,23 @@
 # Project status and release checklist
 
-Updated: 2026-10-29. Status: local development preview; release gates remain open.
+Updated: 2026-11-03. Status: local development preview; release gates remain open.
+
+## Search S1e follow-up — adaptive continuation probe (2026-11-03)
+
+Removed the fixed one-second overlap from the broad-activity suspicious-stop
+recheck. The overlap is now 15% of the established activity span, capped at the
+existing four-second maximum; continuation cache identity is versioned. Short,
+medium, long and directional-window regressions pass. This is a bounded adaptive
+heuristic, not a learned temporal model. The live S1e Gemini allowance is still
+exhausted, so no model-quality claim is made for the new geometry. Badminton's
+prepared-copy success, later-jacks three-frame miss, invalid historical push-up
+label and missing updated app-to-Resolve demonstration remain as documented
+below. S1 stays OPEN; do not start S2 before a fresh authorized live validation
+closes or precisely revises this gate.
+
+Checks for this follow-up: **398 backend tests passed**, production build passed,
+and **39 isolated browser tests passed**. No user data, media or credentials were
+changed or committed.
 
 ## Search S1e — early stops and timestamp precision (2026-10-29)
 

@@ -16,7 +16,7 @@ from . import ai, config, db
 from .media import verification_clip
 
 VERSION = "grounded-ranges-v4-boundary-conflict-3fps"
-CONTINUATION_VERSION = "grounded-continuation-v1-connected-activity-3fps"
+CONTINUATION_VERSION = "grounded-continuation-v2-adaptive-overlap-3fps"
 MAX_CONTEXT_FRAMES = 900
 MAX_ANCHOR_GAP_FRAMES = 60
 INTENTS = ("broad_activity", "specific_move")

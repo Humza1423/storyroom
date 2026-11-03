@@ -459,6 +459,16 @@ def _premature_stop(worker, intent="broad_activity"):
     worker.outcomes = ["observed_stop", "continues"]
 
 
+def test_continuity_overlap_scales_with_activity_and_stays_bounded():
+    short = {"start_frame": 0, "end_frame": 60}
+    medium = {"start_frame": 0, "end_frame": 195}
+    long = {"start_frame": 0, "end_frame": 1800}
+
+    assert activities._continuity_overlap_frames(short) == 9
+    assert activities._continuity_overlap_frames(medium) == 29
+    assert activities._continuity_overlap_frames(long) == activities.OVERLAP
+
+
 def test_short_recheck_corrects_premature_broad_stop(worker, monkeypatch):
     _premature_stop(worker)
     original = grounding.inspect_continuation
@@ -476,8 +486,10 @@ def test_short_recheck_corrects_premature_broad_stop(worker, monkeypatch):
     )
     assert len(worker.calls) == 2
     assert worker.calls[0][0][6:] == (75, 900)
-    assert worker.calls[1][0][3:5] == (685, 715)
-    assert worker.calls[1][0][6:] == (685, 900)
+    # The interval has expanded to 0–715 before the probe, so its 15% overlap
+    # is 107 frames rather than a fixed one-second anchor.
+    assert worker.calls[1][0][3:5] == (608, 715)
+    assert worker.calls[1][0][6:] == (608, 848)
     activity = output["visual_results"][0]["activity"]
     assert activity["end_frame"] == 900 and activity["complete"]
     assert len(output["stop_rechecks"]) == 1
@@ -509,8 +521,8 @@ def test_stop_at_existing_edge_still_gets_one_short_check(worker):
     output = activities.continue_inspection(
         worker.job, lambda: False, lambda *args: None
     )
-    assert worker.calls[1][0][3:5] == (165, 195)
-    assert worker.calls[1][0][6:] == (165, 405)
+    assert worker.calls[1][0][3:5] == (166, 195)
+    assert worker.calls[1][0][6:] == (166, 406)
     assert output["visual_results"][0]["activity"]["complete"]
     assert len(worker.calls) == 3  # Long inspection, one short probe, next long chunk.
 
@@ -583,7 +595,7 @@ def test_probe_quota_failure_retains_partial_and_retry_skips_long_request(
     resumed = {**worker.job, "result": json.dumps(worker.stored)}
     output = activities.continue_inspection(resumed, lambda: False, lambda *args: None)
     assert len(worker.calls) == 3
-    assert worker.calls[-1][0][6:] == (685, 900)
+    assert worker.calls[-1][0][6:] == (608, 848)
     assert output["visual_results"][0]["activity"]["complete"]
 
 
@@ -634,8 +646,8 @@ def test_before_stop_recheck_is_directional_and_bounded(worker):
         worker.job, lambda: False, lambda *args: None
     )
     spec = worker.calls[1][0]
-    assert spec[3:5] == (185, 215)
-    assert spec[6:] == (0, 215)
+    assert spec[3:5] == (185, 292)
+    assert spec[6:] == (52, 292)
     assert worker.requests[1]["direction"] == "before"
     activity = output["visual_results"][0]["activity"]
     assert activity["start_frame"] == 0 and activity["end_frame"] == 900

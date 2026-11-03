@@ -1,5 +1,23 @@
 # Activity continuation checkpoint — 2026-10-29
 
+## Adaptive overlap follow-up — 2026-11-03
+
+The suspicious-stop recheck no longer uses a fixed one-second anchor. It now
+uses 15% of the activity interval already established, capped at the existing
+four-second chunk-overlap limit. For example, a two-second activity gets about
+0.3 seconds of shared footage; a long activity can use up to four seconds. The
+recheck remains limited to one attempt per candidate and direction, with the
+existing eight-second inspection context and same-activity evidence checks.
+Continuation contract version advanced so an old in-progress job cannot silently
+reuse the previous probe geometry. There are deterministic tests for short,
+medium and long intervals and for the bounded directional windows.
+
+This makes the probe size adapt to the observed activity length. The 15% rule is
+still a tunable heuristic, not a learned boundary model. No Gemini call was made:
+the S1e allowance remains exhausted, so live search quality and actual badminton
+behavior under the new sizing remain unverified. The open S1 gate and all cases
+below remain unchanged.
+
 The badminton worker now reaches the available full activity, **frames 0–900**,
 and selects **0–600** for a 20-second request. **S1 remains open.** The later
 jumping-jack endpoint misses its frozen tolerance, and the historical push-up
