@@ -1,5 +1,62 @@
 # Understand what you are building
 
+## Opt-in activity search (2026-10-25)
+
+`grounded: true` on visual search uses raw embedding anchors rather than replacing
+them with motion-group intervals. `server/grounding.py` makes one bounded Gemini
+request to verify visible meaning, interpret broad-activity/specific-move intent,
+and locate activity plus suggested-cut frames. Requested edit duration is a
+separate nullable field, not a third action intent: an eight-second matching crop
+must not be rejected just because the creator wants a 20-second cut. Intrinsic
+conditions such as holding a plank for 20 seconds remain semantic requirements.
+Initial contexts are at most eight seconds;
+an interior crop edge stays unresolved. No automatic follow-through padding is
+applied. Old search and opt-in legacy localization remain available unchanged.
+
+`server/activities.py` selects cuts and sends unfinished activity boundaries to
+the existing persistent worker as `activity_inspect` jobs. Continuation inspects
+30-second chunks with four-second overlap, requires grounded overlap, and saves
+completed proposals/compact request diagnostics before failure or cancellation.
+Continuation now has its own versioned contract/cache: established activity,
+marked overlap, direction, original query and locked intent/edit duration go in;
+one connected interval, visible continuity evidence and continues/observed-stop/
+uncertain outcome come out. Discovery's contract remains unchanged. Numeric
+overlap without semantic evidence is insufficient. Contradictory shrinking stops,
+crop-edge stops and invalid timestamps are rejected without erasing prior work.
+Job identity includes the continuation version so old work cannot silently run
+under new inspection rules. Duration fulfillment does not stop extent inspection.
+Retry preserves that progress. Cache identity includes model, prompt/sampling
+version, proxy hash, anchor and supplied context. Grounded duplicates are
+suppressed without joining uninspected gaps; separate occurrences remain distinct.
+
+The v4 contract retains a numerically valid, evidence-supported span with
+inconsistent continuation flags as an explicitly unresolved boundary. It never
+extends frames from that flag alone; impossible timestamps remain rejected.
+Continuation must overlap the original matching occurrence, not a later unrelated
+move. Failed/cancelled terminal snapshots are reused on repeated search until the
+creator chooses Retry. Diagnostics retain bounded safe reasons and supplied crop
+identity, not raw provider text. Evaluation records source-file fingerprints as
+well as Git revision to prevent resuming across uncommitted algorithm changes.
+
+Result start/end fields still identify the suggested cut. Optional `activity`
+metadata identifies the longer inspected interval, completeness and duration
+fulfillment. The UI polls its inspection job only for the current project/query;
+it never rewrites accepted Storybin selections. The player switches between cut,
+activity and full source. This path remains a preview until real-footage gates pass.
+The presentation separates exact supported duration, verified shortfall, incomplete
+inspection and stopped work. Worker evidence can refresh an open preview without
+resetting its manually adjusted frames. Inspected source extent is not the same as
+an observed complete movement; continuous-activity grouping still has known misses.
+
+Activity review uses the entire established range as handle bounds; legacy visual
+results keep approximate ±1-second context. In/out sliders and numeric inputs use
+integer frames with an exclusive end and a one-frame minimum. Selecting the full
+activity snapshots its current extent; later worker expansion does not enlarge
+the editor's draft. `App.tsx` holds a temporary destination/range draft. Card Add
+and visual drag open review without a board write; explicit confirmation saves
+the exact frames through the existing board format. Deleted destinations require
+review again rather than silently redirecting the cut. Source review is read-only.
+
 ## Follow one action through the application
 
 Suppose you import a clip and add two seconds of it to “Show the work.”

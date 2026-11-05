@@ -472,6 +472,7 @@ def find_moments(pid: str, data: SearchInput):
         results = search_visual(
             pid, data.query, page=data.page, status=status,
             experimental_localization=data.experimental_localization,
+            grounded=data.grounded,
         )
         return {"results": results, **status}
     if data.page:
@@ -646,6 +647,9 @@ def manage_job(jid: str, action: Literal["cancel", "retry"]):
             if latest and latest["status"] in ("queued", "running", "done"):
                 return {"job_id": latest["id"]}
         ident = db.enqueue_in_transaction(c, j["project_id"], j["kind"], payload)
+        if j["kind"] == "activity_inspect" and j["result"]:
+            c.execute("UPDATE jobs SET result=? WHERE id=? AND result IS NULL",
+                      (j["result"], ident))
         if j["kind"] == "normalize":
             c.execute(
                 "UPDATE assets SET status='processing',error=NULL WHERE id=? AND status!='ready'",

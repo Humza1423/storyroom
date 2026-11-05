@@ -1,0 +1,72 @@
+{
+  "study": "continuation-development-v1",
+  "frozen_before_live_comparison": true,
+  "review_method": "Existing provenance and contact sheets plus independent 4fps inspection of adjacent actions and the first side-view push-up. Operator must additionally confirm actual playback before live dispatch. Tolerances are review uncertainty, not permission to include another action.",
+  "fps": 30,
+  "cases": [
+    {
+      "id": "badminton-pause",
+      "input": "data/evaluation/gemini-fresh/inputs/f02.mp4",
+      "sha256": "743a8515fabecab16296a9cf1ea2fbac72de4d83d62db97fb71dfb295af9d2d3",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Badmington_Competition_EuroGames_2_2023_in_Wankdork,_Bern.webm",
+      "author": "Hyruspex",
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "query": "Give me 20 seconds of badminton court action.",
+      "direction": "after",
+      "asset_frames": 900,
+      "context": [75, 900],
+      "anchor": [75, 195],
+      "activity": {"start_frame": 0, "end_frame": 195, "intent": "broad_activity", "requested_frames": 600, "visible_evidence": "Players on the same indoor doubles badminton court, including pauses between exchanges."},
+      "expected": {"end_frame_bounds": [885, 900], "boundary_resolved": true, "description": "Same court activity continues across the ordinary pause to the available source end; do not substitute a later isolated rally."}
+    },
+    {
+      "id": "jacks-before-burpees",
+      "input": "data/evaluation/cavemantraining/inputs/Jumping_jacks_and_burpees.mp4",
+      "sha256": "5f1474a67e15d88d90125e87565448a40a320bd1f8339bf98498885bb621f4c5",
+      "source_page": "https://commons.wikimedia.org/w/index.php?title=File:Jumping_jacks_and_burpees.webm&oldid=1182499913",
+      "author": "Taco Fleur / Cavemantraining",
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "query": "Find the jumping jacks before he starts burpees.",
+      "direction": "after",
+      "asset_frames": 1357,
+      "context": [0, 240],
+      "anchor": [0, 60],
+      "activity": {"start_frame": 0, "end_frame": 60, "intent": "broad_activity", "requested_frames": null, "visible_evidence": "The man opens and closes his arms and legs while standing; this is the opening jumping-jack sequence."},
+      "expected": {"end_frame_bounds": [75, 86], "boundary_resolved": true, "description": "Opening jacks stop around 2.6s. Do not include the following bend/floor burpee or later jacks."}
+    },
+    {
+      "id": "single-pushup-before-next",
+      "input": "data/evaluation/gemini-fresh/inputs/f03.mp4",
+      "sha256": "00948cc933f887a22ec2e9bb028dfd133c85240f276d35c9ab935f40396dbd40",
+      "source_page": "https://www.dvidshub.net/video/590723/follow-me-fitness-normal-base-push-up",
+      "author": "Cpl. David Delgadillo / USMC",
+      "license": "US government public domain",
+      "license_url": "https://www.dvidshub.net/about/copyright",
+      "query": "Show a complete push-up including going down and pushing back up.",
+      "direction": "after",
+      "asset_frames": 900,
+      "context": [600, 825],
+      "anchor": [630, 660],
+      "activity": {"start_frame": 600, "end_frame": 660, "intent": "specific_move", "requested_frames": null, "visible_evidence": "The side-view demonstrator is performing the first push-up of this view; preserve this single repetition, not the later front-view repetition."},
+      "expected": {"end_frame_bounds": [681, 696], "boundary_resolved": true, "description": "Follow the side-view repetition through its rise, stopping before the next independently demonstrated repetition/front view."}
+    },
+    {
+      "id": "continuous-boiling-pasta",
+      "input": "data/evaluation/gemini-fresh/inputs/f06.mp4",
+      "sha256": "b1a0b8266c7883ebfe21772033287bffefd01e9140aabb8bd6ecd417aea022a1",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Noodle_cooking_1_2020-05-18.webm",
+      "author": "FASTILY",
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "query": "Give me 20 seconds of pasta boiling in a pot.",
+      "direction": "after",
+      "asset_frames": 610,
+      "context": [120, 610],
+      "anchor": [120, 240],
+      "activity": {"start_frame": 0, "end_frame": 240, "intent": "broad_activity", "requested_frames": 600, "visible_evidence": "Pasta continuously boils in the same pot; no separate action or visible stirring is established."},
+      "expected": {"end_frame_bounds": [600, 610], "boundary_resolved": true, "description": "Continue the same boiling activity to the source end; at least 600 continuous frames are available for selection."}
+    }
+  ]
+}

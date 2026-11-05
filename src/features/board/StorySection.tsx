@@ -1,8 +1,7 @@
 import React from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { ArrowUp, ArrowDown, X, Plus } from "lucide-react";
-import type { Asset, Moment, Selection, Section } from "../../types";
-import { timecode } from "../../lib/timecode";
+import { ArrowUp, ArrowDown, X, Plus, Pencil } from "lucide-react";
+import type { Section } from "../../types";
 
 export function StorySection({
   section,
@@ -35,17 +34,39 @@ export function StorySection({
         "story-section " + (active ? "active " : "") + (isOver ? "over" : "")
       }
     >
-      <header>
+      <header style={{ flexWrap: "wrap" }}>
         <span className="section-number">
           {String(index + 1).padStart(2, "0")}
         </span>
-        <button className="section-heading" onClick={onRename}>
+        <button
+          type="button"
+          className="section-heading"
+          style={{ flex: "1 1 140px", overflowWrap: "anywhere" }}
+          aria-label={`Select Storybin ${section.title}`}
+          aria-pressed={active}
+          onClick={(event) => {
+            event.stopPropagation();
+            onActivate();
+          }}
+        >
           <strong>{section.title}</strong>
           <small>
             {section.purpose || "Define what this part of the story should do."}
           </small>
         </button>
         <span className="section-length">{duration.toFixed(1)}s</span>
+        <button
+          type="button"
+          className="icon"
+          title="Edit Storybin"
+          aria-label={`Edit Storybin ${section.title}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRename();
+          }}
+        >
+          <Pencil size={13} />
+        </button>
         <button
           className="icon"
           onClick={(e) => {

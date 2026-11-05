@@ -1,14 +1,15 @@
 """Own API, worker and UI processes; wait for readiness and stop only our groups."""
 
-import os
 import errno
 import importlib.util
+import json
+import os
 import shutil
-import tempfile
 import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -160,6 +161,26 @@ def run_stack(env, test_command=None):
                 raise RuntimeError(f"Readiness timed out: {', '.join(pending)}")
             time.sleep(0.1)
         print(f"Storyroom ready: http://127.0.0.1:{ui_port}", flush=True)
+        revision = (
+            subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            ).stdout.strip()
+            or "unknown"
+        )
+        print(f"Code: {ROOT} @ {revision}", flush=True)
+        print(
+            f"Database: {Path(env.get('STORYROOM_DATA', ROOT / 'data')).resolve() / 'storyroom.sqlite'}",
+            flush=True,
+        )
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{api_port}/api/projects", timeout=5
+        ) as response:
+            names = [p["name"] for p in json.load(response)]
+        print("Projects: " + (", ".join(names) or "none yet"), flush=True)
         if test_command:
             child = subprocess.Popen(
                 test_command, cwd=ROOT, env=env, start_new_session=True

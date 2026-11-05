@@ -1,0 +1,73 @@
+{
+  "study": "continuation-tail-probe-v1",
+  "frozen": true,
+  "frozen_before_live_comparison": true,
+  "fps": 30,
+  "frame_end_convention": "Exclusive end frames; expected bounds are inclusive acceptable values for that exclusive end.",
+  "evaluation_role": "One development diagnostic derived after prior results; not held-out footage, a fresh accuracy study, or evidence of a documented frame limit.",
+  "derived_from": {
+    "fixture": "tests/fixtures/continuation-extent-supplement-v1.json",
+    "sha256": "080dee553d2259f1f3df62d30405c7b14a280f1011bebcbced1656d3b933c352",
+    "case_id": "badminton-pause",
+    "trigger": "The coordinator reports that both the unchanged and correction prompts stopped at crop-local 21.333 seconds, numerically corresponding to 64 sampling intervals at 3fps. Documentation does not establish a 64-frame limit; this observation is a diagnostic clue, not an established cause.",
+    "change": "Inspect only the reviewed tail in a 215-frame crop, while retaining the same source, query, activity intent, requested edit duration, and reviewed source-end tolerance. Existing frozen fixtures and historical results remain unchanged."
+  },
+  "review_method": "Independent source-frame contact-sheet inspection of the normalized 30fps input, including frames 685 through 895 at 15-frame intervals and final frame 899. Earlier contact-sheet review covered the same court across the source. The coordinator separately reported actual Storyroom source playback at approximately 25–26 seconds showing the same court and players; this reviewer did not independently play this new crop.",
+  "review_evidence": {
+    "contact_sheets": [
+      "data/evaluation/gemini-fresh/evidence/s1e-badminton-tail.jpg",
+      "data/evaluation/gemini-fresh/evidence/s1d-badminton-last.jpg",
+      "data/evaluation/gemini-fresh/contact/f02.jpg"
+    ],
+    "reviewed_source_frames": {
+      "first": 685,
+      "last_regular_sample": 895,
+      "step": 15,
+      "additional_final_frame": 899
+    },
+    "visible_observations": "The same indoor doubles badminton court, net, and players remain visible throughout the tail samples. Players play or reset between exchanges; the final sample includes a player bending on the court. No separate activity, scene cut, or natural end of court activity is established.",
+    "playback_reported_by": "root coordinator",
+    "playback_reported_source_seconds": [25, 26],
+    "playback_scope": "Previously reported actual Storyroom source playback, not a claim of new independent playback of every frame in this tail.",
+    "prior_evidence_document": "docs/ACTIVITY_REVIEW_EVALUATION.md"
+  },
+  "diagnostic_limits": [
+    "This fixture is frozen after observing earlier model outputs, so its result must be reported as a development diagnostic.",
+    "A successful shorter-crop result would show that the tail can be localized under this configuration; it would not prove why a longer crop failed or establish a provider sampling cap.",
+    "The previously established frames 0–715 must be retained; the new crop is an extension inspection, not a replacement full activity or independent editing cut.",
+    "Source frame 900 is the exclusive available-source end, not evidence that the badminton activity naturally stopped.",
+    "The 20-second request remains an edit-duration preference, not a requirement that this 7.167-second inspection crop itself contain 20 seconds.",
+    "One predeclared diagnostic dispatch only, no automatic retries, charged to the coordinator's existing bounded experiment allowance. This fixture does not grant a new budget.",
+    "Creating and reviewing this fixture made no provider calls."
+  ],
+  "cases": [
+    {
+      "id": "badminton-tail",
+      "input": "data/evaluation/gemini-fresh/inputs/f02.mp4",
+      "sha256": "743a8515fabecab16296a9cf1ea2fbac72de4d83d62db97fb71dfb295af9d2d3",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Badmington_Competition_EuroGames_2_2023_in_Wankdork,_Bern.webm",
+      "author": "Hyruspex",
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "query": "Give me 20 seconds of badminton court action.",
+      "direction": "after",
+      "asset_frames": 900,
+      "context": [685, 900],
+      "anchor": [685, 715],
+      "activity": {
+        "start_frame": 0,
+        "end_frame": 715,
+        "intent": "broad_activity",
+        "requested_frames": 600,
+        "visible_evidence": "The same indoor doubles badminton court, net, and players remain engaged in court action, including ordinary resets between exchanges. The reviewed tail overlap at source frames 685–715 belongs to this already established court activity; continue it through the supplied tail without replacing it with an isolated later rally."
+      },
+      "expected": {
+        "end_frame_bounds": [885, 900],
+        "boundary_resolved": true,
+        "continuity": "same_activity",
+        "boundary_kind": "available_source_end",
+        "description": "Follow the reviewed same-court tail to the available source end, retaining established frames 0–715. The final source frame is 899 and its exclusive end is 900; do not infer the activity's natural finish."
+      }
+    }
+  ]
+}

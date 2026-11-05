@@ -41,6 +41,24 @@ or video file is made while adjusting.
 Keyword results showing an entire clip do **not** prove the app recognized its
 contents. To test visual search, select **Visual AI** explicitly.
 
+### Activity search preview
+
+With Visual AI selected, optionally check **Activity search (preview)**. A result
+shows a **suggested cut** and a wider **activity** range. Click **Preview suggested
+cut**, then **Review activity** to inspect the identified activity or **View full
+source video** for everything in the source. Reviewing does not change your cut.
+Return to the match preview before adjusting the in/out sliders.
+
+**Partially inspected** means Storyroom has not established the whole activity
+boundary. Watch **Activity** for progress/errors. Results can improve while the
+worker runs, but clips already saved in Storybins do not change. **Check more
+moments** explicitly inspects another candidate page; it may make more API calls.
+
+This preview still misses some complete moves and duration requests. Asking for
+20 seconds does not guarantee a 20-second result; inspect the available range and
+shortfall. It is not the default or a production-accuracy promise. For the current
+eight-video demo and exact test queries, see [the evaluation walkthrough](GEMINI_ACTIVITY_EVALUATION.md#reproduce).
+
 ## 3. Storybins
 
 Click **Add story section** to create a Storybin, such as “Warm-up,” “Technique,”

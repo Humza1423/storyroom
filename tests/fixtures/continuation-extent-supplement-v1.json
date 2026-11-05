@@ -1,0 +1,456 @@
+{
+  "study": "continuation-extent-supplement-v1",
+  "frozen": true,
+  "frozen_before_live_comparison": true,
+  "comparison_scope": "New supplementary S1e probes only; not a claim that these development examples are unseen.",
+  "fps": 30,
+  "frame_end_convention": "Exclusive end frames; bounds arrays are inclusive acceptable integer values for the corresponding start or exclusive end.",
+  "historical_fixture": {
+    "path": "tests/fixtures/continuation-cases-v1.json",
+    "sha256": "0f9509835b239ccb6f23cbc25443d489115a219437bc675e14a873bc9ea8efa6",
+    "preserved_case_count": 4,
+    "note": "The first four cases below are exact unchanged copies for historical reproducibility. Their historical expected fields do not override the supplementary scoring restrictions, especially the disputed push-up."
+  },
+  "review_method": "Independent source-frame contact-sheet inspection, with exact frame labels generated from each normalized 30fps input. Full source overviews and denser start/end samples were reviewed; a camera edit was localized with every-frame inspection. This reviewer did not successfully play the sources in a native/browser player. Coordinator playback confirmation must be recorded separately before live dispatch. Historical labels and results were not rewritten.",
+  "review_limitations": [
+    "Development material already seen during prior experiments; not a held-out accuracy study.",
+    "Source-boundary extent means all available matching footage, not observation of the activity's natural onset or finish.",
+    "Preparation/follow-through endpoints allow the documented visual ambiguity, not neighboring different actions.",
+    "No Gemini calls were made by the independent reviewer.",
+    "The disputed push-up is not an admissible complete-move accuracy gate until cross-edit continuity and the complete move have been independently adjudicated.",
+    "Consumers must apply supplementary_reviews.scorable and the endpoint-probe contract; do not silently score copied/additional cases using historical expected fields alone."
+  ],
+  "supplementary_reviews": [
+    {
+      "case_id": "badminton-pause",
+      "scorable": true,
+      "review_status": "available_extent_labeled_playback_confirmation_separate",
+      "reference_extent": [
+        0,
+        900
+      ],
+      "start_frame_bounds": [
+        0,
+        0
+      ],
+      "end_frame_bounds": [
+        885,
+        900
+      ],
+      "boundary_kind": {
+        "before": "source_start",
+        "after": "source_end"
+      },
+      "evidence": "Frame0 already shows the same court activity. Frames0–119 and780–899 show the same players, net and court, with normal play/reset movements; full source overview shows ordinary pauses and resumption rather than an independently changed activity.",
+      "reviewed_samples": [
+        {
+          "start": 0,
+          "end_inclusive": 119,
+          "step": 15
+        },
+        {
+          "start": 780,
+          "end_inclusive": 899,
+          "step": 15
+        }
+      ],
+      "evidence_images": [
+        "data/evaluation/gemini-fresh/evidence/s1d-badminton-first.jpg",
+        "data/evaluation/gemini-fresh/evidence/s1d-badminton-last.jpg",
+        "data/evaluation/gemini-fresh/contact/f02.jpg"
+      ],
+      "uncertainty": "No natural onset/finish is visible outside the source. The existing end tolerance is retained rather than widened. A pause alone is not a universal continuity rule."
+    },
+    {
+      "case_id": "jacks-before-burpees",
+      "scorable": true,
+      "review_status": "extent_labeled_playback_confirmation_separate",
+      "reference_extent": [
+        0,
+        80
+      ],
+      "start_frame_bounds": [
+        0,
+        0
+      ],
+      "end_frame_bounds": [
+        75,
+        86
+      ],
+      "boundary_kind": {
+        "before": "source_start",
+        "after": "observed_activity_transition"
+      },
+      "evidence": "Frame0 is the opening standing preparation. Arms/feet open and close through frame78; frame80 is standing with arms down. Frame90 begins a downward bend and frames98–101 are floor-directed movement belonging to the next burpee.",
+      "reviewed_samples": [
+        {
+          "start": 0,
+          "end_inclusive": 119,
+          "step": 5
+        },
+        {
+          "start": 74,
+          "end_inclusive": 101,
+          "step": 2
+        }
+      ],
+      "evidence_images": [
+        "data/evaluation/gemini-fresh/evidence/s1d-jacks-opening.jpg",
+        "data/evaluation/gemini-fresh/evidence/s1d-jacks-opening-end.jpg"
+      ],
+      "uncertainty": "Opening preparation is source-clipped. The historical end tolerance75–86 is preserved; do not stretch through the bend to make a longer result."
+    },
+    {
+      "case_id": "single-pushup-before-next",
+      "scorable": false,
+      "review_status": "historical_completeness_label_disputed",
+      "reference_extent": null,
+      "start_frame_bounds": null,
+      "end_frame_bounds": null,
+      "boundary_kind": {
+        "before": "not_adjudicated",
+        "after": "not_adjudicated_across_camera_edit"
+      },
+      "historical_end_frame_bounds": [
+        681,
+        696
+      ],
+      "evidence": "High side-view plank is visible575–615, descent around620–650, and low position through675–709. Every-frame review places last side-view frame709 and first front-view frame710. Front view remains low710–720, rises725–750, then shows high plank750–790. The historical description claiming a side-view rise completed by681–696 is contradicted by these observed frames.",
+      "reviewed_samples": [
+        {
+          "start": 540,
+          "end_inclusive": 629,
+          "step": 5
+        },
+        {
+          "start": 570,
+          "end_inclusive": 734,
+          "step": 5
+        },
+        {
+          "start": 675,
+          "end_inclusive": 794,
+          "step": 5
+        },
+        {
+          "start": 704,
+          "end_inclusive": 714,
+          "step": 1
+        }
+      ],
+      "evidence_images": [
+        "data/evaluation/gemini-fresh/evidence/s1d-pushup-early.jpg",
+        "data/evaluation/gemini-fresh/evidence/s1d-pushup.jpg",
+        "data/evaluation/gemini-fresh/evidence/s1d-pushup-transition.jpg",
+        "data/evaluation/gemini-fresh/evidence/s1d-pushup-edit-exact.jpg"
+      ],
+      "uncertainty": "A camera edit is not proof of another repetition or proof of the same repetition. The visible descent followed by edited front-view rise may form an editorially complete demonstration, but continuity must be adjudicated independently. Do not call frame710 a semantically late endpoint based only on the disputed historical end tolerance, and do not relabel it a complete-move pass."
+    },
+    {
+      "case_id": "continuous-boiling-pasta",
+      "scorable": true,
+      "review_status": "available_extent_labeled_playback_confirmation_separate",
+      "reference_extent": [
+        0,
+        610
+      ],
+      "start_frame_bounds": [
+        0,
+        0
+      ],
+      "end_frame_bounds": [
+        600,
+        610
+      ],
+      "boundary_kind": {
+        "before": "source_start",
+        "after": "source_end"
+      },
+      "evidence": "Pasta and active bubbles are visible at frame0 and through last frame609 in the same pot. Source overview shows continuous boiling with no established stirring or distinct intervening action.",
+      "reviewed_samples": [
+        {
+          "start": 0,
+          "end_inclusive": 60,
+          "step": 15
+        },
+        {
+          "start": 550,
+          "end_inclusive": 609,
+          "step": 10
+        }
+      ],
+      "evidence_images": [
+        "data/evaluation/gemini-fresh/evidence/s1d-pasta-first.jpg",
+        "data/evaluation/gemini-fresh/evidence/s1d-pasta-last.jpg",
+        "data/evaluation/gemini-fresh/contact/f06.jpg"
+      ],
+      "uncertainty": "The source ends during boiling; neither natural onset nor finish is observed. Available extent610 frames supports a600-frame cut; this does not generalize to other requests or unseen footage."
+    },
+    {
+      "case_id": "later-frontal-jacks-between-burpees",
+      "scorable": true,
+      "review_status": "new_occurrence_labeled_playback_confirmation_separate",
+      "reference_extent": [
+        319,
+        402
+      ],
+      "start_frame_bounds": [
+        313,
+        321
+      ],
+      "end_frame_bounds": [
+        398,
+        404
+      ],
+      "boundary_kind": {
+        "before": "observed_activity_transition",
+        "after": "observed_activity_transition"
+      },
+      "evidence": "The prior burpee rise reaches standing around303. Standing preparation313–321 leads into outward arms/feet by325. Final jack closes398–402; a new downward bend starts404+, with floor-directed burpee movement visible410+. Do not merge across either neighboring burpee.",
+      "reviewed_samples": [
+        {
+          "start": 0,
+          "end_inclusive": 1356,
+          "step": 30
+        },
+        {
+          "start": 210,
+          "end_inclusive": 419,
+          "step": 10
+        },
+        {
+          "start": 295,
+          "end_inclusive": 335,
+          "step": 2
+        },
+        {
+          "start": 390,
+          "end_inclusive": 420,
+          "step": 2
+        }
+      ],
+      "evidence_images": [
+        "data/evaluation/gemini-fresh/evidence/s1d-jacks-overview.jpg",
+        "data/evaluation/gemini-fresh/evidence/s1d-jacks-later.jpg",
+        "data/evaluation/gemini-fresh/evidence/s1d-jacks-later-start.jpg",
+        "data/evaluation/gemini-fresh/evidence/s1d-jacks-later-end.jpg"
+      ],
+      "uncertainty": "Standing preparation between exercises has no unique physical instant;313–321 permits that small ambiguity while excluding the prior burpee. The final close398–402 precedes a different floor-directed movement404+."
+    }
+  ],
+  "cases": [
+    {
+      "id": "badminton-pause",
+      "input": "data/evaluation/gemini-fresh/inputs/f02.mp4",
+      "sha256": "743a8515fabecab16296a9cf1ea2fbac72de4d83d62db97fb71dfb295af9d2d3",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Badmington_Competition_EuroGames_2_2023_in_Wankdork,_Bern.webm",
+      "author": "Hyruspex",
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "query": "Give me 20 seconds of badminton court action.",
+      "direction": "after",
+      "asset_frames": 900,
+      "context": [
+        75,
+        900
+      ],
+      "anchor": [
+        75,
+        195
+      ],
+      "activity": {
+        "start_frame": 0,
+        "end_frame": 195,
+        "intent": "broad_activity",
+        "requested_frames": 600,
+        "visible_evidence": "Players on the same indoor doubles badminton court, including pauses between exchanges."
+      },
+      "expected": {
+        "end_frame_bounds": [
+          885,
+          900
+        ],
+        "boundary_resolved": true,
+        "description": "Same court activity continues across the ordinary pause to the available source end; do not substitute a later isolated rally."
+      }
+    },
+    {
+      "id": "jacks-before-burpees",
+      "input": "data/evaluation/cavemantraining/inputs/Jumping_jacks_and_burpees.mp4",
+      "sha256": "5f1474a67e15d88d90125e87565448a40a320bd1f8339bf98498885bb621f4c5",
+      "source_page": "https://commons.wikimedia.org/w/index.php?title=File:Jumping_jacks_and_burpees.webm&oldid=1182499913",
+      "author": "Taco Fleur / Cavemantraining",
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "query": "Find the jumping jacks before he starts burpees.",
+      "direction": "after",
+      "asset_frames": 1357,
+      "context": [
+        0,
+        240
+      ],
+      "anchor": [
+        0,
+        60
+      ],
+      "activity": {
+        "start_frame": 0,
+        "end_frame": 60,
+        "intent": "broad_activity",
+        "requested_frames": null,
+        "visible_evidence": "The man opens and closes his arms and legs while standing; this is the opening jumping-jack sequence."
+      },
+      "expected": {
+        "end_frame_bounds": [
+          75,
+          86
+        ],
+        "boundary_resolved": true,
+        "description": "Opening jacks stop around 2.6s. Do not include the following bend/floor burpee or later jacks."
+      }
+    },
+    {
+      "id": "single-pushup-before-next",
+      "input": "data/evaluation/gemini-fresh/inputs/f03.mp4",
+      "sha256": "00948cc933f887a22ec2e9bb028dfd133c85240f276d35c9ab935f40396dbd40",
+      "source_page": "https://www.dvidshub.net/video/590723/follow-me-fitness-normal-base-push-up",
+      "author": "Cpl. David Delgadillo / USMC",
+      "license": "US government public domain",
+      "license_url": "https://www.dvidshub.net/about/copyright",
+      "query": "Show a complete push-up including going down and pushing back up.",
+      "direction": "after",
+      "asset_frames": 900,
+      "context": [
+        600,
+        825
+      ],
+      "anchor": [
+        630,
+        660
+      ],
+      "activity": {
+        "start_frame": 600,
+        "end_frame": 660,
+        "intent": "specific_move",
+        "requested_frames": null,
+        "visible_evidence": "The side-view demonstrator is performing the first push-up of this view; preserve this single repetition, not the later front-view repetition."
+      },
+      "expected": {
+        "end_frame_bounds": [
+          681,
+          696
+        ],
+        "boundary_resolved": true,
+        "description": "Follow the side-view repetition through its rise, stopping before the next independently demonstrated repetition/front view."
+      }
+    },
+    {
+      "id": "continuous-boiling-pasta",
+      "input": "data/evaluation/gemini-fresh/inputs/f06.mp4",
+      "sha256": "b1a0b8266c7883ebfe21772033287bffefd01e9140aabb8bd6ecd417aea022a1",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Noodle_cooking_1_2020-05-18.webm",
+      "author": "FASTILY",
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "query": "Give me 20 seconds of pasta boiling in a pot.",
+      "direction": "after",
+      "asset_frames": 610,
+      "context": [
+        120,
+        610
+      ],
+      "anchor": [
+        120,
+        240
+      ],
+      "activity": {
+        "start_frame": 0,
+        "end_frame": 240,
+        "intent": "broad_activity",
+        "requested_frames": 600,
+        "visible_evidence": "Pasta continuously boils in the same pot; no separate action or visible stirring is established."
+      },
+      "expected": {
+        "end_frame_bounds": [
+          600,
+          610
+        ],
+        "boundary_resolved": true,
+        "description": "Continue the same boiling activity to the source end; at least 600 continuous frames are available for selection."
+      }
+    },
+    {
+      "id": "later-frontal-jacks-between-burpees",
+      "input": "data/evaluation/cavemantraining/inputs/Jumping_jacks_and_burpees.mp4",
+      "sha256": "5f1474a67e15d88d90125e87565448a40a320bd1f8339bf98498885bb621f4c5",
+      "source_page": "https://commons.wikimedia.org/w/index.php?title=File:Jumping_jacks_and_burpees.webm&oldid=1182499913",
+      "author": "Taco Fleur / Cavemantraining",
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "query": "Find the jumping jacks before he starts burpees.",
+      "direction": "after",
+      "asset_frames": 1357,
+      "context": [
+        270,
+        480
+      ],
+      "anchor": [
+        330,
+        370
+      ],
+      "activity": {
+        "start_frame": 319,
+        "end_frame": 370,
+        "intent": "broad_activity",
+        "requested_frames": null,
+        "visible_evidence": "The later frontal jumping-jack sequence after the preceding burpee and standing reset, before the following burpee. Preserve this established sequence, not opening or still later jacks."
+      },
+      "expected": {
+        "start_frame_bounds": [
+          313,
+          321
+        ],
+        "end_frame_bounds": [
+          398,
+          404
+        ],
+        "boundary_resolved": true,
+        "description": "The prior burpee rise reaches standing around frame 303. Standing preparation at frames 313–321 leads into outward arms/feet by frame 325. The final jack closes at frames 398–402; a new downward bend starts around frame 404, with floor-directed burpee movement visible by frame 410. Do not merge across either neighboring burpee."
+      }
+    },
+    {
+      "id": "pushup-edited-shot-endpoint-uncertainty",
+      "input": "data/evaluation/gemini-fresh/inputs/f03.mp4",
+      "sha256": "00948cc933f887a22ec2e9bb028dfd133c85240f276d35c9ab935f40396dbd40",
+      "source_page": "https://www.dvidshub.net/video/590723/follow-me-fitness-normal-base-push-up",
+      "author": "Cpl. David Delgadillo / USMC",
+      "license": "US government public domain",
+      "license_url": "https://www.dvidshub.net/about/copyright",
+      "query": "Show a complete push-up including going down and pushing back up.",
+      "direction": "after",
+      "asset_frames": 900,
+      "context": [630, 810],
+      "anchor": [630, 660],
+      "provisional_boundary_frame": 710,
+      "activity": {
+        "start_frame": 600,
+        "end_frame": 660,
+        "intent": "specific_move",
+        "requested_frames": null,
+        "visible_evidence": "The established interval contains a side-view push-up descent. Preserve the known frames and marked overlap. A subsequent camera edit is visible; whether the edited front view depicts the same physical repetition is not established."
+      },
+      "expected": {
+        "boundary_resolved": false,
+        "boundary_outcome": "uncertain",
+        "complete_move_scorable": false,
+        "same_repetition_across_edit_adjudicated": false,
+        "end_frame_bounds": null,
+        "description": "Six-second endpoint probe: frames 630–810 contain the valid established overlap 630–660, the side-view low position through frame 709, the first front-view frame 710, and front-view rise around frames 725–750. If the same repetition across the edit cannot be established, preserve uncertainty and the previously known activity; do not convert a camera cut into an observed completed movement or copy the unsupported historical end tolerance."
+      },
+      "review_evidence_images": [
+        "data/evaluation/gemini-fresh/evidence/s1d-pushup-transition.jpg",
+        "data/evaluation/gemini-fresh/evidence/s1d-pushup-edit-exact.jpg"
+      ]
+    }
+  ]
+}

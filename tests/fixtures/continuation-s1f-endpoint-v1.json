@@ -1,0 +1,45 @@
+{
+  "study": "continuation-s1f-endpoint-v1",
+  "frozen": true,
+  "frozen_before_live_comparison": true,
+  "fps": 30,
+  "frame_end_convention": "Exclusive end frames; acceptable bound arrays are inclusive.",
+  "review_method": "Every source frame around the first kick was reviewed from a dense contact sheet, and the source was played in QuickTime before this label was frozen. The label was made independently of Gemini output.",
+  "limitations": [
+    "This is a development check for one endpoint-inspection mechanism, not held-out accuracy evidence.",
+    "One football kick cannot establish general movement-boundary accuracy."
+  ],
+  "cases": [
+    {
+      "id": "football-first-kick-endpoint",
+      "input": "data/evaluation/gemini-fresh/inputs/f01.mp4",
+      "sha256": "994033f2b111bda2579cb35a271dee7029432ce1db661d2cca991b758c1de9de",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Football_Tennis.webm",
+      "author": "PK17 Football (PredatorKnuckles17) UK HD",
+      "license": "CC BY 3.0",
+      "license_url": "https://creativecommons.org/licenses/by/3.0/",
+      "query": "Show the complete first kick by the player in blue, including preparation and recovery.",
+      "direction": "after",
+      "provisional_boundary_frame": 68,
+      "asset_frames": 900,
+      "context": [0, 180],
+      "anchor": [60, 68],
+      "activity": {
+        "start_frame": 60,
+        "end_frame": 68,
+        "intent": "specific_move",
+        "requested_frames": null,
+        "visible_evidence": "The player in blue raises his leg and kicks the ball during one continuous wide camera shot."
+      },
+      "expected": {
+        "start_frame_bounds": [52, 60],
+        "end_frame_bounds": [72, 80],
+        "boundary_outcome": "observed_stop",
+        "description": "The established kick continues through visible recovery, then ends before unrelated waiting footage."
+      },
+      "review_evidence_images": [
+        "data/evaluation/gemini-fresh/evidence/s1f-football-first-kick-every-frame.jpg"
+      ]
+    }
+  ]
+}

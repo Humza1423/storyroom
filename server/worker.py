@@ -269,6 +269,15 @@ def analyze(job, asset):
 def perform(job, diagnostics=None):
     payload = json.loads(job["payload"])
     ident = job["id"]
+    if job["kind"] == "activity_inspect":
+        from .activities import continue_inspection
+
+        if not config.visual_ai_ready():
+            raise ValueError("Configure Gemini visual-search access before inspection.")
+        return continue_inspection(
+            job, lambda: cancelled(ident),
+            lambda fraction, message: progress(ident, fraction, message),
+        )
     if job["kind"] == "normalize":
         asset = db.one("SELECT * FROM assets WHERE id=?", (payload["asset_id"],))
         progress(ident, 0.1, "Creating editing copy")

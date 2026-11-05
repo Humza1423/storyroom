@@ -55,6 +55,27 @@ resolution or weaken the verified 1080p and 4K handoff checks.
 
 ## 3. Direct visual search vertical slice
 
+Current Gemini-first milestone: [approved plan](GEMINI_COMPLETION_PLAN.md).
+Ticket 1 corrected the historical labels. Tickets 2–3 now have an opt-in combined
+grounding/activity pipeline and actual app/Resolve handoff, but the frozen fresh
+evaluation misses quality gates (12/16 moment recall; only 1/5 durations).
+See [the checkpoint](GEMINI_ACTIVITY_EVALUATION.md) and
+[focused research-based tickets](AI_SEARCH_TICKETS.md). S1a–S1c now provide safe
+diagnostics, independent edit duration and unresolved-boundary handling. Their
+controlled development comparison did not improve aggregate quality/speed; provider
+failures and fragmented movement remain explicit. The three-cut app/render/
+Resolve handoff passed. S1d now implements same-activity continuation and full-
+activity frame selection, with a five-cut render/Resolve check. Its bounded live
+comparison still fails two of four reviewed boundaries, so **S1 remains open**;
+see [activity-review evidence](ACTIVITY_REVIEW_EVALUATION.md). Do not start S2
+until the continuation gate is resolved or its scope is explicitly revised.
+After that, S2 checks complete movements independently of overlap
+scores; S3 checks continuous activity/occurrence grouping and bounded reuse; S4
+freezes fresh release examples only after selecting a configuration.
+Keep exact retrieval and Gemini;
+no default promotion or parallel model integration. The older twelve-video
+numbers below are historical, not the current release decision.
+
 The provider/index/retrieval/UI code is implemented on the feature branch; see
 [STATUS](STATUS.md) for the exact test evidence. It adds a distinct Gemini
 Embedding 2 path over adaptive event/detail ranges of prepared 720p proxies,

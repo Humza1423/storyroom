@@ -1,0 +1,423 @@
+{
+  "study": "gemini-fresh-v1",
+  "frozen_before_search": true,
+  "review_method": "All eight 1fps contact sheets inspected; football kicks and push-ups also sampled at 4fps. Approximate boundaries \u00b10.5s; no model search results used for labels.",
+  "videos": [
+    {
+      "source_id": "f01",
+      "file": "inputs/f01.mp4",
+      "sha256": "994033f2b111bda2579cb35a271dee7029432ce1db661d2cca991b758c1de9de",
+      "source_collection": "wikimedia_commons",
+      "normalized_fps": 30
+    },
+    {
+      "source_id": "f02",
+      "file": "inputs/f02.mp4",
+      "sha256": "743a8515fabecab16296a9cf1ea2fbac72de4d83d62db97fb71dfb295af9d2d3",
+      "source_collection": "wikimedia_commons",
+      "normalized_fps": 30
+    },
+    {
+      "source_id": "f03",
+      "file": "inputs/f03.mp4",
+      "sha256": "00948cc933f887a22ec2e9bb028dfd133c85240f276d35c9ab935f40396dbd40",
+      "source_collection": "dvids",
+      "normalized_fps": 30
+    },
+    {
+      "source_id": "f04",
+      "file": "inputs/f04.mp4",
+      "sha256": "64ef261f618034109dc1572dc83d1442dec182df369bbe2c6b47d86e8664b8dc",
+      "source_collection": "dvids",
+      "normalized_fps": 30
+    },
+    {
+      "source_id": "f05",
+      "file": "inputs/f05.mp4",
+      "sha256": "83d7025b1c40123d4bc30a552b9d1b4fb053bcc934d2f8f60e95c4ae61d33bc8",
+      "source_collection": "wikimedia_commons",
+      "normalized_fps": 30
+    },
+    {
+      "source_id": "f06",
+      "file": "inputs/f06.mp4",
+      "sha256": "b1a0b8266c7883ebfe21772033287bffefd01e9140aabb8bd6ecd417aea022a1",
+      "source_collection": "wikimedia_commons",
+      "normalized_fps": 30
+    },
+    {
+      "source_id": "f07",
+      "file": "inputs/f07.mp4",
+      "sha256": "d33db1427ab5f8d3dbc2217d59ce6364d37f27840dac46039de43c1944196303",
+      "source_collection": "wikimedia_commons",
+      "normalized_fps": 30
+    },
+    {
+      "source_id": "f08",
+      "file": "inputs/f08.mp4",
+      "sha256": "b38ae6ee53fba9249f961ce569d734f05b6464f1a7770cfd84c46f7be66c82b1",
+      "source_collection": "nasa_svs",
+      "normalized_fps": 30
+    }
+  ],
+  "queries": [
+    {
+      "id": "p01",
+      "query": "Find outdoor football practice with two people passing a ball.",
+      "kind": "positive",
+      "intent": "continuous",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f01",
+          "start_sec": 0,
+          "end_sec": 30,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ]
+    },
+    {
+      "id": "p02",
+      "query": "Show the player in blue kicking the football, including the run-up and finish.",
+      "kind": "positive",
+      "intent": "discrete",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f01",
+          "start_sec": 5.8,
+          "end_sec": 7.7,
+          "label_type": "event",
+          "activity_kind": "discrete"
+        },
+        {
+          "source_id": "f01",
+          "start_sec": 9.4,
+          "end_sec": 10.8,
+          "label_type": "event",
+          "activity_kind": "discrete"
+        }
+      ]
+    },
+    {
+      "id": "p03",
+      "query": "I need 20 seconds of football practice on grass.",
+      "kind": "positive",
+      "intent": "duration",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f01",
+          "start_sec": 0,
+          "end_sec": 30,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ],
+      "requested_duration_sec": 20
+    },
+    {
+      "id": "p04",
+      "query": "Find an indoor badminton doubles game.",
+      "kind": "positive",
+      "intent": "continuous",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f02",
+          "start_sec": 0,
+          "end_sec": 30,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ]
+    },
+    {
+      "id": "p05",
+      "query": "Give me 20 seconds of badminton court action.",
+      "kind": "positive",
+      "intent": "duration",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f02",
+          "start_sec": 0,
+          "end_sec": 30,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ],
+      "requested_duration_sec": 20
+    },
+    {
+      "id": "p06",
+      "query": "Find someone demonstrating push-ups on artificial grass.",
+      "kind": "positive",
+      "intent": "continuous",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f03",
+          "start_sec": 8,
+          "end_sec": 12,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        },
+        {
+          "source_id": "f03",
+          "start_sec": 14,
+          "end_sec": 30,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ]
+    },
+    {
+      "id": "p07",
+      "query": "Show one complete push-up, from straight arms down and back up.",
+      "kind": "positive",
+      "intent": "discrete",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f03",
+          "start_sec": 20.5,
+          "end_sec": 23.75,
+          "label_type": "event",
+          "activity_kind": "discrete"
+        },
+        {
+          "source_id": "f03",
+          "start_sec": 25.75,
+          "end_sec": 28.5,
+          "label_type": "event",
+          "activity_kind": "discrete"
+        }
+      ]
+    },
+    {
+      "id": "p08",
+      "query": "Find the two fitness instructors standing and explaining an exercise.",
+      "kind": "positive",
+      "intent": "continuous",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f03",
+          "start_sec": 0,
+          "end_sec": 8,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        },
+        {
+          "source_id": "f03",
+          "start_sec": 12,
+          "end_sec": 14,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ]
+    },
+    {
+      "id": "p09",
+      "query": "Show horses moving around a sunny green pasture.",
+      "kind": "positive",
+      "intent": "continuous",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f05",
+          "start_sec": 0,
+          "end_sec": 30,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ]
+    },
+    {
+      "id": "p10",
+      "query": "I need a 20 second horses-in-a-field cutaway.",
+      "kind": "positive",
+      "intent": "duration",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f05",
+          "start_sec": 0,
+          "end_sec": 30,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ],
+      "requested_duration_sec": 20
+    },
+    {
+      "id": "p11",
+      "query": "Find noodles boiling in a pot of water.",
+      "kind": "positive",
+      "intent": "continuous",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f06",
+          "start_sec": 0,
+          "end_sec": 20.333,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ]
+    },
+    {
+      "id": "p12",
+      "query": "Give me 20 seconds of pasta cooking in boiling water.",
+      "kind": "positive",
+      "intent": "duration",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f06",
+          "start_sec": 0,
+          "end_sec": 20.333,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ],
+      "requested_duration_sec": 20
+    },
+    {
+      "id": "p13",
+      "query": "Find a person demonstrating a hand sign indoors.",
+      "kind": "positive",
+      "intent": "continuous",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f07",
+          "start_sec": 0,
+          "end_sec": 2.633,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ]
+    },
+    {
+      "id": "p14",
+      "query": "Find the close shot of a man raising one hand beside his face.",
+      "kind": "positive",
+      "intent": "continuous",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f07",
+          "start_sec": 0,
+          "end_sec": 2.633,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ]
+    },
+    {
+      "id": "p15",
+      "query": "Find an animated Earth globe rotating against a dark background.",
+      "kind": "positive",
+      "intent": "continuous",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f08",
+          "start_sec": 0,
+          "end_sec": 30,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ]
+    },
+    {
+      "id": "p16",
+      "query": "I need 20 seconds of the rotating planet Earth.",
+      "kind": "positive",
+      "intent": "duration",
+      "split": "test",
+      "relevant": [
+        {
+          "source_id": "f08",
+          "start_sec": 0,
+          "end_sec": 30,
+          "label_type": "presence",
+          "activity_kind": "continuous"
+        }
+      ],
+      "requested_duration_sec": 20
+    },
+    {
+      "id": "n01",
+      "query": "Find people playing volleyball and hitting a ball over a net.",
+      "kind": "negative",
+      "intent": "negative",
+      "split": "test",
+      "relevant": []
+    },
+    {
+      "id": "n02",
+      "query": "Find someone stirring the noodles with a spoon.",
+      "kind": "negative",
+      "intent": "negative",
+      "split": "test",
+      "relevant": []
+    },
+    {
+      "id": "n03",
+      "query": "Find a boxer kicking a heavy punching bag.",
+      "kind": "negative",
+      "intent": "negative",
+      "split": "test",
+      "relevant": []
+    },
+    {
+      "id": "n04",
+      "query": "Find someone doing bicep curls with dumbbells.",
+      "kind": "negative",
+      "intent": "negative",
+      "split": "test",
+      "relevant": []
+    },
+    {
+      "id": "n05",
+      "query": "Find a dog chasing a ball on grass.",
+      "kind": "negative",
+      "intent": "negative",
+      "split": "test",
+      "relevant": []
+    },
+    {
+      "id": "n06",
+      "query": "Find an astronaut running on a treadmill inside a space station.",
+      "kind": "negative",
+      "intent": "negative",
+      "split": "test",
+      "relevant": []
+    },
+    {
+      "id": "n07",
+      "query": "Find a basketball player throwing the ball into a hoop.",
+      "kind": "negative",
+      "intent": "negative",
+      "split": "test",
+      "relevant": []
+    },
+    {
+      "id": "n08",
+      "query": "Find someone knitting fabric with two needles.",
+      "kind": "negative",
+      "intent": "negative",
+      "split": "test",
+      "relevant": []
+    }
+  ],
+  "limitations": [
+    "f04 is a volleyball ANNOUNCEMENT, no actual volleyball; f07 signs the word badminton but shows no racket.",
+    "Long activity labels allow pauses; selected shots still require coherence review.",
+    "Broad continuous presence recall is distinct from activity completeness and requested-duration fulfillment."
+  ]
+}

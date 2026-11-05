@@ -1,0 +1,300 @@
+{
+  "kind": "bounded follow-up; not a final accuracy benchmark",
+  "code_revision": "2b2e34f12dffdc07ed89eeaa6aabea52b91ac114",
+  "grounding_contract": "grounded-ranges-v4-boundary-conflict-3fps",
+  "runtime_sources": {
+    "server/activities.py": "ecda9418ac04a0cc3d3e92226d611a52550ffaffcc65040f15febd387dd2d83a",
+    "server/grounding.py": "17670f6f0e36c8b88e54db264289ffe148fba03ba7fea2d4b4992c294b3468ad",
+    "server/search.py": "7aeaae0b7d61d2413897dad17b68cf37fd6e87d005a12fc537a9be8d56320e2f",
+    "server/ai.py": "1e0535f9912e3e7d0e4df576e1fc837fe8979206d74bfdc8a7aa7d9dd6a38c29",
+    "server/media.py": "ae49cb97e0d754f0d039b2cf8cd8e121bc73cfb06aaeab96b79cf6f953f60084",
+    "scripts/evaluate_activity_search.py": "dfa932269ae65288b77f3226f599afc0d6c25d92dc65c7651574da84af7357f9"
+  },
+  "embedding_model": "gemini-embedding-2",
+  "verifier_model": "gemini-3.5-flash-lite",
+  "frozen_key_sha256": "28d46f70d6c21d56aaa95d469616136f8c2d883c9e05aeb1d1b78f65d4ad10b3",
+  "evaluation_budget": {
+    "max_generation_attempts": 8,
+    "max_video_seconds": 300,
+    "generation_attempts": 6,
+    "supplied_video_seconds": 180.9
+  },
+  "summary": {
+    "queries_completed": 3,
+    "positive_queries": 2,
+    "negative_queries": 1,
+    "top5_relevant": 2,
+    "top1_relevant": 2,
+    "returned_first_precision": {
+      "correct": 2,
+      "returned": 2
+    },
+    "negative_false_returns": 0,
+    "provider_or_validation_errors": 1,
+    "duration_queries": 1,
+    "duration_fulfilled_with_relevant_cut": 0,
+    "median_discrete_boundary_error_sec": null,
+    "boundary_labels_matched": 0,
+    "p50_total_seconds": 12.670854000025429
+  },
+  "evaluation_stop": null,
+  "queries": [
+    {
+      "id": "n04",
+      "query": "Find someone doing bicep curls with dumbbells.",
+      "initial_seconds": 10.029377708036918,
+      "total_seconds": 10.030131041014101,
+      "video_requests": 1,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 28.233333333333334,
+        "elapsed_seconds": 9.980794041999616,
+        "input_tokens": 6268,
+        "output_tokens": 282,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "p05",
+      "query": "Give me 20 seconds of badminton court action.",
+      "initial_seconds": 16.83223620901117,
+      "total_seconds": 57.78773579199333,
+      "video_requests": 2,
+      "inspection_status": "failed",
+      "inspection_message": "Inspection is unrelated to its retrieved anchor",
+      "results": [
+        {
+          "asset_name": "f02.mp4",
+          "asset_id": "575d8036d08c4c5797ce7df9c8a64061",
+          "start_frame": 0,
+          "end_frame": 195,
+          "rank": 1,
+          "activity": {
+            "boundary_conflict_after": false,
+            "boundary_conflict_before": false,
+            "complete": false,
+            "continues_after": true,
+            "continues_before": false,
+            "duration_fulfilled": false,
+            "end_frame": 195,
+            "id": "cdbf577f1103b3eca39e4de2",
+            "intent": "broad_activity",
+            "requested_frames": 600,
+            "start_frame": 0,
+            "suggested_end_frame": 195,
+            "suggested_start_frame": 0,
+            "visible_evidence": "Players playing badminton on a court."
+          }
+        },
+        {
+          "asset_name": "f02.mp4",
+          "asset_id": "575d8036d08c4c5797ce7df9c8a64061",
+          "start_frame": 78,
+          "end_frame": 318,
+          "rank": 2,
+          "activity": {
+            "boundary_conflict_after": false,
+            "boundary_conflict_before": false,
+            "complete": false,
+            "continues_after": true,
+            "continues_before": true,
+            "duration_fulfilled": false,
+            "end_frame": 318,
+            "id": "aeea0bcdfe2883a3e8be1877",
+            "intent": "broad_activity",
+            "requested_frames": 600,
+            "start_frame": 78,
+            "suggested_end_frame": 318,
+            "suggested_start_frame": 78,
+            "visible_evidence": "Badminton court gameplay and players walking around."
+          }
+        }
+      ],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 29.233333333333334,
+        "elapsed_seconds": 16.788009416952264,
+        "input_tokens": 6533,
+        "output_tokens": 480,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "continuation_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 27.5,
+        "elapsed_seconds": 40.94164620799711,
+        "input_tokens": 6084,
+        "output_tokens": 177,
+        "usage_available": true,
+        "error_code": "anchor_unrelated",
+        "errors": [
+          {
+            "code": "anchor_unrelated",
+            "stage": "range_validation",
+            "candidate_id": "c0",
+            "proposed_interval": {
+              "start_seconds": 14.333,
+              "end_seconds": 19.667,
+              "suggested_start_seconds": 14.333,
+              "suggested_end_seconds": 19.333,
+              "continues_before": false,
+              "continues_after": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "p01",
+      "query": "Find outdoor football practice with two people passing a ball.",
+      "initial_seconds": 12.669932584045455,
+      "total_seconds": 12.670854000025429,
+      "video_requests": 2,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [
+        {
+          "asset_name": "f01.mp4",
+          "asset_id": "3dd11b687ede458492bb6012ac61eb1b",
+          "start_frame": 487,
+          "end_frame": 527,
+          "rank": 1,
+          "activity": {
+            "start_frame": 487,
+            "end_frame": 527,
+            "suggested_start_frame": 487,
+            "suggested_end_frame": 527,
+            "visible_evidence": "Outdoor football practice where one person kicks/passes a ball to the other person.",
+            "continues_before": false,
+            "continues_after": false,
+            "boundary_conflict_before": false,
+            "boundary_conflict_after": false,
+            "id": "42c80abe8d9c04fda0eaa054",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        },
+        {
+          "asset_name": "f01.mp4",
+          "asset_id": "3dd11b687ede458492bb6012ac61eb1b",
+          "start_frame": 631,
+          "end_frame": 661,
+          "rank": 2,
+          "activity": {
+            "start_frame": 631,
+            "end_frame": 661,
+            "suggested_start_frame": 631,
+            "suggested_end_frame": 661,
+            "visible_evidence": "Outdoor football practice where one person passes a ball across the net.",
+            "continues_before": false,
+            "continues_after": false,
+            "boundary_conflict_before": false,
+            "boundary_conflict_after": false,
+            "id": "9fbdd7cf46356e945b38cf3a",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        }
+      ],
+      "inspection_diagnostics": {
+        "request_attempts": 2,
+        "retries": 1,
+        "cache_hits": 0,
+        "submitted_video_seconds": 67.99999999999999,
+        "elapsed_seconds": 12.62441912497161,
+        "input_tokens": 7473,
+        "output_tokens": 500,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    }
+  ],
+  "manual_duration_probe": {
+    "query": "I need 20 seconds of a person demonstrating a hand sign indoors.",
+    "state": "finished",
+    "elapsed_seconds": 8.69025474996306,
+    "embedding_requests": 1,
+    "video_requests": 1,
+    "response": {
+      "results": [
+        {
+          "asset_name": "f07.mp4",
+          "asset_id": "e8313a93cac948d48f63f9928aeea7db",
+          "start_frame": 0,
+          "end_frame": 79,
+          "rank": 1,
+          "activity": {
+            "start_frame": 0,
+            "end_frame": 79,
+            "suggested_start_frame": 0,
+            "suggested_end_frame": 79,
+            "visible_evidence": "A person is standing indoors demonstrating a hand sign.",
+            "continues_before": false,
+            "continues_after": false,
+            "boundary_conflict_before": false,
+            "boundary_conflict_after": false,
+            "id": "8eb76ddb268078220dd9c0b5",
+            "intent": "broad_activity",
+            "requested_frames": 600,
+            "complete": true,
+            "duration_fulfilled": false
+          }
+        }
+      ],
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 27.933333333333334,
+        "elapsed_seconds": 8.077706207986921,
+        "input_tokens": 6273,
+        "output_tokens": 393,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      }
+    }
+  }
+}

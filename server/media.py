@@ -108,9 +108,14 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
-def verification_clip(proxy, start_frame, end_frame):
+def verification_clip(proxy, start_frame, end_frame, *, sample_fps=3):
     """Make a small, silent video of one candidate range for visual verification."""
-    if start_frame < 0 or end_frame <= start_frame:
+    if (
+        start_frame < 0
+        or end_frame <= start_frame
+        or type(sample_fps) is not int
+        or sample_fps not in (3, 6)
+    ):
         raise ValueError("Invalid visual candidate range")
     start = start_frame / config.FPS
     duration = (end_frame - start_frame) / config.FPS
@@ -119,7 +124,7 @@ def verification_clip(proxy, start_frame, end_frame):
             [
                 "ffmpeg", "-nostdin", "-v", "error", "-ss", f"{start:.6f}",
                 "-i", str(proxy), "-t", f"{duration:.6f}", "-an",
-                "-vf", "fps=3,scale=640:-2", "-c:v", "libx264",
+                "-vf", f"fps={sample_fps},scale=640:-2", "-c:v", "libx264",
                 "-threads", "2", "-preset", "ultrafast", "-crf", "28",
                 "-pix_fmt", "yuv420p", "-movflags", "frag_keyframe+empty_moov",
                 "-f", "mp4", "pipe:1",

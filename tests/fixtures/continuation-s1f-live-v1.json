@@ -1,0 +1,106 @@
+{
+  "study": "continuation-s1f-live-v1",
+  "frozen": true,
+  "frozen_before_live_comparison": true,
+  "fps": 30,
+  "frame_end_convention": "Exclusive end frames; acceptable bound arrays are inclusive.",
+  "review_method": "Dense source-frame contact sheets were reviewed independently of Gemini. The football clip was also played in QuickTime before freezing these labels. Historical labels and ledgers are unchanged.",
+  "limitations": [
+    "These are development checks, not held-out accuracy evidence.",
+    "The later-jacks case reuses a known failure to test the new adaptive tail geometry.",
+    "The football cases test one clearly visible single-shot move and do not establish general move-boundary accuracy."
+  ],
+  "cases": [
+    {
+      "id": "later-jacks-adaptive-tail",
+      "input": "data/evaluation/cavemantraining/inputs/Jumping_jacks_and_burpees.mp4",
+      "sha256": "5f1474a67e15d88d90125e87565448a40a320bd1f8339bf98498885bb621f4c5",
+      "source_page": "https://commons.wikimedia.org/w/index.php?title=File:Jumping_jacks_and_burpees.webm&oldid=1182499913",
+      "author": "Taco Fleur / Cavemantraining",
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "query": "Find the jumping jacks before he starts burpees.",
+      "direction": "after",
+      "asset_frames": 1357,
+      "context": [384, 624],
+      "anchor": [384, 395],
+      "activity": {
+        "start_frame": 319,
+        "end_frame": 395,
+        "intent": "broad_activity",
+        "requested_frames": null,
+        "visible_evidence": "The established later frontal jumping-jack occurrence ends near frame 400 and is followed by a different burpee. The overlap at 384-395 belongs to that same jack occurrence."
+      },
+      "expected": {
+        "start_frame_bounds": [319, 319],
+        "end_frame_bounds": [398, 404],
+        "boundary_outcome": "observed_stop",
+        "description": "Extend through the final jack close, then stop before the downward burpee movement beginning around frame 404."
+      },
+      "review_evidence_images": [
+        "data/evaluation/gemini-fresh/evidence/s1d-jacks-later-start.jpg",
+        "data/evaluation/gemini-fresh/evidence/s1d-jacks-later-end.jpg"
+      ]
+    },
+    {
+      "id": "football-first-kick-before",
+      "input": "data/evaluation/gemini-fresh/inputs/f01.mp4",
+      "sha256": "994033f2b111bda2579cb35a271dee7029432ce1db661d2cca991b758c1de9de",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Football_Tennis.webm",
+      "author": "PK17 Football (PredatorKnuckles17) UK HD",
+      "license": "CC BY 3.0",
+      "license_url": "https://creativecommons.org/licenses/by/3.0/",
+      "query": "Show the complete first kick by the player in blue, including preparation and recovery.",
+      "direction": "before",
+      "asset_frames": 900,
+      "context": [35, 68],
+      "anchor": [60, 68],
+      "activity": {
+        "start_frame": 60,
+        "end_frame": 68,
+        "intent": "specific_move",
+        "requested_frames": null,
+        "visible_evidence": "The player in blue raises his leg and kicks the ball during one continuous wide camera shot."
+      },
+      "expected": {
+        "start_frame_bounds": [52, 58],
+        "end_frame_bounds": [68, 68],
+        "boundary_outcome": "observed_stop",
+        "description": "Include the visible setup before the leg lift while preserving the established kick frames."
+      },
+      "review_evidence_images": [
+        "data/evaluation/gemini-fresh/evidence/s1f-football-first-kick-every-frame.jpg"
+      ]
+    },
+    {
+      "id": "football-first-kick-after",
+      "input": "data/evaluation/gemini-fresh/inputs/f01.mp4",
+      "sha256": "994033f2b111bda2579cb35a271dee7029432ce1db661d2cca991b758c1de9de",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Football_Tennis.webm",
+      "author": "PK17 Football (PredatorKnuckles17) UK HD",
+      "license": "CC BY 3.0",
+      "license_url": "https://creativecommons.org/licenses/by/3.0/",
+      "query": "Show the complete first kick by the player in blue, including preparation and recovery.",
+      "direction": "after",
+      "asset_frames": 900,
+      "context": [60, 100],
+      "anchor": [60, 68],
+      "activity": {
+        "start_frame": 60,
+        "end_frame": 68,
+        "intent": "specific_move",
+        "requested_frames": null,
+        "visible_evidence": "The player in blue raises his leg and kicks the ball during one continuous wide camera shot."
+      },
+      "expected": {
+        "start_frame_bounds": [60, 60],
+        "end_frame_bounds": [72, 80],
+        "boundary_outcome": "observed_stop",
+        "description": "Include the visible recovery after contact and stop before unrelated waiting footage."
+      },
+      "review_evidence_images": [
+        "data/evaluation/gemini-fresh/evidence/s1f-football-first-kick-every-frame.jpg"
+      ]
+    }
+  ]
+}

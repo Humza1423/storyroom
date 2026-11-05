@@ -1,0 +1,1203 @@
+{
+  "kind": "development comparison; historical key unchanged",
+  "code_revision": "2bd9876a4ff17b71d1f8905af14aab5d399daaa8",
+  "embedding_model": "gemini-embedding-2",
+  "verifier_model": "gemini-3.5-flash-lite",
+  "frozen_key_sha256": "28d46f70d6c21d56aaa95d469616136f8c2d883c9e05aeb1d1b78f65d4ad10b3",
+  "evaluation_budget": {
+    "max_generation_attempts": 40,
+    "max_video_seconds": 1500,
+    "generation_attempts": 39,
+    "supplied_video_seconds": 979.6333333333332
+  },
+  "summary": {
+    "queries_completed": 24,
+    "positive_queries": 16,
+    "negative_queries": 8,
+    "top5_relevant": 7,
+    "top1_relevant": 7,
+    "returned_first_precision": {
+      "correct": 7,
+      "returned": 8
+    },
+    "negative_false_returns": 0,
+    "provider_or_validation_errors": 12,
+    "duration_queries": 5,
+    "duration_fulfilled_with_relevant_cut": 3,
+    "median_discrete_boundary_error_sec": 0.6999999999999993,
+    "boundary_labels_matched": 1,
+    "p50_total_seconds": 48.622819291980704
+  },
+  "queries": [
+    {
+      "id": "p01",
+      "query": "Find outdoor football practice with two people passing a ball.",
+      "initial_seconds": 97.78905366698746,
+      "total_seconds": 97.78983899997547,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 33.99999999999999,
+        "elapsed_seconds": 97.70704687497346,
+        "input_tokens": 7473,
+        "output_tokens": 470,
+        "usage_available": true,
+        "error_code": "continuity_unsupported",
+        "errors": [
+          {
+            "code": "continuity_unsupported",
+            "stage": "range_validation",
+            "candidate_id": "c0"
+          },
+          {
+            "code": "continuity_unsupported",
+            "stage": "range_validation",
+            "candidate_id": "c1"
+          }
+        ]
+      },
+      "warning": "Inspection incomplete: Continuation does not reach the inspected boundary Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "p02",
+      "query": "Show the player in blue kicking the football, including the run-up and finish.",
+      "initial_seconds": 6.571965833019931,
+      "total_seconds": 6.572966874984559,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [
+        {
+          "asset_name": "f01.mp4",
+          "asset_id": "3dd11b687ede458492bb6012ac61eb1b",
+          "start_frame": 642,
+          "end_frame": 738,
+          "rank": 1,
+          "activity": {
+            "start_frame": 642,
+            "end_frame": 738,
+            "suggested_start_frame": 642,
+            "suggested_end_frame": 738,
+            "visible_evidence": "The player in blue runs up and kicks the football",
+            "continues_before": false,
+            "continues_after": false,
+            "id": "dc077ab586afe57301de0036",
+            "intent": "specific_move",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        },
+        {
+          "asset_name": "f01.mp4",
+          "asset_id": "3dd11b687ede458492bb6012ac61eb1b",
+          "start_frame": 294,
+          "end_frame": 408,
+          "rank": 2,
+          "activity": {
+            "start_frame": 294,
+            "end_frame": 408,
+            "suggested_start_frame": 294,
+            "suggested_end_frame": 408,
+            "visible_evidence": "The player in blue runs up and kicks the football",
+            "continues_before": false,
+            "continues_after": false,
+            "id": "5026de84a5a922ff4c647235",
+            "intent": "specific_move",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        }
+      ],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 37.5,
+        "elapsed_seconds": 6.4836263750330545,
+        "input_tokens": 8139,
+        "output_tokens": 477,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "p03",
+      "query": "I need 20 seconds of football practice on grass.",
+      "initial_seconds": 20.411180458031595,
+      "total_seconds": 144.8611479580286,
+      "video_requests": 5,
+      "embedding_requests": 0,
+      "inspection_status": "done",
+      "inspection_message": "Complete",
+      "results": [
+        {
+          "asset_name": "f01.mp4",
+          "asset_id": "3dd11b687ede458492bb6012ac61eb1b",
+          "start_frame": 300,
+          "end_frame": 900,
+          "rank": 1,
+          "activity": {
+            "complete": true,
+            "continues_after": false,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 900,
+            "id": "062f46b6c52733cd21917646",
+            "intent": "broad_activity",
+            "requested_frames": 600,
+            "start_frame": 0,
+            "suggested_end_frame": 537,
+            "suggested_start_frame": 387,
+            "visible_evidence": "Football practice on grass field with players passing and kicking a ball."
+          }
+        }
+      ],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 32.1,
+        "elapsed_seconds": 20.347624209010974,
+        "input_tokens": 7012,
+        "output_tokens": 497,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": 4,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 62.4,
+        "elapsed_seconds": 124.40780883299885,
+        "input_tokens": 14774,
+        "output_tokens": 682,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      }
+    },
+    {
+      "id": "p04",
+      "query": "Find an indoor badminton doubles game.",
+      "initial_seconds": 55.78115987498313,
+      "total_seconds": 55.78252170898486,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 28.833333333333332,
+        "elapsed_seconds": 55.69373358297162,
+        "input_tokens": 6463,
+        "output_tokens": 474,
+        "usage_available": true,
+        "error_code": "timestamp_out_of_context",
+        "errors": [
+          {
+            "code": "timestamp_out_of_context",
+            "stage": "range_validation",
+            "candidate_id": "c0"
+          },
+          {
+            "code": "timestamp_out_of_context",
+            "stage": "range_validation",
+            "candidate_id": "c1"
+          }
+        ]
+      },
+      "warning": "Inspection incomplete: Inspection seconds outside supplied video Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "p05",
+      "query": "Give me 20 seconds of badminton court action.",
+      "initial_seconds": 12.69421158300247,
+      "total_seconds": 12.695625332999043,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 29.233333333333334,
+        "elapsed_seconds": 12.606224999995902,
+        "input_tokens": 6533,
+        "output_tokens": 478,
+        "usage_available": true,
+        "error_code": "continuity_unsupported",
+        "errors": [
+          {
+            "code": "continuity_unsupported",
+            "stage": "range_validation",
+            "candidate_id": "c0"
+          },
+          {
+            "code": "continuity_unsupported",
+            "stage": "range_validation",
+            "candidate_id": "c1"
+          }
+        ]
+      },
+      "warning": "Inspection incomplete: Continuation does not reach the inspected boundary Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "p06",
+      "query": "Find someone demonstrating push-ups on artificial grass.",
+      "initial_seconds": 121.20121595897945,
+      "total_seconds": 121.20397595898248,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 29.533333333333335,
+        "elapsed_seconds": 121.12947816698579,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "usage_available": false,
+        "error_code": "provider_failure",
+        "errors": [
+          {
+            "code": "provider_failure",
+            "stage": "provider_request"
+          }
+        ]
+      },
+      "warning": "Inspection incomplete: Gemini video verifier request failed. Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "p07",
+      "query": "Show one complete push-up, from straight arms down and back up.",
+      "initial_seconds": 44.537152167002205,
+      "total_seconds": 44.538546541996766,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [
+        {
+          "asset_name": "f03.mp4",
+          "asset_id": "b9fbdfbb02b24f7eb9a575fae5577a7e",
+          "start_frame": 636,
+          "end_frame": 708,
+          "rank": 1,
+          "activity": {
+            "start_frame": 636,
+            "end_frame": 708,
+            "suggested_start_frame": 636,
+            "suggested_end_frame": 708,
+            "visible_evidence": "Person lowers from straight arms into a push-up and pushes back up to straight arms.",
+            "continues_before": false,
+            "continues_after": false,
+            "id": "6b166b75fa7d3e2855ed69dc",
+            "intent": "specific_move",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        }
+      ],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 32.833333333333336,
+        "elapsed_seconds": 44.44924154202454,
+        "input_tokens": 7197,
+        "output_tokens": 506,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "p08",
+      "query": "Find the two fitness instructors standing and explaining an exercise.",
+      "initial_seconds": 120.61149166699033,
+      "total_seconds": 120.61385795898968,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 33.1,
+        "elapsed_seconds": 120.53471895802068,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "usage_available": false,
+        "error_code": "provider_failure",
+        "errors": [
+          {
+            "code": "provider_failure",
+            "stage": "provider_request",
+            "status_code": 504,
+            "provider_status": "DEADLINE_EXCEEDED"
+          }
+        ]
+      },
+      "warning": "Inspection incomplete: Gemini video verifier request failed (HTTP 504). Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "p09",
+      "query": "Show horses moving around a sunny green pasture.",
+      "initial_seconds": 37.39593441598117,
+      "total_seconds": 158.34656495798845,
+      "video_requests": 2,
+      "embedding_requests": 0,
+      "inspection_status": "failed",
+      "inspection_message": "Gemini video verifier request failed.",
+      "results": [
+        {
+          "asset_name": "f05.mp4",
+          "asset_id": "b82a9defd9164617b7e984f9493d6a9f",
+          "start_frame": 405,
+          "end_frame": 555,
+          "rank": 1,
+          "activity": {
+            "complete": false,
+            "continues_after": true,
+            "continues_before": true,
+            "duration_fulfilled": true,
+            "end_frame": 591,
+            "id": "6a57fe9df3b015c67172c7d3",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "start_frame": 405,
+            "suggested_end_frame": 555,
+            "suggested_start_frame": 405,
+            "visible_evidence": "Multiple horses are moving around a sunny green pasture throughout the video clip."
+          }
+        },
+        {
+          "asset_name": "f05.mp4",
+          "asset_id": "b82a9defd9164617b7e984f9493d6a9f",
+          "start_frame": 0,
+          "end_frame": 117,
+          "rank": 2,
+          "activity": {
+            "complete": false,
+            "continues_after": true,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 117,
+            "id": "9570b963cc32285c6a45d89e",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "start_frame": 0,
+            "suggested_end_frame": 117,
+            "suggested_start_frame": 0,
+            "visible_evidence": "Horses are walking and moving around a sunny green pasture in the clip."
+          }
+        }
+      ],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 31.299999999999997,
+        "elapsed_seconds": 37.266603208030574,
+        "input_tokens": 7009,
+        "output_tokens": 483,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 17.5,
+        "elapsed_seconds": 120.92802370799473,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "usage_available": false,
+        "error_code": "provider_failure",
+        "errors": [
+          {
+            "code": "provider_failure",
+            "stage": "provider_request"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p10",
+      "query": "I need a 20 second horses-in-a-field cutaway.",
+      "initial_seconds": 61.7499941670103,
+      "total_seconds": 178.34266658400884,
+      "video_requests": 5,
+      "embedding_requests": 0,
+      "inspection_status": "done",
+      "inspection_message": "Complete",
+      "results": [
+        {
+          "asset_name": "f05.mp4",
+          "asset_id": "b82a9defd9164617b7e984f9493d6a9f",
+          "start_frame": 21,
+          "end_frame": 621,
+          "rank": 1,
+          "activity": {
+            "complete": true,
+            "continues_after": false,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 900,
+            "id": "b4c9bb10104f759439c0de31",
+            "intent": "broad_activity",
+            "requested_frames": 600,
+            "start_frame": 0,
+            "suggested_end_frame": 171,
+            "suggested_start_frame": 21,
+            "visible_evidence": "Horses in a field running across the pasture."
+          }
+        }
+      ],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 35.7,
+        "elapsed_seconds": 61.6570446669939,
+        "input_tokens": 7743,
+        "output_tokens": 483,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": 4,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 61.400000000000006,
+        "elapsed_seconds": 116.53836633497849,
+        "input_tokens": 14656,
+        "output_tokens": 687,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      }
+    },
+    {
+      "id": "p11",
+      "query": "Find noodles boiling in a pot of water.",
+      "initial_seconds": 43.399285207968205,
+      "total_seconds": 168.4520730410004,
+      "video_requests": 3,
+      "embedding_requests": 0,
+      "inspection_status": "failed",
+      "inspection_message": "Gemini video verifier request failed.",
+      "results": [
+        {
+          "asset_name": "f06.mp4",
+          "asset_id": "f2d60ee431f74c9f8d7f6e0571a56c41",
+          "start_frame": 471,
+          "end_frame": 610,
+          "rank": 1,
+          "activity": {
+            "complete": true,
+            "continues_after": false,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 610,
+            "id": "1b4ebb298ffcadc3ac91fb9d",
+            "intent": "broad_activity",
+            "requested_frames": null,
+            "start_frame": 0,
+            "suggested_end_frame": 610,
+            "suggested_start_frame": 471,
+            "visible_evidence": "Noodles boiling in a pot of water"
+          }
+        }
+      ],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 25.666666666666668,
+        "elapsed_seconds": 43.265407958009746,
+        "input_tokens": 5871,
+        "output_tokens": 477,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": 2,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 38.13333333333333,
+        "elapsed_seconds": 125.0189663739875,
+        "input_tokens": 4500,
+        "output_tokens": 166,
+        "usage_available": true,
+        "error_code": "provider_failure",
+        "errors": [
+          {
+            "code": "provider_failure",
+            "stage": "provider_request"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p12",
+      "query": "Give me 20 seconds of pasta cooking in boiling water.",
+      "initial_seconds": 37.05350266699679,
+      "total_seconds": 106.27258333400823,
+      "video_requests": 5,
+      "embedding_requests": 0,
+      "inspection_status": "done",
+      "inspection_message": "Complete",
+      "results": [
+        {
+          "asset_name": "f06.mp4",
+          "asset_id": "f2d60ee431f74c9f8d7f6e0571a56c41",
+          "start_frame": 10,
+          "end_frame": 610,
+          "rank": 1,
+          "activity": {
+            "complete": true,
+            "continues_after": false,
+            "continues_before": false,
+            "duration_fulfilled": true,
+            "end_frame": 610,
+            "id": "180e225a9bfd17f7cff47236",
+            "intent": "broad_activity",
+            "requested_frames": 600,
+            "start_frame": 0,
+            "suggested_end_frame": 369,
+            "suggested_start_frame": 219,
+            "visible_evidence": "Pasta cooking in boiling water throughout the entire clip."
+          }
+        }
+      ],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 36.400000000000006,
+        "elapsed_seconds": 36.95403449999867,
+        "input_tokens": 7937,
+        "output_tokens": 494,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": 4,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 43.06666666666666,
+        "elapsed_seconds": 69.16977487498662,
+        "input_tokens": 10948,
+        "output_tokens": 698,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      }
+    },
+    {
+      "id": "p13",
+      "query": "Find a person demonstrating a hand sign indoors.",
+      "initial_seconds": 42.000689291977324,
+      "total_seconds": 42.00305158295669,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [
+        {
+          "asset_name": "f07.mp4",
+          "asset_id": "e8313a93cac948d48f63f9928aeea7db",
+          "start_frame": 0,
+          "end_frame": 79,
+          "rank": 1,
+          "activity": {
+            "start_frame": 0,
+            "end_frame": 79,
+            "suggested_start_frame": 0,
+            "suggested_end_frame": 79,
+            "visible_evidence": "A person indoors demonstrating a hand sign.",
+            "continues_before": false,
+            "continues_after": false,
+            "id": "2f7c283313e490104d3e97eb",
+            "intent": "specific_move",
+            "requested_frames": null,
+            "complete": true,
+            "duration_fulfilled": true
+          }
+        }
+      ],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 31.233333333333334,
+        "elapsed_seconds": 41.905401417054236,
+        "input_tokens": 6927,
+        "output_tokens": 380,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "p14",
+      "query": "Find the close shot of a man raising one hand beside his face.",
+      "initial_seconds": 4.688604500028305,
+      "total_seconds": 4.6917490000487305,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 31.533333333333335,
+        "elapsed_seconds": 4.612742124998476,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "usage_available": false,
+        "error_code": "provider_failure",
+        "errors": [
+          {
+            "code": "provider_failure",
+            "stage": "provider_request",
+            "status_code": 500,
+            "provider_status": "INTERNAL"
+          }
+        ]
+      },
+      "warning": "Inspection incomplete: Gemini video verifier request failed (HTTP 500). Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "p15",
+      "query": "Find an animated Earth globe rotating against a dark background.",
+      "initial_seconds": 5.05627695802832,
+      "total_seconds": 5.059769291023258,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 28.933333333333334,
+        "elapsed_seconds": 4.989348666975275,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "usage_available": false,
+        "error_code": "provider_failure",
+        "errors": [
+          {
+            "code": "provider_failure",
+            "stage": "provider_request",
+            "status_code": 500,
+            "provider_status": "INTERNAL"
+          }
+        ]
+      },
+      "warning": "Inspection incomplete: Gemini video verifier request failed (HTTP 500). Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "p16",
+      "query": "I need 20 seconds of the rotating planet Earth.",
+      "initial_seconds": 5.269714499998372,
+      "total_seconds": 5.271922041953076,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 30.833333333333332,
+        "elapsed_seconds": 5.198218292032834,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "usage_available": false,
+        "error_code": "provider_failure",
+        "errors": [
+          {
+            "code": "provider_failure",
+            "stage": "provider_request",
+            "status_code": 500,
+            "provider_status": "INTERNAL"
+          }
+        ]
+      },
+      "warning": "Inspection incomplete: Gemini video verifier request failed (HTTP 500). Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "n01",
+      "query": "Find people playing volleyball and hitting a ball over a net.",
+      "initial_seconds": 5.5183585829799995,
+      "total_seconds": 5.522078750014771,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 32.9,
+        "elapsed_seconds": 5.456856541975867,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "usage_available": false,
+        "error_code": "provider_failure",
+        "errors": [
+          {
+            "code": "provider_failure",
+            "stage": "provider_request",
+            "status_code": 500,
+            "provider_status": "INTERNAL"
+          }
+        ]
+      },
+      "warning": "Inspection incomplete: Gemini video verifier request failed (HTTP 500). Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "n02",
+      "query": "Find someone stirring the noodles with a spoon.",
+      "initial_seconds": 69.94109529204434,
+      "total_seconds": 69.94438420800725,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 28.566666666666666,
+        "elapsed_seconds": 69.86666974995751,
+        "input_tokens": 6399,
+        "output_tokens": 282,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "n03",
+      "query": "Find a boxer kicking a heavy punching bag.",
+      "initial_seconds": 121.05505983298644,
+      "total_seconds": 121.0593096659868,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 30.233333333333334,
+        "elapsed_seconds": 120.98322708404157,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "usage_available": false,
+        "error_code": "provider_failure",
+        "errors": [
+          {
+            "code": "provider_failure",
+            "stage": "provider_request"
+          }
+        ]
+      },
+      "warning": "Inspection incomplete: Gemini video verifier request failed. Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "n04",
+      "query": "Find someone doing bicep curls with dumbbells.",
+      "initial_seconds": 18.103276250010822,
+      "total_seconds": 18.106550458993297,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 28.233333333333334,
+        "elapsed_seconds": 18.02503150003031,
+        "input_tokens": 6268,
+        "output_tokens": 282,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "n05",
+      "query": "Find a dog chasing a ball on grass.",
+      "initial_seconds": 43.03582633397309,
+      "total_seconds": 43.03908983396832,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 35.4,
+        "elapsed_seconds": 42.95829216600396,
+        "input_tokens": 7669,
+        "output_tokens": 282,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "n06",
+      "query": "Find an astronaut running on a treadmill inside a space station.",
+      "initial_seconds": 52.70316279196413,
+      "total_seconds": 52.70709204196464,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 32.4,
+        "elapsed_seconds": 52.62721662496915,
+        "input_tokens": 7144,
+        "output_tokens": 282,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "n07",
+      "query": "Find a basketball player throwing the ball into a hoop.",
+      "initial_seconds": 23.540513749991078,
+      "total_seconds": 23.54352020798251,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 30.633333333333336,
+        "elapsed_seconds": 23.46492095902795,
+        "input_tokens": 6797,
+        "output_tokens": 282,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    },
+    {
+      "id": "n08",
+      "query": "Find someone knitting fabric with two needles.",
+      "initial_seconds": 42.629843792004976,
+      "total_seconds": 42.633760583004914,
+      "video_requests": 1,
+      "embedding_requests": 0,
+      "inspection_status": null,
+      "inspection_message": null,
+      "results": [],
+      "inspection_diagnostics": {
+        "request_attempts": 1,
+        "retries": 0,
+        "cache_hits": 0,
+        "submitted_video_seconds": 30.033333333333335,
+        "elapsed_seconds": 42.536868957977276,
+        "input_tokens": 6596,
+        "output_tokens": 282,
+        "usage_available": true,
+        "error_code": null,
+        "errors": []
+      },
+      "warning": "Only the first five candidate locations on this page were checked. Check more moments if needed.",
+      "continuation_diagnostics": {
+        "request_attempts": null,
+        "retries": null,
+        "cache_hits": null,
+        "submitted_video_seconds": null,
+        "elapsed_seconds": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_available": null,
+        "error_code": null,
+        "errors": null
+      }
+    }
+  ]
+}
