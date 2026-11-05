@@ -1,4 +1,4 @@
-"""One authorized S1e probe at a time; shared durable 8-attempt/180-second cap.
+"""One authorized continuation probe at a time, with a durable study cap.
 
 Provider response text never enters the ledger. Numeric/enum snapshots support
 offline validation replay, not replay of the model's semantic judgment.
@@ -27,6 +27,22 @@ from scripts.evaluate_activity_search import (
 
 ROOT = Path(__file__).resolve().parents[1]
 LEDGER = ROOT / "data/evaluation/gemini-fresh/s1e-ledger.json"
+STUDIES = {
+    "s1e": {
+        "name": "continuation-s1e",
+        "ledger": LEDGER,
+        "cache": "s1e-cache",
+        "attempts": 8,
+        "video_seconds": 180,
+    },
+    "s1f": {
+        "name": "continuation-s1f",
+        "ledger": ROOT / "data/evaluation/gemini-fresh/s1f-ledger.json",
+        "cache": "s1f-cache",
+        "attempts": 4,
+        "video_seconds": 60,
+    },
+}
 CORRECTION_VERSION = "s1e-one-off-trailing-court-review-v1-3fps"
 ENUMS = {
     "intent": ("broad_activity", "specific_move"),
@@ -357,11 +373,6 @@ def replay(row, grounding):
         *case["context"],
     )
     value = restore_for_validation(matches[0])
-    if row.get("purpose") == "endpoint":
-        return {
-            "status": "endpoint_replay_not_implemented",
-            "semantic_revalidation": False,
-        }
     validator = grounding._validated_continuation
     try:
         result = validator(spec, value, case["activity"], case["direction"])
@@ -391,6 +402,8 @@ def run_probe(
     grounding,
     identity=None,
     reference_request_id=None,
+    max_attempts=8,
+    max_video_seconds=180,
 ):
     if config.VISUAL_TIER != "unpaid":
         raise ValueError("S1e permits unpaid Gemini access only")
@@ -414,7 +427,7 @@ def run_probe(
             raise ValueError(
                 "Endpoint method is not implemented; no dispatch permitted"
             )
-    budget = EvaluationBudget(output, report, 8, 180)
+    budget = EvaluationBudget(output, report, max_attempts, max_video_seconds)
     row = {
         "request_id": request_id,
         "purpose": purpose,
@@ -486,6 +499,7 @@ def run_probe(
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--study", choices=tuple(STUDIES), default="s1e")
     parser.add_argument("--case-file", type=Path)
     parser.add_argument("--case-id")
     parser.add_argument("--expected-fixture-sha256")
@@ -504,8 +518,10 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--replay", metavar="REQUEST_ID")
     args = parser.parse_args()
+    study = STUDIES[args.study]
+    ledger = study["ledger"]
     if args.replay:
-        report = json.loads(LEDGER.read_text())
+        report = json.loads(ledger.read_text())
         matches = [
             row for row in report["requests"] if row["request_id"] == args.replay
         ]
@@ -536,8 +552,11 @@ def main():
                         case["context"][1] - case["context"][0]
                     )
                     / 30,
-                    "ledger": str(LEDGER),
-                    "limit": {"attempts": 8, "video_seconds": 180},
+                    "ledger": str(ledger),
+                    "limit": {
+                        "attempts": study["attempts"],
+                        "video_seconds": study["video_seconds"],
+                    },
                 },
                 indent=2,
             )
@@ -545,25 +564,28 @@ def main():
         return
     if not args.allow_free_gemini or not args.playback_reviewed:
         parser.error("Explicit unpaid access and actual playback review are required")
-    os.environ["STORYROOM_DATA"] = str(LEDGER.parent / "s1e-cache")
+    if args.study == "s1f" and args.purpose not in ("diagnostic", "endpoint"):
+        parser.error("S1f permits frozen diagnostic and endpoint comparisons only")
+    os.environ["STORYROOM_DATA"] = str(ledger.parent / study["cache"])
     from server import ai, config, db, grounding
 
     if config.VISUAL_TIER != "unpaid" or not config.visual_ai_ready():
         parser.error("Configure acknowledged unpaid Gemini access; no paid fallback")
-    LEDGER.parent.mkdir(parents=True, exist_ok=True)
-    with LEDGER.with_suffix(".lock").open("a") as lock:
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    with ledger.with_suffix(".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         report = (
-            json.loads(LEDGER.read_text())
-            if LEDGER.exists()
-            else {"study": "continuation-s1e", "requests": []}
+            json.loads(ledger.read_text())
+            if ledger.exists()
+            else {"study": study["name"], "requests": []}
         )
-        if report.get("study") != "continuation-s1e":
+        if report.get("study") != study["name"]:
             parser.error("Existing ledger belongs to another study")
         identity = {
             "fixture_sha256": frozen_hash,
             "model": config.VISUAL_VERIFIER_MODEL,
             "continuation_contract": grounding.CONTINUATION_VERSION,
+            "endpoint_contract": grounding.ENDPOINT_VERSION,
             "code_revision": subprocess.check_output(
                 ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
             ).strip(),
@@ -580,7 +602,7 @@ def main():
             case,
             args.request_id,
             args.purpose,
-            LEDGER,
+            ledger,
             report,
             ai,
             config,
@@ -588,8 +610,10 @@ def main():
             grounding,
             identity,
             args.reference_request_id,
+            study["attempts"],
+            study["video_seconds"],
         )
-        save_report(LEDGER, report)
+        save_report(ledger, report)
     print(
         json.dumps(
             {

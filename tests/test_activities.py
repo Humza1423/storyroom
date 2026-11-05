@@ -2,11 +2,12 @@
 
 import copy
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from server import activities, grounding, media
+from server import activities, config, grounding, media
 
 
 def interval(start=0, end=240, before=False, after=False, cut_start=None, cut_end=None):
@@ -205,6 +206,7 @@ def worker(monkeypatch):
     monkeypatch.setattr(activities.db, "execute", execute)
     monkeypatch.setattr(activities.media, "sha256_file", lambda path: "hash")
     monkeypatch.setattr(activities.grounding, "inspect_continuation", inspect)
+    monkeypatch.setattr(activities.grounding, "inspect_endpoint", inspect)
     state.job = {
         "id": "job",
         "project_id": "project",
@@ -214,6 +216,7 @@ def worker(monkeypatch):
                 "candidates": [result(interval(0, 240, after=True))],
                 "contract_version": grounding.VERSION,
                 "continuation_contract_version": grounding.CONTINUATION_VERSION,
+                "endpoint_contract_version": grounding.ENDPOINT_VERSION,
             }
         ),
         "result": None,
@@ -616,14 +619,59 @@ def test_cancelled_verified_probe_is_reused_without_another_call(worker):
     assert output["visual_results"][0]["activity"]["complete"]
 
 
-def test_specific_move_stop_does_not_add_probe(worker):
+def test_specific_move_stop_gets_one_dense_endpoint_probe(worker, monkeypatch):
     _premature_stop(worker, intent="specific_move")
+    calls = []
+
+    def endpoint(query, spec, **kwargs):
+        calls.append((spec, copy.deepcopy(kwargs)))
+        return {
+            "c0": {
+                "intent": "specific_move",
+                "requested_duration_seconds": None,
+                "decision": "match",
+                "intervals": [interval(690, 724)],
+                "continuity": "same_activity",
+                "continuity_evidence": "The same push-up finishes and the athlete settles.",
+                "boundary_outcome": "observed_stop",
+            }
+        }, None
+
+    monkeypatch.setattr(activities.grounding, "inspect_endpoint", endpoint)
     output = activities.continue_inspection(
         worker.job, lambda: False, lambda *args: None
     )
     assert len(worker.calls) == 1
-    assert output["visual_results"][0]["activity"]["end_frame"] == 715
-    assert not output["stop_rechecks"]
+    assert len(calls) == 1
+    spec, request = calls[0]
+    assert spec[6:] == (625, 805)
+    assert spec[3:5] == (625, 715)
+    grounding.InspectionCandidate(*spec)
+    assert request["provisional_boundary_frame"] == 715
+    assert output["visual_results"][0]["activity"]["end_frame"] == 724
+    state = next(iter(output["stop_rechecks"].values()))
+    assert state["kind"] == "endpoint" and state["status"] == "complete"
+
+
+@pytest.mark.parametrize("direction", ["before", "after"])
+def test_specific_move_endpoint_geometry_stays_inside_source_and_crop(direction):
+    for activity, asset_frames in (
+        ({"start_frame": 0, "end_frame": 8}, 30),
+        ({"start_frame": 4, "end_frame": 20}, 35),
+        ({"start_frame": 100, "end_frame": 800}, 900),
+        ({"start_frame": 890, "end_frame": 900}, 900),
+    ):
+        edge = activity["start_frame" if direction == "before" else "end_frame"]
+        if edge in (0, asset_frames):
+            continue  # A source edge does not schedule an endpoint request.
+        left, right, anchor_left, anchor_right = activities._endpoint_probe_frames(
+            activity, asset_frames, direction
+        )
+        grounding.InspectionCandidate(
+            "c0", Path("/opaque.mp4"), "hash", anchor_left, anchor_right,
+            asset_frames, left, right,
+        )
+        assert right - left <= 6 * config.FPS
 
 
 def test_source_edge_stop_does_not_add_probe(worker):

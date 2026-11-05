@@ -46,7 +46,8 @@ def row(ident="a"):
 @pytest.fixture
 def fake(monkeypatch):
     state = SimpleNamespace(
-        cache={}, calls=[], ledger=[], closed=0, rows=[row()], failure=None, prepared=[]
+        cache={}, calls=[], ledger=[], closed=0, rows=[row()], failure=None,
+        prepared=[], prepared_kwargs=[]
     )
     state.real_generate = ai._generate_with_unpaid_503_retry
     monkeypatch.setattr(
@@ -68,7 +69,9 @@ def fake(monkeypatch):
     monkeypatch.setattr(
         grounding,
         "verification_clip",
-        lambda *args: state.prepared.append(args) or b"video",
+        lambda *args, **kwargs: (
+            state.prepared.append(args), state.prepared_kwargs.append(kwargs), b"video"
+        )[-1],
     )
 
     def close():
@@ -1040,6 +1043,75 @@ def continue_call(fake, **kwargs):
         direction=kwargs.pop("direction", "after"),
         **kwargs,
     )
+
+
+def test_specific_move_endpoint_uses_dense_bounded_context_and_separate_cache(fake):
+    activity = {
+        **continuation_activity(),
+        "intent": "specific_move",
+        "requested_frames": None,
+    }
+    endpoint_row = continuation_row()
+    endpoint_row["intervals"][0]["end_seconds"] = 3.2
+    fake.rows = [endpoint_row]
+    metrics = {}
+    spec = candidate(context_end=480)
+    results, error = grounding.inspect_endpoint(
+        "the player completes one kick",
+        spec,
+        established_activity=activity,
+        direction="after",
+        provisional_boundary_frame=390,
+        diagnostics=metrics,
+    )
+    assert error is None and results["a"]["intervals"][0]["end_frame"] == 396
+    assert metrics["contract_version"] == grounding.ENDPOINT_VERSION
+    assert metrics["candidates"][0]["sample_fps"] == 6
+    assert metrics["candidates"][0]["inspection_mode"] == "specific_move_endpoint"
+    assert fake.prepared_kwargs == [{"sample_fps": 6}]
+    assert fake.calls[0]["contents"][1].video_metadata.fps == 6
+    assert "completion boundary of the SAME specific move" in fake.calls[0]["contents"][-1]
+
+    candidate_value = grounding.InspectionCandidate(*spec)
+    endpoint_key = grounding.endpoint_cache_key(
+        "the player completes one kick", candidate_value, activity, "after", 390
+    )
+    continuation_key = grounding.continuation_cache_key(
+        "the player completes one kick", candidate_value, activity, "after"
+    )
+    assert endpoint_key != continuation_key and endpoint_key in fake.cache
+    cached, error = grounding.inspect_endpoint(
+        "the player completes one kick",
+        spec,
+        established_activity=activity,
+        direction="after",
+        provisional_boundary_frame=390,
+    )
+    assert error is None and cached == results and len(fake.calls) == 1
+
+
+def test_specific_move_endpoint_rejects_wrong_edge_or_oversized_context(fake):
+    activity = {
+        **continuation_activity(),
+        "intent": "specific_move",
+        "requested_frames": None,
+    }
+    with pytest.raises(grounding.InspectionError, match="endpoint"):
+        grounding.inspect_endpoint(
+            "kick",
+            candidate(context_end=480),
+            established_activity=activity,
+            direction="after",
+            provisional_boundary_frame=389,
+        )
+    with pytest.raises(grounding.InspectionError, match="endpoint"):
+        grounding.inspect_endpoint(
+            "kick",
+            candidate(context_end=540),
+            established_activity=activity,
+            direction="after",
+            provisional_boundary_frame=390,
+        )
 
 
 def test_continuation_uses_own_contract_and_locked_interpretation(fake):

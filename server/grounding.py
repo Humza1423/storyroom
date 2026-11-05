@@ -17,6 +17,7 @@ from .media import verification_clip
 
 VERSION = "grounded-ranges-v4-boundary-conflict-3fps"
 CONTINUATION_VERSION = "grounded-continuation-v2-adaptive-overlap-3fps"
+ENDPOINT_VERSION = "grounded-endpoint-v1-specific-move-6fps"
 MAX_CONTEXT_FRAMES = 900
 MAX_ANCHOR_GAP_FRAMES = 60
 INTENTS = ("broad_activity", "specific_move")
@@ -228,6 +229,20 @@ def continuation_cache_key(query, candidate, established_activity, direction):
     )
 
 
+def endpoint_cache_key(
+    query, candidate, established_activity, direction, provisional_boundary_frame
+):
+    identity = [
+        ENDPOINT_VERSION,
+        continuation_cache_key(query, candidate, established_activity, direction),
+        provisional_boundary_frame,
+        6,
+    ]
+    return "grounded-endpoint:" + hashlib.sha256(
+        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
 def _continuation_schema():
     interval = {
         "type": "OBJECT",
@@ -383,19 +398,7 @@ def _validated_continuation(candidate, value, established, direction, *, cached=
     return normalized
 
 
-def inspect_continuation(
-    query,
-    spec,
-    *,
-    established_activity,
-    direction,
-    job_id=None,
-    cancelled=lambda: False,
-    diagnostics=None,
-):
-    """Follow one established activity; never discover a replacement occurrence."""
-    candidate = InspectionCandidate(*spec)
-    activity = established_activity
+def _locked_continuation(candidate, activity, direction):
     if (
         direction not in ("before", "after")
         or activity.get("intent") not in INTENTS
@@ -425,7 +428,7 @@ def inspect_continuation(
             "continuation_invalid",
             "Invalid established activity or inspection direction",
         )
-    locked = {
+    return {
         name: activity.get(name)
         for name in (
             "start_frame",
@@ -435,7 +438,62 @@ def inspect_continuation(
             "visible_evidence",
         )
     }
+
+
+def inspect_continuation(
+    query,
+    spec,
+    *,
+    established_activity,
+    direction,
+    job_id=None,
+    cancelled=lambda: False,
+    diagnostics=None,
+):
+    """Follow one established activity; never discover a replacement occurrence."""
+    candidate = InspectionCandidate(*spec)
+    locked = _locked_continuation(candidate, established_activity, direction)
     return _inspect(query, [spec], job_id, cancelled, diagnostics, (locked, direction))
+
+
+def inspect_endpoint(
+    query,
+    spec,
+    *,
+    established_activity,
+    direction,
+    provisional_boundary_frame,
+    job_id=None,
+    cancelled=lambda: False,
+    diagnostics=None,
+):
+    """Inspect one specific-move endpoint more densely in a bounded neighborhood."""
+    candidate = InspectionCandidate(*spec)
+    activity = established_activity
+    expected_edge = activity.get(
+        "start_frame" if direction == "before" else "end_frame"
+    )
+    if (
+        direction not in ("before", "after")
+        or activity.get("intent") != "specific_move"
+        or type(provisional_boundary_frame) is not int
+        or provisional_boundary_frame != expected_edge
+        or candidate.context_end - candidate.context_start > 6 * config.FPS
+    ):
+        raise InspectionError(
+            "endpoint_invalid", "Invalid specific-move endpoint inspection"
+        )
+    locked = _locked_continuation(candidate, activity, direction)
+    return _inspect(
+        query,
+        [spec],
+        job_id,
+        cancelled,
+        diagnostics,
+        (locked, direction),
+        sample_fps=6,
+        endpoint_boundary=provisional_boundary_frame,
+    )
 
 
 def _number(value):
@@ -654,7 +712,17 @@ def inspect_ranges(
     return _inspect(query, candidates, job_id, cancelled, diagnostics)
 
 
-def _inspect(query, candidates, job_id, cancelled, diagnostics, continuation=None):
+def _inspect(
+    query,
+    candidates,
+    job_id,
+    cancelled,
+    diagnostics,
+    continuation=None,
+    *,
+    sample_fps=3,
+    endpoint_boundary=None,
+):
     metrics = diagnostics if diagnostics is not None else {}
     metrics.update(
         cache_hits=0,
@@ -670,7 +738,13 @@ def _inspect(query, candidates, job_id, cancelled, diagnostics, continuation=Non
         errors=[],
         error_count=0,
         error_code=None,
-        contract_version=CONTINUATION_VERSION if continuation else VERSION,
+        contract_version=(
+            ENDPOINT_VERSION
+            if endpoint_boundary is not None
+            else CONTINUATION_VERSION
+            if continuation
+            else VERSION
+        ),
         model=_safe_identity(config.VISUAL_VERIFIER_MODEL),
         returned_model_version=None,
         batch_fingerprint=None,
@@ -678,7 +752,14 @@ def _inspect(query, candidates, job_id, cancelled, diagnostics, continuation=Non
     started = time.perf_counter()
     try:
         results, error = _inspect_ranges(
-            query, candidates, job_id, cancelled, metrics, continuation
+            query,
+            candidates,
+            job_id,
+            cancelled,
+            metrics,
+            continuation,
+            sample_fps,
+            endpoint_boundary,
         )
         if error is not None:
             metrics["error_code"] = getattr(
@@ -689,7 +770,16 @@ def _inspect(query, candidates, job_id, cancelled, diagnostics, continuation=Non
         metrics["elapsed_seconds"] = max(0.0, time.perf_counter() - started)
 
 
-def _inspect_ranges(query, candidates, job_id, cancelled, metrics, continuation=None):
+def _inspect_ranges(
+    query,
+    candidates,
+    job_id,
+    cancelled,
+    metrics,
+    continuation=None,
+    sample_fps=3,
+    endpoint_boundary=None,
+):
     """Inspect at most five tuples with one request; retain independent valid work.
 
     Tuples: (id, proxy, proxy hash, anchor in/out, asset frames, context in/out).
@@ -698,6 +788,10 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics, continuation=
     results, missing = {}, []
 
     def key(candidate):
+        if endpoint_boundary is not None:
+            return endpoint_cache_key(
+                query, candidate, *continuation, endpoint_boundary
+            )
         return (
             continuation_cache_key(query, candidate, *continuation)
             if continuation
@@ -738,7 +832,7 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics, continuation=
                 "context_start_frame": item.context_start,
                 "context_end_frame": item.context_end,
                 "asset_frames": item.asset_frames,
-                "sample_fps": 3,
+                "sample_fps": sample_fps,
                 "status": "pending",
             }
             for item in prepared
@@ -751,6 +845,11 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics, continuation=
                     established_start_frame=established["start_frame"],
                     established_end_frame=established["end_frame"],
                 )
+                if endpoint_boundary is not None:
+                    entry.update(
+                        inspection_mode="specific_move_endpoint",
+                        provisional_boundary_frame=endpoint_boundary,
+                    )
         stage = "cache_validation"
         for candidate in prepared:
             value = db.cache_get(key(candidate))
@@ -881,11 +980,60 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics, continuation=
                     sort_keys=True,
                 )
             )
+            if endpoint_boundary is not None:
+                prompt = (
+                    "Inspect the completion boundary of the SAME specific move in this video. "
+                    "The marked overlap is part of the already found move; do not choose another "
+                    "repetition or a nearby similar move. Distinguish the move's visible completion "
+                    "from idle footage, a camera cut, and the next repetition. Include visibly "
+                    "supported preparation or follow-through, but do not pad to the crop edge. "
+                    "Return continuity=same_activity only when the marked overlap and boundary "
+                    "belong to one connected move. boundary_outcome is observed_stop only when "
+                    "the requested onset/end is visible inside the supplied neighborhood (or the "
+                    "source itself ends); use continues if the same move reaches the supplied edge, "
+                    "and uncertain when the boundary cannot be established. Return one connected "
+                    "interval in LOCAL supplied-video seconds and exactly one result. "
+                    + json.dumps(
+                        {
+                            "query": query.strip(),
+                            "direction": direction,
+                            "provisional_source_boundary_frame": endpoint_boundary,
+                            "established_source_start_frame": established["start_frame"],
+                            "established_source_end_frame": established["end_frame"],
+                            "prior_visible_evidence": established["visible_evidence"],
+                            "source_fps": config.FPS,
+                            "overlap_local_start_seconds": (
+                                item.anchor_start - item.context_start
+                            )
+                            / config.FPS,
+                            "overlap_local_end_seconds": (
+                                item.anchor_end - item.context_start
+                            )
+                            / config.FPS,
+                            "supplied_duration_seconds": (
+                                item.context_end - item.context_start
+                            )
+                            / config.FPS,
+                        },
+                        sort_keys=True,
+                    )
+                )
         contents, total_bytes, seconds = [], 0, 0
         for item in missing:
             if cancelled():
                 return results, _cancelled_error(metrics)
-            video = verification_clip(item.proxy, item.context_start, item.context_end)
+            video = (
+                verification_clip(
+                    item.proxy,
+                    item.context_start,
+                    item.context_end,
+                    sample_fps=sample_fps,
+                )
+                if sample_fps != 3
+                else verification_clip(
+                    item.proxy, item.context_start, item.context_end
+                )
+            )
             total_bytes += len(video)
             if total_bytes > 80_000_000:
                 raise InspectionError(
@@ -901,14 +1049,16 @@ def _inspect_ranges(query, candidates, job_id, cancelled, metrics, continuation=
             contents.append(
                 types.Part(
                     inline_data=types.Blob(data=video, mime_type="video/mp4"),
-                    video_metadata=types.VideoMetadata(fps=3),
+                    video_metadata=types.VideoMetadata(fps=sample_fps),
                 )
             )
             seconds += (item.context_end - item.context_start) / config.FPS
         contents.append(prompt)
         if cancelled():
             return results, _cancelled_error(metrics)
-        token_reserve = math.ceil(seconds * 3 * 350 + len(prompt) + 2500)
+        token_reserve = math.ceil(
+            seconds * sample_fps * 350 + len(prompt) + 2500
+        )
         amount = (
             token_reserve * config.VISUAL_VERIFIER_INPUT_RATE
             + 4096 * config.VISUAL_VERIFIER_OUTPUT_RATE

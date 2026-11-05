@@ -11,7 +11,7 @@ import json
 from . import config, db, grounding, media
 from .localization import candidate_context
 
-VERSION = "activity-v6-adaptive-stop-recheck"
+VERSION = "activity-v7-specific-move-endpoint"
 CHUNK = 30 * config.FPS
 OVERLAP = 4 * config.FPS
 
@@ -76,6 +76,33 @@ def _continuity_overlap_frames(activity):
     """
     duration = max(1, activity["end_frame"] - activity["start_frame"])
     return min(OVERLAP, max(1, round(duration * 0.15)))
+
+
+def _endpoint_probe_frames(activity, asset_frames, direction):
+    """Return a bounded six-second neighborhood and a sampled overlap anchor."""
+    edge = activity["start_frame" if direction == "before" else "end_frame"]
+    radius = 3 * config.FPS
+    left, right = max(0, edge - radius), min(asset_frames, edge + radius)
+    # Retain the full bounded neighborhood near a source edge when possible.
+    target = min(6 * config.FPS, asset_frames)
+    if right - left < target:
+        left = max(0, min(left, right - target))
+        right = min(asset_frames, max(right, left + target))
+    duration = max(1, activity["end_frame"] - activity["start_frame"])
+    one_sample = (config.FPS + 5) // 6
+    overlap = min(duration, max(one_sample, round(duration * 0.25)))
+    anchors = (
+        (
+            edge,
+            min(activity["end_frame"], right, edge + overlap),
+        )
+        if direction == "before"
+        else (
+            max(activity["start_frame"], left, edge - overlap),
+            edge,
+        )
+    )
+    return left, right, *anchors
 
 
 def _refresh(candidate):
@@ -216,6 +243,7 @@ def inspect_candidates(project_id, query, shortlist, frames, hashes, status):
             "candidates": candidates,
             "contract_version": grounding.VERSION,
             "continuation_contract_version": grounding.CONTINUATION_VERSION,
+            "endpoint_contract_version": grounding.ENDPOINT_VERSION,
         }
         previous = db.one(
             "SELECT id,status,result FROM jobs WHERE project_id=? AND kind='activity_inspect' "
@@ -295,6 +323,7 @@ def continue_inspection(job, cancelled, progress):
         payload.get("contract_version") != grounding.VERSION
         or payload.get("continuation_contract_version")
         != grounding.CONTINUATION_VERSION
+        or payload.get("endpoint_contract_version") != grounding.ENDPOINT_VERSION
     ):
         stop(
             "contract_changed",
@@ -370,6 +399,17 @@ def continue_inspection(job, cancelled, progress):
             diagnostics = {}
             if probe and probe["status"] == "verified":
                 verdicts, error = {"c0": probe["verdict"]}, None
+            elif probe and probe.get("kind") == "endpoint":
+                verdicts, error = grounding.inspect_endpoint(
+                    payload["query"],
+                    spec,
+                    established_activity=a,
+                    direction="before" if before else "after",
+                    provisional_boundary_frame=probe["edge"],
+                    job_id=job["id"],
+                    cancelled=cancelled,
+                    diagnostics=diagnostics,
+                )
             else:
                 verdicts, error = grounding.inspect_continuation(
                     payload["query"],
@@ -448,10 +488,7 @@ def continue_inspection(job, cancelled, progress):
                 )
             if probe:
                 probe["status"] = "complete"
-            elif (
-                a["intent"] == "broad_activity"
-                and verdict.get("boundary_outcome") == "observed_stop"
-            ):
+            elif verdict.get("boundary_outcome") == "observed_stop":
                 direction = "before" if before else "after"
                 edge = a["start_frame"] if before else a["end_frame"]
                 if 0 < edge < asset["frames"]:
@@ -465,17 +502,25 @@ def continue_inspection(job, cancelled, progress):
                             "boundary_uncertain",
                             "This activity direction used its one short stop recheck; retained partial footage.",
                         )
-                    if before:
+                    if a["intent"] == "specific_move":
+                        probe_left, probe_right, *anchors = _endpoint_probe_frames(
+                            a, asset["frames"], direction
+                        )
+                        kind = "endpoint"
+                    elif before:
                         overlap = _continuity_overlap_frames(a)
                         probe_right = min(a["end_frame"], edge + overlap)
                         probe_left = max(0, probe_right - 8 * config.FPS)
                         anchors = (edge, probe_right)
+                        kind = "activity_stop"
                     else:
                         overlap = _continuity_overlap_frames(a)
                         probe_left = max(a["start_frame"], edge - overlap)
                         probe_right = min(asset["frames"], probe_left + 8 * config.FPS)
                         anchors = (probe_left, edge)
+                        kind = "activity_stop"
                     rechecks[key] = {
+                        "kind": kind,
                         "direction": direction,
                         "edge": edge,
                         "status": "pending",

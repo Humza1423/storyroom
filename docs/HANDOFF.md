@@ -30,6 +30,11 @@ and [THIRD_PARTY](THIRD_PARTY.md) cover model experiments and licensing boundari
 
 Current checkpoint: Gemini-first activity-search preview on
 `codex/gemini-activity-search`, draft PR #6 stacked on evaluation PR #5.
+Read [S1f evidence](CONTINUATION_S1F_EVALUATION.md) first for the 2026-11-05
+endpoint follow-up. The later-jacks case now passes at frame 399; a six-second,
+6fps football endpoint check contains the complete kick but overshoots the
+frozen end. The S1f allowance is exhausted; S1 remains open. Existing saved cuts
+are intact. Do not spend from either exhausted ledger or claim general accuracy.
 Latest continuation follow-up: read [S1e evidence](CONTINUATION_S1E_EVALUATION.md).
 The exact prepared-copy worker reaches badminton 0–900 and selects 0–600 after
 a bounded stop recheck; display-rounded endpoints now validate safely. The new

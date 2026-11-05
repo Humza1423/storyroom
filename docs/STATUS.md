@@ -1,6 +1,30 @@
 # Project status and release checklist
 
-Updated: 2026-11-03. Status: local development preview; release gates remain open.
+Updated: 2026-11-05. Status: local development preview; release gates remain open.
+
+## Search S1f — bounded continuation and endpoint comparison (2026-11-05)
+
+The later jumping-jack occurrence now ends at **frame 399**, inside its frozen
+398–404 tolerance and before the burpee. Two one-second football crops produced
+unsupported crop-edge stops, correctly rejected. A new six-second, 6fps
+specific-move endpoint inspection returned the connected first kick at **50–90**:
+it includes the complete move but exceeds the independently labeled end 72–80.
+This is a useful editable range, **not** a strict boundary pass or proof across
+sports. [Evidence and limits](CONTINUATION_S1F_EVALUATION.md).
+
+The endpoint path is now wired into the persistent worker with one bounded
+probe per direction, a separate cache identity, strict timing checks and retained
+partial work. A final integration check caught and fixed an anchor that could
+start outside its six-second crop. The S1f free-tier ledger is exhausted at
+**4/4 calls / 16.43 supplied seconds**; no paid calls. Historical evidence and
+accepted Storybin cuts remain intact. The real eight-clip workspace was opened;
+its five placements remain at **1,413 frames**. The new Visual AI result was not
+injected into that project, and a new Resolve import was not performed.
+
+Checks: **402 backend tests passed**, production build passed, **39 isolated
+browser tests passed**, focused Ruff passed. S1 remains **OPEN** because strict
+movement boundary evidence is still insufficient. Next: S2's varied,
+independently labeled complete-movement check and a fresh product demonstration.
 
 ## Search S1e follow-up — adaptive continuation probe (2026-11-03)
 
