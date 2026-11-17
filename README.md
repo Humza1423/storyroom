@@ -76,9 +76,14 @@ Follow [one import-to-export request](docs/ARCHITECTURE.md), or use the
 **Local development preview.** The manual import → assemble → render/export
 path has been exercised with generated media and a small set of licensed
 footage, including an actual FCP7 XML import in DaVinci Resolve. This is not a
-validated release across camera formats. Visual AI search works in bounded
-development checks, but retrieval quality and precise action boundaries remain
-open evaluation work. No trained ranking model is deployed.
+validated release across camera formats.
+
+**Visual AI search starts with sports.** The current development focus is finding
+actions in short sports and training clips, with working searches demonstrated
+in bounded checks. The next direction is to expand into other niches and
+generalize search across a much wider variety of footage. Broad coverage is a
+goal; sports accuracy and exact action boundaries still need a completed,
+human-reviewed evaluation. No trained ranking model is deployed.
 
 Read the [verification record](docs/STATUS.md) for exact tests and failures,
 the [media compatibility record](docs/MEDIA_COMPATIBILITY.md) for tested formats,
