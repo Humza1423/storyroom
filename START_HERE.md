@@ -100,3 +100,24 @@ An effective coding-agent request contains a behavior, constraints, and evidence
 > must commit together; keep the user's source intact. Add a test that forces the
 > queue insertion to fail, explain why it caught the original bug, and show the
 > changed files.
+
+Before accepting an agent's work, read the diff, run the relevant checks, and
+try the feature. Ask it to explain assumptions when a test does not cover them.
+Keep changes small enough to understand; measure speed or quality before claiming
+an optimization.
+
+## First lesson: a clip and its job belong together
+
+Read [the import reliability lesson](docs/learning/01-import-transactions.md).
+It explains a real failure found in this code and how a transaction fixes it.
+
+Your exercise: run the two import tests, then locate the line that queues the job
+inside the import transaction. Explain why moving it outside that transaction
+could leave an asset permanently marked `processing`.
+
+```sh
+.venv/bin/pytest -q tests/test_import_atomicity.py
+```
+
+These tests use a temporary database and generated footage. They do not modify
+your saved projects or call a cloud model.
