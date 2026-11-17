@@ -1,27 +1,45 @@
 # Storyroom
 
-**Turn a folder of footage into an editable story assembly.**
+**Find the moment. Build the story. Finish in DaVinci Resolve.**
 
-Storyroom is a local browser workspace for reviewing, finding, and arranging
-existing footage before finishing in a professional editor. Start with short
-fitness or sports training clips, organize useful moments into a story map,
-trim and reorder your selections, then render a review copy or export a cuts-only
-timeline intended for DaVinci Resolve.
+Storyroom helps creators turn a folder of footage into an editable first assembly.
+Search for useful moments, organize them into story sections, trim and reorder
+your selections, then export a timeline for finishing in DaVinci Resolve.
 
-The creator makes the decisions. Optional AI can describe footage and propose
-story sections; accepted edits remain separate from suggestions. The complete
-manual workflow runs without a provider account or API key.
+The first focus is short fitness and sports training videos. The creator keeps
+creative control: AI helps find material, while accepted edits remain separate
+from suggestions. Import, manual search, organization, trimming, preview, saving,
+and export work without an API key.
 
-**Development preview.** The source is public under MIT. Generated-media tests
-and a small licensed-footage compatibility matrix have exercised the manual
-workflow in DaVinci Resolve 21.1.1. Broader camera formats, unfamiliar footage,
-and real-provider AI quality remain release gates. See the
-[verification record](docs/STATUS.md) for current evidence and limitations.
+[See the workspace](#see-the-workspace) · [Run locally](#run-locally) ·
+[Engineering decisions](#engineering-decisions) · [Code map](START_HERE.md) ·
+[Verification record](docs/STATUS.md)
 
-[Run locally](#run-locally) · [User guide](docs/USER_GUIDE.md) ·
-[Understand the code](START_HERE.md) ·
-[Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) ·
-[Contribute](CONTRIBUTING.md)
+## See the workspace
+
+[![Storyroom workspace with a footage library, story sections, and a clip preview](docs/workspace.png)](docs/demo.webm)
+
+**[Watch the technical walkthrough](docs/demo.webm).** This existing capture uses
+generated test patterns to demonstrate the workspace and assembly mechanics.
+It is not a demonstration of visual-search accuracy or real sports footage.
+
+**Status: local development preview.** A small licensed-footage workflow and
+mixed-profile H.264 timelines have been exercised in DaVinci Resolve 21.1.1.
+Visual search has live smoke-test evidence, but action timing and retrieval
+quality remain active evaluation work. See the
+[media compatibility record](docs/MEDIA_COMPATIBILITY.md) and
+[search evaluation](docs/AI_SEARCH_EVALUATION.md) for the evidence and limits.
+
+## Engineering decisions
+
+| Problem | Decision | Inspect the implementation |
+| --- | --- | --- |
+| An upload can succeed while media preparation fails | Record per-file outcomes, save the asset and job together, and retry the failed stage | [Import recovery](server/imports.py), [atomicity tests](tests/test_import_atomicity.py) |
+| Reusing a moment should preserve the source | Store selections as integer frame ranges against normalized editing copies | [Timeline export](server/exporter.py), [media checks](tests/test_media_correctness.py) |
+| A semantically similar result can still miss the action | Rank proposed events, verify shortlisted clips, and evaluate playable ranges separately from source-video matches | [Retrieval](server/vector_index.py), [evaluation](docs/AI_SEARCH_EVALUATION.md) |
+| Encoding should survive a closed browser | Run media processing in a separate persistent worker with saved job state | [Worker](server/worker.py), [recovery checks](tests/test_worker_process.py) |
+
+**Stack:** React · TypeScript · Python · FastAPI · SQLite · FFmpeg · OpenTimelineIO · Gemini
 
 ## The workflow
 
@@ -99,7 +117,7 @@ which profiles were tested and what remains unproven.
 ## How it is built
 
 ```mermaid
-flowchart LR
+flowchart TD
     UI[React + TypeScript workspace] --> API[Local FastAPI server]
     API --> DB[(SQLite: projects, edits, jobs, usage)]
     API --> Media[Managed local media]
