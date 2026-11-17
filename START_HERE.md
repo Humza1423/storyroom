@@ -4,8 +4,10 @@ Storyroom helps a creator turn existing footage into an editable story assembly.
 Our first format is short fitness and sports training montages. The creator owns
 the choices; optional AI helps find and describe possible material.
 
-This is a local development preview. The manual workflow is implemented; real
-AI quality and the DaVinci Resolve handoff are still release gates.
+This is a local development preview. The manual workflow is implemented, with a
+small licensed-footage assembly and mixed-profile H.264 timelines exercised in
+DaVinci Resolve 21.1.1. Broader footage support and visual-search quality remain
+active validation work; see [STATUS](docs/STATUS.md) for the evidence and limits.
 
 ## See the code
 
@@ -21,9 +23,10 @@ The repository, running app, and GitHub are different things:
   [Humza1423/storyroom](https://github.com/Humza1423/storyroom) stores pushed
   commits. It is a source backup and collaboration point, not a hosted app.
 
-The reviewed foundation/media work is on `codex/media-correctness` in
-[PR #1](https://github.com/Humza1423/storyroom/pull/1); select that branch to see
-the current README and source before merge. `main` is not updated automatically.
+The reviewed foundation/media work is on the default `main` branch.
+[PR #1](https://github.com/Humza1423/storyroom/pull/1) records that review history.
+Ongoing feature branches and open pull requests may contain additional work;
+their presence alone does not mean a feature has shipped on `main`.
 
 Opening `index.html` directly does not start React, the API, or the worker.
 Use the startup command from the [README](README.md). Existing installations
