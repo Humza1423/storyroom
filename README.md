@@ -1,48 +1,88 @@
 # Storyroom
 
-**Turn a folder of footage into an editable story assembly.**
+### Find the moments. Build the story. Finish in your editor.
 
-Storyroom is a local browser workspace for reviewing, finding, and arranging
-existing footage before finishing in a professional editor. Start with short
-fitness or sports training clips, organize useful moments into a story map,
-trim and reorder your selections, then render a review copy or export a cuts-only
-timeline intended for DaVinci Resolve.
+Storyroom is a local pre-edit workspace for solo creators making short fitness
+and sports training videos. A shoot can leave you with repeated attempts,
+interesting details, and a folder of filenames that says nothing about what is
+inside. Before a creative edit can take shape, you have to find those moments,
+remember them, and decide how they fit together. Repeated scrubbing makes it
+easy to miss a useful shot or lose the decisions you already made.
 
-The creator makes the decisions. Optional AI can describe footage and propose
-story sections; accepted edits remain separate from suggestions. The complete
-manual workflow runs without a provider account or API key.
+**Storyroom turns that search into an editable first assembly.** Import footage,
+find candidate moments, arrange and trim them in Storybins, review the cut, and
+hand a cuts-only timeline to DaVinci Resolve. The creator chooses what belongs.
+Optional AI helps surface footage; the complete manual workflow needs no API key.
 
-**Development preview.** The source is public under MIT. Generated-media tests
-and a small licensed-footage compatibility matrix have exercised the manual
-workflow in DaVinci Resolve 21.1.1. Broader camera formats, unfamiliar footage,
-and real-provider AI quality remain release gates. See the
-[verification record](docs/STATUS.md) for current evidence and limitations.
+[See the workflow](#from-footage-to-first-cut) ·
+[Explore the architecture](#how-it-works) ·
+[Run locally](#run-locally) ·
+[Check the evidence](#current-state)
 
-[Run locally](#run-locally) · [User guide](docs/USER_GUIDE.md) ·
-[Understand the code](START_HERE.md) ·
-[Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) ·
-[Contribute](CONTRIBUTING.md)
+<img src="docs/workspace.png" alt="Storyroom workspace with footage, a three-section story map, and a trim preview" width="900">
 
-## The workflow
+<sub>The local workspace, shown with generated test patterns to demonstrate the editing flow. This image is not real training footage or an AI-quality demo.</sub>
 
-1. **Import** a batch of clips. Each file gets its own result and preparation status.
-2. **Find moments** with keyword search, description-based AI search, or—when
-   configured—direct visual search over explicitly indexed proxy ranges.
-3. **Build a story map** with editable sections, such as preparation, technique,
-   progression, and recovery. A moment can appear in multiple sections.
-4. **Shape the assembly** by trimming frame ranges, reordering clips, and adding
-   creative notes. Save, reopen, or undo board changes.
-5. **Review** with sequential playback or a rendered MP4.
-6. **Hand off** an FCP7 XML timeline, OTIO file, and media manifest for finishing.
+## From footage to first cut
 
-| Capability | Current boundary |
+1. **Bring in clips.** Sources remain unchanged. A background worker prepares
+   editing copies and smaller playback proxies, with per-file status and retry.
+2. **Find a moment.** Search filenames and descriptions locally, or explicitly
+   permit and index clips for optional visual AI search. Preview and adjust a
+   candidate before using it.
+3. **Give it a role.** Put selected ranges into Storybins such as preparation,
+   technique, progression, and recovery. Reuse a source in different sections,
+   reorder cuts, add notes, and save the board.
+4. **Make the handoff.** Play or render a review copy, then export an editable
+   cuts-only timeline for finishing in Resolve.
+
+The useful distinction is the handoff between **finding** and **editing**: a
+search result becomes a saved, adjustable frame selection in a story structure,
+not just a timestamp to remember. AI proposals never replace accepted edits.
+
+## How it works
+
+```mermaid
+flowchart LR
+    UI[React + TypeScript workspace] --> API[FastAPI validation and coordination]
+    API <--> DB[(SQLite: projects, cuts, revisions, jobs)]
+    API --> Files[(Local source files and editing media)]
+    DB <--> Worker[Persistent worker]
+    Worker --> FFmpeg[FFmpeg: copies, proxies, review MP4]
+    Worker -. optional, permitted clips .-> AI[AI analysis and visual search]
+    Worker --> Export[OTIO + FCP7 XML: editable Resolve handoff]
+    FFmpeg --> Files
+    Export --> Files
+```
+
+The browser is the workspace; the API validates changes and owns durable
+state. Long media work runs in a separate worker, so closing a browser tab does
+not abandon a job. SQLite is enough for one local user and worker; a hosted,
+multi-user service would need a different storage and job design.
+
+| If this goes wrong… | Storyroom's boundary |
 | --- | --- |
-| Import and recovery | Per-file outcomes, content-hash deduplication, paused batches, and separate upload/preparation retries |
-| Search | Keyword and description-based search remain available; visual search indexes prepared proxies only after an explicit action and cloud-analysis permission |
-| Story workspace | Custom sections, repeated clip placement, drag/reorder controls, frame trimming, notes, and saved revisions |
-| Preview and export | MP4 rendering and cuts-only FCP7 XML imported into Resolve 21.1.1 with tested H.264 footage, including a 4K timeline; broader formats remain unverified |
-| AI assistance | Visual search checks shortlisted ranges with a video verifier before showing a match; creators can explicitly check further ranked moments. Live smoke tests work, but a partial-action cut exposed a temporal-localization failure. The reviewed 16-video pilot and broader accuracy study remain open. Manual search and editing work. |
-| Learning to rank | Labeling and grouped evaluation scripts implemented; no trained model is deployed |
+| An upload succeeds but its processing job disappears | The asset record and preparation job are committed in one database transaction; each file has a result and an explicit retry path. |
+| A trim damages footage or becomes ambiguous after repeated edits | Original sources stay unchanged. Selections store integer in/out frames against normalized 30 fps editing copies. |
+| A slow render or cloud call is interrupted | Jobs have durable states. Interrupted work can be retried, while ambiguous paid requests are not automatically replayed. |
+| A second tab or late response overwrites a newer cut | Board revisions reject stale writes; frontend responses update only the state they own. |
+| An AI suggestion is plausible but wrong | The creator can inspect and adjust a candidate range, and accepted cuts remain separate from proposals. |
+
+Follow [one import-to-export request](docs/ARCHITECTURE.md), or use the
+[source map](START_HERE.md) to find each code boundary.
+
+## Current state
+
+**Local development preview.** The manual import → assemble → render/export
+path has been exercised with generated media and a small set of licensed
+footage, including an actual FCP7 XML import in DaVinci Resolve. This is not a
+validated release across camera formats. Visual AI search works in bounded
+development checks, but retrieval quality and precise action boundaries remain
+open evaluation work. No trained ranking model is deployed.
+
+Read the [verification record](docs/STATUS.md) for exact tests and failures,
+the [media compatibility record](docs/MEDIA_COMPATIBILITY.md) for tested formats,
+and the [roadmap](docs/ROADMAP.md) for the remaining gates.
 
 ## Run locally
 
@@ -95,45 +135,6 @@ first triggered the **Grant Access To Folder** prompt; selecting the media
 folder allowed the complete XML timeline to load. Keep those editing copies in
 place. See the [compatibility record](docs/MEDIA_COMPATIBILITY.md) for exactly
 which profiles were tested and what remains unproven.
-
-## How it is built
-
-```mermaid
-flowchart LR
-    UI[React + TypeScript workspace] --> API[Local FastAPI server]
-    API --> DB[(SQLite: projects, edits, jobs, usage)]
-    API --> Media[Managed local media]
-    DB --> Worker[Single background worker]
-    Worker --> FFmpeg[FFmpeg: editing copies, proxies, renders]
-    Worker --> AI[Optional cloud analysis and suggestions]
-    API -->|Optional query embeddings| AI
-    Worker --> Export[OTIO / FCP7 XML export]
-    FFmpeg --> Media
-    Export --> Media
-    Worker --> DB
-```
-
-The API and worker share one database and media directory. The browser handles
-interaction; the backend validates decisions and owns durable state. Keeping
-encoding in a separate process lets work continue when the browser closes.
-
-The engineering choices are tied to concrete failure cases:
-
-- **Transactional registration:** an imported asset and its preparation job are
-  committed together, so a queue failure cannot leave a stranded asset.
-- **Explicit recovery:** each upload has a result; duplicates use file hashes,
-  and preparation retries reuse the saved source. Restarting the worker recovers
-  interrupted jobs without automatically replaying ambiguous paid requests.
-- **Non-destructive editing:** selections store integer frame ranges against
-  normalized 30 fps media. Reusing a moment does not duplicate the video file.
-- **Safe state changes:** database upgrades have backups and rollback checks;
-  asynchronous board saves preserve newer media state in the interface.
-- **Isolated verification:** backend and browser tests create temporary projects
-  and generated footage. They exercise failure and recovery without using personal
-  projects or making paid calls.
-
-Read the [architecture walkthrough](docs/ARCHITECTURE.md) for the data model and
-design tradeoffs, or follow one request through the [source map](START_HERE.md).
 
 ## Scope and data
 
